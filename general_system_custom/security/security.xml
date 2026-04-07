@@ -11,36 +11,36 @@
             <field name="name">Employee Sees Own Invoices and Bills Only</field>
             <field name="model_id" ref="account.model_account_move"/>
             <field name="domain_force">[('create_uid', '=', user.id)]</field>
-            <field name="groups" eval="[(4, ref('intelliwise_custom.group_employee_create_invoice_only'))]"/>
+            <field name="groups" eval="[(4, ref('general_system_custom.group_employee_create_invoice_only'))]"/>
         </record>
 
         <record id="rule_employee_own_account_move_line" model="ir.rule">
             <field name="name">Employee Sees Own Invoice/Bill Lines Only</field>
             <field name="model_id" ref="account.model_account_move_line"/>
             <field name="domain_force">[('move_id.create_uid', '=', user.id)]</field>
-            <field name="groups" eval="[(4, ref('intelliwise_custom.group_employee_create_invoice_only'))]"/>
+            <field name="groups" eval="[(4, ref('general_system_custom.group_employee_create_invoice_only'))]"/>
         </record>
 
         <record id="account.menu_finance" model="ir.ui.menu">
-            <field name="group_ids" eval="[(4, ref('intelliwise_custom.group_employee_create_invoice_only'))]"/>
+            <field name="group_ids" eval="[(4, ref('general_system_custom.group_employee_create_invoice_only'))]"/>
         </record>
         <record id="account.menu_finance_receivables" model="ir.ui.menu">
-            <field name="group_ids" eval="[(4, ref('intelliwise_custom.group_employee_create_invoice_only'))]"/>
+            <field name="group_ids" eval="[(4, ref('general_system_custom.group_employee_create_invoice_only'))]"/>
         </record>
         <record id="account.menu_action_move_out_invoice_type" model="ir.ui.menu">
-            <field name="group_ids" eval="[(4, ref('intelliwise_custom.group_employee_create_invoice_only'))]"/>
+            <field name="group_ids" eval="[(4, ref('general_system_custom.group_employee_create_invoice_only'))]"/>
         </record>
         <record id="account.menu_finance_payables" model="ir.ui.menu">
-            <field name="group_ids" eval="[(4, ref('intelliwise_custom.group_employee_create_invoice_only'))]"/>
+            <field name="group_ids" eval="[(4, ref('general_system_custom.group_employee_create_invoice_only'))]"/>
         </record>
         <record id="account.menu_action_move_in_invoice_type" model="ir.ui.menu">
-            <field name="group_ids" eval="[(4, ref('intelliwise_custom.group_employee_create_invoice_only'))]"/>
+            <field name="group_ids" eval="[(4, ref('general_system_custom.group_employee_create_invoice_only'))]"/>
         </record>
 
         <record id="access_employee_read_account_return" model="ir.model.access">
             <field name="name">account.return.read.only</field>
             <field name="model_id" search="[('model', '=', 'account.return')]"/>
-            <field name="group_id" ref="intelliwise_custom.group_employee_create_invoice_only"/>
+            <field name="group_id" ref="general_system_custom.group_employee_create_invoice_only"/>
             <field name="perm_read" eval="1"/>
             <field name="perm_write" eval="0"/>
             <field name="perm_create" eval="0"/>

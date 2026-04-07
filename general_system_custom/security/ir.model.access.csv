@@ -26,10 +26,3 @@ access_product_brand_public,product.brand,model_product_brand,base.group_public,
 access_discount_code_portal,discount.code,model_discount_code,base.group_portal,1,0,0,0
 access_discount_code_value_portal,discount.code.value,model_discount_code_value,base.group_portal,1,0,0,0
 access_product_brand_portal,product.brand,model_product_brand,base.group_portal,1,0,0,0
-access_employee_create_move,move.create.only,account.model_account_move,intelliwise_custom.group_employee_create_invoice_only,1,1,1,0
-access_employee_create_move_line,move.line.create.only,account.model_account_move_line,intelliwise_custom.group_employee_create_invoice_only,1,1,1,0
-access_employee_create_journal,journal.create.only,account.model_account_journal,intelliwise_custom.group_employee_create_invoice_only,1,0,0,0
-access_employee_create_tax,tax.create.only,account.model_account_tax,intelliwise_custom.group_employee_create_invoice_only,1,0,0,0
-access_employee_create_account,account.create.only,account.model_account_account,intelliwise_custom.group_employee_create_invoice_only,1,0,0,0
-access_employee_create_payment_term,payment.term.create.only,account.model_account_payment_term,intelliwise_custom.group_employee_create_invoice_only,1,0,0,0
-access_employee_create_fiscal_pos,fiscal.pos.create.only,account.model_account_fiscal_position,intelliwise_custom.group_employee_create_invoice_only,1,0,0,0

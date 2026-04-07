@@ -346,7 +346,7 @@ class WarehouseCheckingSession(models.Model):
             return action_result
         
         elif existing_lines:
-            view_ref = self.env.ref('intelliwise_custom.view_warehouse_checking_line_tree', raise_if_not_found=False)
+            view_ref = self.env.ref('general_system_custom.view_warehouse_checking_line_tree', raise_if_not_found=False)
             view_id = view_ref.id if view_ref else False
             return {
                 'name': 'Edit Existing Lines',

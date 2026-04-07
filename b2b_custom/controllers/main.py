@@ -87,7 +87,7 @@ class B2BListToPart(http.Controller):
 
     @http.route(['/b2b/list-to-part'], type='http', auth="user", website=True)
     def list_to_part(self, **post):
-        return request.render("fratellileo_custom.list_to_part_page", {})
+        return request.render("b2b_custom.list_to_part_page", {})
 
     @http.route(['/b2b/list-to-part/search'], type='http', auth="user", website=True, methods=['POST'])
     def search_parts(self, **post):
@@ -113,7 +113,7 @@ class B2BListToPart(http.Controller):
         end = start + items_per_page
         paged_results = results[start:end]
 
-        return request.render("fratellileo_custom.list_to_part_results", {
+        return request.render("b2b_custom.list_to_part_results", {
             'results': paged_results,
             'not_found': not_found,
             'original_input': raw_text,

@@ -6,7 +6,7 @@ class TestProductTemplate(TransactionCase):
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
-        # Create dummy brands (assuming 'product.brand' is added by 'intelliwise_custom')
+        # Create dummy brands (assuming 'product.brand' is added by 'general_system_custom')
         cls.brand_maserati = cls.env['product.brand'].create({'name': 'Maserati'})
         cls.brand_short = cls.env['product.brand'].create({'name': 'Ab'})
 

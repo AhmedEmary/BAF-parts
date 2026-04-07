@@ -181,7 +181,7 @@ class SaleOrder(models.Model):
     def get_import_templates(self):
         return [{
             'label': self.env._('Import Template for Intelliwise Quotations'),
-            'template': '/intelliwise_custom/static/xls/quotations_import_template.xlsx',
+            'template': '/general_system_custom/static/xls/quotations_import_template.xlsx',
         }]
 
     def action_export_so_excel(self):

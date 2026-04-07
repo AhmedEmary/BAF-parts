@@ -86,7 +86,7 @@ class ProductTemplate(models.Model):
     def get_import_templates(self):
         return [{
             'label': self.env._('Import Template for Products'),
-            'template': '/intelliwise_custom/static/xls/intelliwise_products_template_excel.xlsx'
+            'template': '/general_system_custom/static/xls/intelliwise_products_template_excel.xlsx'
         }]
 
 

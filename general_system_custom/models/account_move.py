@@ -54,48 +54,6 @@ class AccountMove(models.Model):
         help="Check this box if this invoice represents a Down Payment."
     )
 
-    @api.model
-    def default_get(self, fields_list):
-        """
-        Injects default values when clicking 'New' from the Down Payments menu.
-        """
-        res = super(AccountMove, self).default_get(fields_list)
-
-        # If we are creating the invoice from the 'Down Payments' menu context
-        if self.env.context.get('default_is_down_payment_invoice'):
-
-            # 1. Pre-fill the TD02 document type
-            doc_type = self.env['l10n_it.document.type'].search([('code', '=', 'TD02')], limit=1)
-            if doc_type:
-                res['l10n_it_document_type'] = doc_type.id
-
-            # 2. Pre-fill the down payment product line
-            dp_product = self.env['product.product'].search([
-                '|', ('name', 'ilike', 'Acconto'), ('name', 'ilike', 'Down Payment')
-            ], limit=1)
-
-            if dp_product:
-                # Find the income account associated with the down payment product
-                account = dp_product.property_account_income_id or dp_product.categ_id.property_account_income_categ_id
-
-                line_vals = {
-                    'product_id': dp_product.id,
-                    'name': dp_product.name,
-                    'quantity': 1,
-                    'price_unit': 0.0,
-                    'is_down_payment': True,
-                }
-
-                if account:
-                    line_vals['account_id'] = account.id
-
-                # Append the line to existing lines (if any)
-                existing_lines = res.get('invoice_line_ids', [])
-                existing_lines.append((0, 0, line_vals))
-                res['invoice_line_ids'] = existing_lines
-
-        return res
-
     @api.model_create_multi
     def create(self, vals_list):
         try:
@@ -120,14 +78,6 @@ class AccountMove(models.Model):
                             receipt_group.sudo().write({'users': [(4, self.env.user.id)]})
 
         moves = super(AccountMove, self).create(vals_list)
-
-        for move in moves:
-            if move.move_type in ('out_invoice', 'in_invoice') and not move.l10n_it_document_type:
-                # Use standard Odoo's method to check if it's a down payment
-                if move.is_down_payment_invoice or (hasattr(move, '_is_downpayment') and move._is_downpayment()):
-                    doc_type = self.env['l10n_it.document.type'].search([('code', '=', 'TD02')], limit=1)
-                    if doc_type:
-                        move.l10n_it_document_type = doc_type.id
 
         return moves
 

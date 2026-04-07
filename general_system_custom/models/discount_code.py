@@ -30,7 +30,7 @@ class DiscountCode(models.Model):
     def get_import_templates(self):
         return [{
             'label': self.env._('Import Template for Discount Codes'),
-            'template': '/intelliwise_custom/static/xls/discount_codes_template.xlsx',
+            'template': '/general_system_custom/static/xls/discount_codes_template.xlsx',
         }]
     @api.model_create_multi
     def create(self, vals_list):

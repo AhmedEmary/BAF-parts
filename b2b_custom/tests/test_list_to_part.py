@@ -2,8 +2,8 @@ from odoo.tests.common import TransactionCase
 from unittest.mock import MagicMock
 
 # Import the controller module so we can patch its 'request' variable safely
-from odoo.addons.fratellileo_custom.controllers import main as main_controller
-from odoo.addons.fratellileo_custom.controllers.main import B2BListToPart
+from odoo.addons.b2b_custom.controllers import main as main_controller
+from odoo.addons.b2b_custom.controllers.main import B2BListToPart
 
 class TestListToPartParser(TransactionCase):
 

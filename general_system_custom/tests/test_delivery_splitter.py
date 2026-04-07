@@ -8,8 +8,8 @@ Models covered:
   - purchase.order.line        (qty_open / qty_split side-effects)
 
 Run with:
-  ./odoo-bin -c odoo.conf --test-enable --stop-after-init -m intelliwise_custom \
-      --test-tags /intelliwise_custom:TestDeliveryListSplitter
+  ./odoo-bin -c odoo.conf --test-enable --stop-after-init -m general_system_custom \
+      --test-tags /general_system_custom:TestDeliveryListSplitter
 """
 import base64
 import io

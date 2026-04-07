@@ -81,7 +81,7 @@ class PurchaseOrder(models.Model):
             'res_model': 'purchase.order.line',
             'view_mode': 'list,form',
             'views': [
-                (self.env.ref('intelliwise_custom.view_purchase_order_line_tree_intelliwise').id, 'list'),
+                (self.env.ref('general_system_custom.view_purchase_order_line_tree_intelliwise').id, 'list'),
                 (False, 'form')
             ],
             'domain': [('order_id', '=', self.id)],

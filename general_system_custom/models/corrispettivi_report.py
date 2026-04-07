@@ -1,7 +1,7 @@
 from odoo import models, api
 
 class CorrispettiviReport(models.AbstractModel):
-    _name = 'report.intelliwise_custom.report_corrispettivi_template'
+    _name = 'report.general_system_custom.report_corrispettivi_template'
     _description = 'Corrispettivi Report Parser'
 
     @api.model

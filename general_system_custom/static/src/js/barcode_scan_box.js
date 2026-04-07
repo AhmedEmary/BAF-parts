@@ -66,7 +66,7 @@ export class BarcodeScanBox extends Component {
     }
 }
 
-BarcodeScanBox.template = "intelliwise_custom.BarcodeScanBox";
+BarcodeScanBox.template = "general_system_custom.BarcodeScanBox";
 BarcodeScanBox.props = { ...standardFieldProps };
 
 registry.category("fields").add("intelliwise_scan_box", {

@@ -66,8 +66,8 @@
         <field name="name">Corrispettivi (Daily Summary)</field>
         <field name="model">account.move</field>
         <field name="report_type">qweb-pdf</field>
-        <field name="report_name">intelliwise_custom.report_corrispettivi_template</field>
-        <field name="report_file">intelliwise_custom.report_corrispettivi_template</field>
+        <field name="report_name">general_system_custom.report_corrispettivi_template</field>
+        <field name="report_file">general_system_custom.report_corrispettivi_template</field>
         <field name="print_report_name">'Corrispettivi'</field>
         <field name="binding_model_id" ref="account.model_account_move"/>
         <field name="binding_type">report</field>

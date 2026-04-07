@@ -6,7 +6,6 @@
     'depends': ['base', 'product', 'sale_management', 'stock', 'sale_stock', 'purchase', 'stock_dropshipping', 'barcodes', 'stock_barcode', 'accountant', 'portal'],
     'installable': True,
     'data': [
-        'security/security.xml',
         'security/ir.model.access.csv',
         'data/ir_sequence_data.xml',
         'reports/pallet_label_report.xml',
@@ -32,10 +31,10 @@
     ],
     'assets': {
     'web.assets_backend': [
-            'intelliwise_custom/static/src/js/import_options_patch.js',
-            'intelliwise_custom/static/src/js/barcode_scan_box.js',
-            'intelliwise_custom/static/src/xml/stock_barcode_main_menu.xml',
-            'intelliwise_custom/static/src/xml/barcode_scan_box.xml',
+            'general_system_custom/static/src/js/import_options_patch.js',
+            'general_system_custom/static/src/js/barcode_scan_box.js',
+            'general_system_custom/static/src/xml/stock_barcode_main_menu.xml',
+            'general_system_custom/static/src/xml/barcode_scan_box.xml',
         ],
     },
     'author': 'Ahmed Elamery',

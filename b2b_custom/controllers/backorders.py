@@ -85,4 +85,4 @@ class WebsiteBackorders(http.Controller):
         t3 = time.time()
         _logger.info(f"BACKORDERS: Total Controller Time: {t3 - t0:.4f}s")
 
-        return request.render("fratellileo_custom.backorders_page", values)
+        return request.render("b2b_custom.backorders_page", values)

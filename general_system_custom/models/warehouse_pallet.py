@@ -72,7 +72,7 @@ class WarehousePallet(models.Model):
         self.pickup_date = False
 
     def action_print_label(self):
-        return self.env.ref('intelliwise_custom.action_report_pallet_label').report_action(self)
+        return self.env.ref('general_system_custom.action_report_pallet_label').report_action(self)
 
     @api.ondelete(at_uninstall=False)
     def _unlink_if_empty(self):

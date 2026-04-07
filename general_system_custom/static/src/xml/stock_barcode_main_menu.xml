@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <templates xml:space="preserve">
-    <t t-name="intelliwise_custom.MainMenu" t-inherit="stock_barcode.MainMenu" t-inherit-mode="extension">
+    <t t-name="general_system_custom.MainMenu" t-inherit="stock_barcode.MainMenu" t-inherit-mode="extension">
         <xpath expr="//footer" position="inside">
             <button class="o_button_checking btn btn-block btn-secondary mb-3 p-3 w-100"
-                    t-on-click="() => this.actionService.doAction('intelliwise_custom.action_warehouse_checking')">
+                    t-on-click="() => this.actionService.doAction('general_system_custom.action_warehouse_checking')">
                 <i class="fa fa-check-square-o me-2"></i>Warehouse Checking
             </button>
         </xpath>
