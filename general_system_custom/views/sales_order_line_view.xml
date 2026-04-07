@@ -1,0 +1,124 @@
+<odoo>
+    <record id="view_order_line_tree_purchase" model="ir.ui.view">
+        <field name="name">sale.order.line.tree.purchase</field>
+        <field name="model">sale.order.line</field>
+        <field name="arch" type="xml">
+            <list string="Lines to Purchase" create="0" delete="0" editable="bottom" decoration-info="qty_to_purchase > 0" multi_edit="1">
+                <field name="product_id" readonly="1"/>
+                <field name="name" optional="hide" readonly="1"/>
+                <field name="product_uom_qty" string="Ordered" readonly="1"/>
+                <field name="reserved_qty" string="Reserved" readonly="1"/>
+                <field name="purchased_qty" optional="show" string="Purchased"/>
+                <field name="qty_to_purchase" string="Qty to Buy" sum="Total Needed" readonly="1"/>
+                
+                <field name="purchase_vendor_id" string="Select Vendor"/>
+                
+            </list>
+        </field>
+    </record>
+
+    <record id="action_open_lines_to_purchase" model="ir.actions.act_window">
+        <field name="name">Select Lines to Order</field>
+        <field name="res_model">sale.order.line</field>
+        <field name="view_mode">list,form</field>
+        <field name="view_id" ref="view_order_line_tree_purchase"/>
+        <field name="domain">[('order_id', '=', active_id), ('qty_to_purchase', '>', 0)]</field>
+        <field name="context">{'default_order_id': active_id}</field>
+    </record>
+
+    <record id="action_server_create_po" model="ir.actions.server">
+        <field name="name">Create Purchase Order</field>
+        <field name="model_id" ref="sale.model_sale_order_line"/>
+        <field name="binding_model_id" ref="sale.model_sale_order_line"/>
+        <field name="binding_view_types">list</field>
+        <field name="state">code</field>
+        <field name="code">
+            action = records.action_create_purchase_order()
+        </field>
+    </record>
+
+    <record id="view_sale_order_line_graph_coverage" model="ir.ui.view">
+        <field name="name">sale.order.line.graph.coverage</field>
+        <field name="model">sale.order.line</field>
+        <field name="arch" type="xml">
+            <graph string="Order Line Coverage" type="bar" sample="1">
+                <field name="product_id" type="row"/>
+                <field name="percentage_reserved" type="measure" string="Coverage Percentage"/>
+            </graph>
+        </field>
+    </record>
+
+    <record id="action_sale_line_coverage_report" model="ir.actions.act_window">
+        <field name="name">Line Coverage Report</field>
+        <field name="res_model">sale.order.line</field>
+        <field name="view_mode">graph,list,pivot</field>
+        <field name="domain">[('order_id', '=', active_id)]</field>
+        <field name="context">{'search_default_order_id': [active_id]}</field>
+    </record>
+    
+    <record id="view_order_form_inherit_auto_sale" model="ir.ui.view">
+        <field name="name">sale.order.form.inherit.auto.sale</field>
+        <field name="model">sale.order</field>
+        <field name="inherit_id" ref="sale.view_order_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='order_line']/list" position="attributes">
+                <attribute name="decoration-success">stock_quantity &gt;= product_uom_qty</attribute>
+                <attribute name="decoration-warning">stock_quantity &lt; product_uom_qty and stock_quantity &gt; 0</attribute>
+            </xpath>
+            <xpath expr="//field[@name='order_line']/list//field[@name='product_template_id']" position="before">
+                <field name="reserve_qty" widget="boolean_toggle"/>
+            </xpath>
+            <xpath expr="//field[@name='order_line']/list//field[@name='qty_delivered']" position="after">
+                <field name="reserved_qty" optional="show" decoration-bf="1" force_save="1"/>
+                <field name="purchased_qty" optional="show" string="Purchased"/>
+                <field name="percentage_reserved" widget="progressbar" string="Coverage %"/>
+                <field name="stock_quantity"/>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="view_sales_order_line_filter_inherit_brand" model="ir.ui.view">
+        <field name="name">sale.order.line.search.inherit.brand</field>
+        <field name="model">sale.order.line</field>
+        <field name="inherit_id" ref="sale.view_sales_order_line_filter"/>
+        <field name="arch" type="xml">
+            
+            <search position="inside">
+                <searchpanel>
+                    <field name="brand_id" icon="fa-tag" enable_counters="1" select="multi"/>
+                </searchpanel>
+            </search>
+
+            <xpath expr="//field[@name='product_id']" position="after">
+                <field name="brand_id" string="Brand"/>
+            </xpath>
+
+        </field>
+    </record>
+
+    <record id="view_mass_vendor_wizard_form" model="ir.ui.view">
+        <field name="name">mass.vendor.wizard.form</field>
+        <field name="model">mass.vendor.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Assign Vendor to Selected Lines">
+                <group>
+                    <field name="vendor_id" placeholder="Select the vendor to assign..."/>
+                </group>
+                <footer>
+                    <button name="action_apply_vendor" string="Apply to All" type="object" class="btn-primary"/>
+                    <button string="Cancel" class="btn-secondary" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_mass_assign_vendor" model="ir.actions.act_window">
+        <field name="name">Mass Assign Vendor</field>
+        <field name="res_model">mass.vendor.wizard</field>
+        <field name="view_mode">form</field>
+        <field name="target">new</field>
+        <field name="binding_model_id" ref="sale.model_sale_order_line"/>
+        <field name="binding_view_types">list</field>
+    </record>
+
+</odoo>

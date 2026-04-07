@@ -1,0 +1,134 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+   
+    <record id="view_warehouse_pallet_form" model="ir.ui.view">
+        <field name="name">warehouse.pallet.form</field>
+        <field name="model">warehouse.pallet</field>
+        <field name="arch" type="xml">
+            <form>
+                <header>
+                    <button name="action_print_label" string="Print Label (QR)" type="object" class="btn-secondary" icon="fa-qrcode"/>
+                    <button name="action_export_packing_list_excel" string="Download Excel List" type="object" class="btn-secondary" icon="fa-file-excel-o"/>
+                    
+                    <button name="action_generate_invoice" 
+                            string="Create Invoice" 
+                            type="object" 
+                            class="btn-primary" 
+                            invisible="invoice_id != False or state == 'open'"/>
+
+                    <button name="action_mark_ready" string="Mark Ready" type="object" class="btn-primary" invisible="state != 'open'"/>
+                    <button name="action_mark_shipped" string="Mark Picked Up" type="object" class="btn-success" invisible="state != 'ready'"/>
+                    <button name="action_reopen" string="Re-open" type="object" class="btn-secondary" invisible="state == 'open'"/>
+                    <field name="state" widget="statusbar" statusbar_visible="open,ready,shipped,dropship"/>
+                </header>
+                <sheet>
+                    <div class="oe_button_box" name="button_box">
+                        <button name="action_view_invoice"
+                                type="object"
+                                class="oe_stat_button"
+                                icon="fa-pencil-square-o"
+                                invisible="not invoice_id">
+                            <field name="invoice_id" widget="statinfo" string="Invoice"/>
+                        </button>
+                    </div>
+
+                    <div class="oe_title">
+                        <h1><field name="name"/></h1>
+                        <label for="pallet_type" string="Type"/>
+                        <br/>
+                        <field name="pallet_type" widget="radio" options="{'horizontal': true}"/>
+                        <br/>
+                    </div>
+                    <group>
+                        <group string="Customer Info">
+                            <field name="partner_id" readonly="state != 'open'"/>
+                        </group>
+                        <group string="Logistics">
+                            <field name="ready_date"/>
+                            <field name="pickup_date"/>
+                            <field name="shipment_method" widget="radio" options="{'horizontal': true}"/>
+                            <field name="weight"/>
+                            <label for="length" string="Dimensions (L x W x H)"/>
+                            <div class="o_row">
+                                <field name="length"/> x <field name="width"/> x <field name="height"/> cm
+                            </div>
+                        </group>
+                    </group>
+                    <notebook>
+                        <page string="Pallet Contents (Drill-down)">
+                            <field name="line_ids" readonly="1">
+                                <list>
+                                    <field name="product_id"/>
+                                    <field name="sale_order_id" string="SO #"/>
+                                     <field name="customer_po" string="Customer PO Number"/>
+                                    <field name="purchase_order_id" string="PO #"/>
+                                    <field name="fulfill_qty" string="Qty"/>
+                                </list>
+                            </field>
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
+    
+    <record id="view_warehouse_pallet_tree" model="ir.ui.view">
+        <field name="name">warehouse.pallet.tree</field>
+        <field name="model">warehouse.pallet</field>
+        <field name="arch" type="xml">
+            <list multi_edit="1" decoration-info="state == 'ready'" decoration-muted="state == 'shipped'">
+                <field name="name"/>
+                <field name="pallet_type" widget="badge" decoration-info="pallet_type == 'virtual_pallet'"/>
+                <field name="partner_id"/>
+                <field name="ready_date" optional="show"/>
+                <field name="shipment_method" optional="show" widget="badge"/>
+                <field name="weight" optional="show"/>
+                <field name="state" widget="badge" 
+                       decoration-success="state == 'open'" 
+                       decoration-info="state == 'ready'"
+                       decoration-muted="state == 'shipped'"/>
+                <field name="pickup_date" optional="show"/>
+                <field name="invoice_id" widget="many2one_button" optional="show"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="action_pallet_bulk_invoice" model="ir.actions.server">
+        <field name="name">Generate Invoice</field>
+        <field name="model_id" ref="model_warehouse_pallet"/>
+        <field name="binding_model_id" ref="model_warehouse_pallet"/>
+        <field name="binding_view_types">list</field>
+        <field name="state">code</field>
+        <field name="code">
+if not records:
+    records = model.browse(env.context.get('active_ids', []))
+if records:
+    action = records.action_generate_invoice()
+        </field>
+    </record>
+
+    <record id="action_warehouse_pallet" model="ir.actions.act_window">
+        <field name="name">Shipment List</field>
+        <field name="res_model">warehouse.pallet</field>
+        <field name="view_mode">list,form</field>
+        <field name="context">{'search_default_open': 1}</field>
+        <field name="help" type="html">
+          <p class="o_view_nocontent_smiling_face">
+            Create your first Pallet / Packing List
+          </p>
+        </field>
+    </record>
+
+    <menuitem id="menu_import_dropship" 
+              name="Import Dropship" 
+              parent="stock.menu_stock_warehouse_mgmt" 
+              action="intelliwise_custom.action_dropship_import" 
+              sequence="26"/>
+
+    <menuitem id="menu_warehouse_pallet" 
+              name="Shipment List" 
+              parent="stock.menu_stock_warehouse_mgmt" 
+              action="action_warehouse_pallet" 
+              sequence="25"/>
+    
+</odoo>

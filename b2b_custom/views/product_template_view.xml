@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="product_template_view_form_inherit_auto_product" model="ir.ui.view">
+        <field name="name">product.template.view.form.inherit.auto.product</field>
+        <field name="model">product.template</field>
+        <field name="inherit_id" ref="product.product_template_form_view" />
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='hs_code']" position="after">
+                <field name="replaced_by_id" widget="many2one"/> 
+                <field name="sku"/>
+                <field name="unit_of_sales"/>
+            </xpath>
+        </field>
+    </record>
+
+    <template id="product_custom_sku" inherit_id="website_sale.product_title">
+        <xpath expr="//h1[@t-field='product.name']" position="after">
+            <div t-if="product.sku" class="mt-2 mb-2 text-muted" style="font-size: 1.1rem;">
+                <strong>SKU:</strong> <span t-field="product.sku"/>
+            </div>
+            <div t-if="product.brand" class="mb-2 text-muted">
+                <strong>Brand:</strong> <span t-field="product.brand.name"/>
+            </div>
+
+            <div class="mb-3" style="font-size: 1.1rem;">
+                <t t-set="is_in_stock" t-value="product.sudo().qty_available &gt; 0"/>
+
+                <span t-if="is_in_stock" class="text-success fw-bold">
+                    <i class="fa fa-check-circle"/> IN STOCK
+                </span>
+                <span t-else="" class="fw-bold" style="color: #fd7e14;">
+                    <i class="fa fa-clock-o"/> TO ORDER
+                </span>
+            </div>
+        </xpath>
+    </template>
+
+    <template id="products_item_custom_sku" inherit_id="website_sale.products_item">
+        <xpath expr="//h2[hasclass('o_wsale_products_item_title')]" position="after">
+            <div t-if="product.sku or product.brand" class="mb-1 text-muted small">
+                <span t-if="product.brand"><strong t-out="product.brand.name"/> - </span>
+                <span t-if="product.sku">SKU: <t t-out="product.sku"/></span>
+            </div>
+
+            <div class="mb-2 small">
+                <t t-set="is_in_stock" t-value="product.sudo().qty_available &gt; 0"/>
+
+                <span t-if="is_in_stock" class="text-success fw-bold">IN STOCK</span>
+                <span t-else="" class="fw-bold" style="color: #fd7e14;">TO ORDER</span>
+            </div>
+        </xpath>
+    </template>
+
+   <template id="one_hybrid_custom_sku_brand" inherit_id="website.one_hybrid">
+        <xpath expr="//div[hasclass('o_search_result_item_detail')]/div[1]" position="replace">
+            <div t-att-class="'h6 fw-bold %s' % ('' if description else 'mb-0')">
+                <t t-set="is_product" t-value="result.get('website_url', '').startswith('/shop/')"/>
+                <t t-out="result['name']"/>
+
+                <t t-if="is_product">
+                    <t t-set="clean_url" t-value="result.get('website_url', '').split('?')[0]"/>
+                    <t t-set="prod_id_str" t-value="clean_url.split('-')[-1]"/>
+
+                    <t t-if="prod_id_str.isdigit()">
+                        <t t-set="prod" t-value="request.env['product.template'].sudo().browse(int(prod_id_str))"/>
+                        <t t-if="prod.exists()">
+                            <t t-if="prod.brand">
+                                - <span class="text-primary"><t t-out="prod.brand.name"/></span> -
+                            </t>
+                            <t t-set="display_sku" t-value="prod.sku or prod.default_code"/>
+                            <t t-if="display_sku">
+                                <span class="text-muted"><t t-out="display_sku"/></span>
+                            </t>
+                        </t>
+                    </t>
+                </t>
+            </div>
+        </xpath>
+    </template>
+  <template id="custom_header_search_to_shop" inherit_id="website.website_search_box">
+        
+        <xpath expr="//t[@t-set='search_placeholder']" position="replace">
+            <t t-set="search_placeholder">Search products...</t>
+        </xpath>
+
+        <xpath expr="//input[@name='search']" position="attributes">
+            <attribute name="data-search-type">products</attribute>
+        </xpath>
+
+        <xpath expr="//div[@role='search']" position="after">
+            <script type="text/javascript">
+                document.addEventListener("DOMContentLoaded", function() {
+                    var searchForms = document.querySelectorAll('form.o_searchbar_form');
+
+                    searchForms.forEach(function(form) {
+                        form.setAttribute('action', '/shop');
+                        var input = form.querySelector('input[name="search"]');
+                        if (input) {
+                            input.setAttribute('data-search-type', 'products');
+                        }
+                    });
+                });
+            </script>
+        </xpath>
+        
+    </template>
+</odoo>

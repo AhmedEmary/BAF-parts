@@ -1,0 +1,220 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- ========================================== -->
+    <!-- Delivery List Import - List View           -->
+    <!-- ========================================== -->
+    <record id="view_delivery_list_import_list" model="ir.ui.view">
+        <field name="name">delivery.list.import.list</field>
+        <field name="model">delivery.list.import</field>
+        <field name="arch" type="xml">
+            <list decoration-info="state == 'draft'"
+                  decoration-warning="state == 'processed'"
+                  decoration-success="state == 'confirmed'">
+                <field name="name"/>
+                <field name="supplier_id"/>
+                <field name="total_received"/>
+                <field name="total_po_lines"/>
+                <field name="create_date"/>
+                <field name="state" widget="badge"
+                       decoration-info="state == 'draft'"
+                       decoration-warning="state == 'processed'"
+                       decoration-success="state == 'confirmed'"/>
+            </list>
+        </field>
+    </record>
+
+    <!-- ========================================== -->
+    <!-- Delivery List Import - Form View           -->
+    <!-- ========================================== -->
+    <record id="view_delivery_list_import_form" model="ir.ui.view">
+        <field name="name">delivery.list.import.form</field>
+        <field name="model">delivery.list.import</field>
+        <field name="arch" type="xml">
+            <form string="Inbound Reconciliation">
+                <header>
+                    <button name="action_process_file"
+                            string="Process Delivery"
+                            type="object"
+                            class="btn-primary"
+                            invisible="state != 'draft'"
+                            help="Parse Excel and split quantities using FIFO"/>
+
+                    <button name="action_confirm_delivery"
+                            string="Confirm Delivery"
+                            type="object"
+                            class="btn-primary"
+                            invisible="state != 'processed'"
+                            help="Update PO receipts"/>
+
+                    <button name="action_reset_to_draft"
+                            string="Reset to Draft"
+                            type="object"
+                            invisible="state != 'processed'"
+                            confirm="This will clear all split lines. Continue?"
+                            help="Clear lines and return to draft"/>
+
+                    <button name="action_reset_to_processed"
+                            string="Reset to Processed"
+                            type="object"
+                            invisible="state != 'confirmed'"
+                            confirm="This will remove allocated quantities from PO lines. Continue?"
+                            help="Undo confirmation and return to processed"/>
+
+                    <field name="state" widget="statusbar" statusbar_visible="draft,processed,confirmed"/>
+                </header>
+
+                <sheet>
+                    <div class="oe_title">
+                        <h1>
+                            <field name="name" readonly="1"/>
+                        </h1>
+                    </div>
+
+                    <group>
+                        <group>
+                            <field name="supplier_id"
+                                   placeholder="Select the supplier who sent this delivery..."
+                                   options="{'no_create': True}"
+                                   readonly="state != 'draft'"/>
+                            <field name="supplier_doc_number"
+                                   placeholder="e.g., INV-2024-001"/>
+                        </group>
+                        <group>
+                            <field name="file_data"
+                                   filename="file_name"
+                                   widget="binary"
+                                   readonly="state != 'draft'"/>
+                            <field name="file_name" invisible="1"/>
+                        </group>
+                    </group>
+
+                    <!-- Summary Stats (visible after processing) -->
+                    <group invisible="state == 'draft'">
+                        <group>
+                            <field name="total_received" readonly="1"/>
+                        </group>
+                        <group>
+                            <field name="total_po_lines" readonly="1"/>
+                            <field name="has_price_variance" invisible="1"/>
+                            <field name="has_under_allocation" invisible="1"/>
+                            <field name="has_over_allocation" invisible="1"/>
+                        </group>
+                    </group>
+
+                    <!-- Allocation Alerts (hidden when confirmed) -->
+                    <div invisible="state == 'confirmed' or (not has_under_allocation and not has_over_allocation)">
+                        <div class="alert alert-warning" role="alert"
+                             invisible="not has_under_allocation">
+                            <i class="fa fa-exclamation-triangle" title="Under-Allocation"/>
+                            <strong> Under-Allocation Detected!</strong>
+                            <p style="margin: 5px 0 0 0;">
+                                Some lines have a split quantity lower than the PO open quantity.
+                                <strong style="color: #8a6d3b;">Yellow rows</strong> indicate under-allocation.
+                            </p>
+                        </div>
+                        <div class="alert alert-danger" role="alert"
+                             invisible="not has_over_allocation">
+                            <i class="fa fa-exclamation-triangle" title="Over-Allocation"/>
+                            <strong> Over-Allocation Detected!</strong>
+                            <p style="margin: 5px 0 0 0;">
+                                Some lines have a split quantity exceeding the PO open quantity.
+                                <strong style="color: #a94442;">Red rows</strong> indicate over-allocation.
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- Excel Format Help (draft only) -->
+                    <group colspan="2" invisible="state != 'draft'">
+                        <div class="alert alert-info" role="alert">
+                            <strong>Excel Format Required:</strong>
+                            <ul>
+                                <li><strong>SKU:</strong> Product code (must exist in system)</li>
+                                <li><strong>Qty:</strong> Total quantity received</li>
+                                <li><strong>Price:</strong> Price from supplier's invoice</li>
+                            </ul>
+                            <p>The system will automatically split quantities across open POs using FIFO (oldest first).</p>
+                        </div>
+                    </group>
+
+                    <!-- Split Lines Table -->
+                    <notebook invisible="state == 'draft'">
+                        <page string="Delivery Lines">
+                            <field name="line_ids"
+                                   nolabel="1"
+                                   readonly="state == 'confirmed'">
+                                <list editable="bottom"
+                                      decoration-warning="is_under_allocation and state != 'confirmed'"
+                                      decoration-danger="is_over_allocation and state != 'confirmed'">
+                                    <!-- Hidden fields for decorations and domains -->
+                                    <field name="is_under_allocation" column_invisible="1"/>
+                                    <field name="is_over_allocation" column_invisible="1"/>
+                                    <field name="currency_id" column_invisible="1"/>
+                                    <field name="import_id" column_invisible="1"/>
+                                    <field name="state" column_invisible="1"/>
+                                    <field name="supplier_id" column_invisible="1"/>
+                                    <field name="available_product_ids" column_invisible="1"/>
+                                    <field name="available_po_ids" column_invisible="1"/>
+
+                                    <!-- Visible fields -->
+                                    <field name="sku" readonly="1" optional="hide"/>
+                                    <field name="product_id"
+                                           domain="[('id', 'in', available_product_ids)]"
+                                           options="{'no_create': True}"/>
+                                    <field name="qty_split" sum="Total Received"/>
+                                    <field name="open_qty_po" readonly="1" optional="show"
+                                           column_invisible="parent.state == 'confirmed'"/>
+                                    <field name="qty_received_po" readonly="1" optional="show"/>
+                                    <field name="price_supplier" widget="monetary"/>
+                                    <field name="price_po" widget="monetary" readonly="1"/>
+                                    <field name="po_id"
+                                           domain="[('id', 'in', available_po_ids)]"
+                                           options="{'no_create': True}"/>
+                                    <field name="so_id" readonly="1"/>
+                                    <field name="customer_id" readonly="1"/>
+                                </list>
+                            </field>
+
+                            <!-- Legend -->
+                            <group colspan="2">
+                                <div class="alert alert-info" role="alert" invisible="state != 'processed'">
+                                    <strong style="color: #8a6d3b;">Yellow row</strong> = Qty Split &lt; Open Qty (under-allocation) |
+                                    <strong style="color: #a94442;">Red row</strong> = Qty Split &gt; Open Qty (over-allocation).
+                                    Lines ordered by SKU appearance in Excel, then oldest PO first (FIFO).
+                                </div>
+                            </group>
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <!-- ========================================== -->
+    <!-- Action: Open Inbound Reconciliation        -->
+    <!-- ========================================== -->
+    <record id="action_delivery_list_import" model="ir.actions.act_window">
+        <field name="name">Inbound Reconciliation</field>
+        <field name="res_model">delivery.list.import</field>
+        <field name="view_mode">list,form</field>
+        <field name="target">current</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                Import supplier delivery documents
+            </p>
+            <p>
+                Upload an Excel file with SKU, Qty, and Price columns.<br/>
+                The system will automatically split received quantities across open POs using FIFO logic.
+            </p>
+        </field>
+    </record>
+
+    <!-- ========================================== -->
+    <!-- Menu Item: Purchases > Inbound Reconciliation -->
+    <!-- ========================================== -->
+    <menuitem id="menu_delivery_list_import"
+              name="Inbound Reconciliation"
+              parent="purchase.menu_procurement_management"
+              action="action_delivery_list_import"
+              sequence="15"/>
+
+</odoo>

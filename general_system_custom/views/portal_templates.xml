@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+
+    <template id="sale_order_portal_template_excel" inherit_id="sale.sale_order_portal_template">
+        <xpath expr="//div[hasclass('o_download_pdf')]" position="after">
+            <div class="o_download_excel d-flex flex-lg-column flex-xl-row flex-wrap gap-2 mt-2">
+                <a class="btn btn-secondary flex-grow-1"
+                   t-att-href="'/my/orders/%s/export_excel?access_token=%s' % (sale_order.id, sale_order.access_token)"
+                   title="Download Excel"
+                   role="button">
+                    <i class="fa fa-file-excel-o"/> Download Excel
+                </a>
+            </div>
+        </xpath>
+    </template>
+
+    <template id="portal_invoice_page_inherit_excel" inherit_id="account.portal_invoice_page">
+        <xpath expr="//div[hasclass('o_download_pdf')]" position="after">
+            <div class="o_download_excel d-flex flex-lg-column flex-xl-row flex-wrap gap-2 mt-2">
+                <a class="btn btn-secondary flex-grow-1"
+                   t-att-href="'/my/invoices/%s/export_excel?access_token=%s' % (invoice.id, invoice.access_token)"
+                   title="Download Excel"
+                   role="button">
+                    <i class="fa fa-file-excel-o"/> Download Excel
+                </a>
+            </div>
+        </xpath>
+    </template>
+
+    <!-- ── Task 9: Enhance /my/orders ────────────────────────────────────── -->
+    <template id="portal_my_orders_inherit" inherit_id="sale.portal_my_orders">
+
+        <!-- Search + date range filter bar -->
+        <xpath expr="//t[@t-call='portal.portal_searchbar']" position="before">
+            <form method="get" action="/my/orders" class="row g-2 mb-3">
+                <div class="col-md-4">
+                    <input type="text" name="search" class="form-control"
+                           placeholder="Order # or your reference…"
+                           t-att-value="search or ''"/>
+                </div>
+                <div class="col-md-3">
+                    <input type="date" name="date_begin" class="form-control"
+                           t-att-value="date_begin or ''"/>
+                </div>
+                <div class="col-md-3">
+                    <input type="date" name="date_end" class="form-control"
+                           t-att-value="date_end or ''"/>
+                </div>
+                <div class="col-md-2">
+                    <button type="submit" class="btn btn-primary w-100">Filter</button>
+                </div>
+            </form>
+        </xpath>
+
+        <!-- Extra header columns -->
+        <xpath expr="//th[@name='order_total']" position="before">
+            <th>Your Ref</th>
+            <th>Shipping</th>
+            <th class="text-end">Shipped</th>
+        </xpath>
+
+        <!-- Extra row cells -->
+        <xpath expr="//td[@name='order_amount_total']" position="before">
+            <td><t t-out="order.customer_po or '—'"/></td>
+            <td><t t-out="(order.shipping_method or '').capitalize() or '—'"/></td>
+            <td class="text-end">
+                <span t-field="order.amount_delivered"
+                      t-options="{'widget': 'monetary', 'display_currency': order.currency_id}"/>
+            </td>
+        </xpath>
+
+    </template>
+
+
+
+</odoo>

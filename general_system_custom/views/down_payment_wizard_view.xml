@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_account_draw_down_payment_wizard_form" model="ir.ui.view">
+        <field name="name">account.draw.down.payment.wizard.form</field>
+        <field name="model">account.draw.down.payment.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Draw Down Payments">
+                <field name="currency_id" invisible="1"/>
+                
+                <div class="alert alert-info" role="status" style="margin-bottom: 15px;">
+                    <div class="d-flex align-items-center">
+                        <i class="fa fa-info-circle fa-2x me-3" style="margin-right: 15px; opacity: 0.7;" title="Info"/>
+                        <div>
+                            <strong>Select Down Payments:</strong><br/>
+                            Review the available payments below and enter the amount you wish to use in the <b>Net Amount to Draw</b> column.
+                        </div>
+                    </div>
+                </div>
+
+                <group>
+                    <field name="line_ids" nolabel="1" widget="one2many" mode="list">
+                        <list string="Available Down Payments" 
+                              editable="bottom" 
+                              create="0" 
+                              delete="0" 
+                              decoration-muted="amount_to_draw == 0"
+                              decoration-info="amount_to_draw &gt; 0">
+                            
+                            <field name="down_payment_move_id" column_invisible="1"/>
+                            <field name="currency_id" column_invisible="1"/>
+
+                            <field name="date" widget="date" optional="show" readonly="1"/>
+                            <field name="doc_number" decoration-bf="1"/>
+                            
+                            <field name="amount_total" 
+                                   string="Available Balance" 
+                                   widget="monetary" 
+                                   options="{'currency_field': 'currency_id'}" 
+                                   decoration-muted="1"/>
+                                   
+                            <field name="amount_to_draw" 
+                                   string="Net Amount to Draw"
+                                   widget="monetary" 
+                                   options="{'currency_field': 'currency_id'}" 
+                                   sum="Total Deduction" 
+                                   decoration-bf="1" 
+                                   decoration-success="amount_to_draw &gt; 0"/>
+                        </list>
+                    </field>
+                </group>
+
+                <footer>
+                    <button name="action_apply_down_payments" 
+                            string="Apply Deduction" 
+                            type="object" 
+                            class="btn-primary" 
+                            icon="fa-check-square-o" 
+                            data-hotkey="q"/>
+                    <button string="Cancel" 
+                            class="btn-secondary" 
+                            special="cancel" 
+                            data-hotkey="z"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+</odoo>

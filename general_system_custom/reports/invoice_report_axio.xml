@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <template id="report_invoice_document_inherit_axio" inherit_id="account.report_invoice_document">
+
+        <xpath expr="//th[@name='th_description']" position="before">
+            <th>SO Number</th>
+            <th>Brand</th>
+            <th>SKU</th>
+            <th>HS Code</th>
+            <th>COO</th>
+        </xpath>
+
+        <xpath expr="//td[@name='account_invoice_line_name']" position="before">
+            <td><span t-field="line.linked_so_id.name"/></td>
+            <td><span t-field="line.product_id.brand.name"/></td>
+            <td><span t-field="line.product_id.default_code"/></td>
+            <td><span t-field="line.hs_code"/></td>
+            <td><span t-field="line.origin_country_id.name"/></td>
+        </xpath>
+
+        <xpath expr="//td[@name='line_name_td']" position="attributes">
+            <attribute name="t-att-colspan">(1 if is_product else line_colspan) + 5</attribute>
+        </xpath>
+
+        <xpath expr="//td[@name='account_invoice_line_name_grouped_desktop']" position="attributes">
+            <attribute name="t-att-colspan">line_colspan + 5</attribute>
+        </xpath>
+
+        <xpath expr="//div[@id='total']" position="after">
+            <div class="row mt-5" style="page-break-inside: avoid;">
+                <div class="col-12">
+                    <strong style="display: inline-block; margin-bottom: 8px;">Shipping Information</strong>
+                    <table class="table table-sm o_main_table" name="shipping_table">
+                        <thead>
+                            <tr>
+                                <th>Gross Weight</th>
+                                <th>Pack Qty</th>
+                                <th>Shipping Type</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><span t-esc="sum([p.weight for p in o.pallet_ids])"/> kg</td>
+                                <td><span t-esc="len(o.pallet_ids)"/></td>
+                                <td>
+                                    <t t-set="ship_methods" t-value="[m.capitalize() for m in filter(None, o.pallet_ids.mapped('shipment_method'))]"/>
+                                    <span t-esc="', '.join(ship_methods)"/>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </xpath>
+
+    </template>
+</odoo>

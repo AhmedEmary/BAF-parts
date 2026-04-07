@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <template id="custom_checkout_field" inherit_id="website_sale.delivery_form">
+        <xpath expr="//form[@id='o_delivery_form']" position="after">
+            <div class="mb-4">
+                <label for="shipping_method" class="form-label fw-bold">
+                    Shipping Method
+                </label>
+                <select name="shipping_method" id="shipping_method" class="form-select" required="required">
+                    <option value="">-- Select Shipping Method --</option>
+                    <option value="air"    t-att-selected="'selected' if order.shipping_method == 'air'    else None">Air</option>
+                    <option value="ocean"  t-att-selected="'selected' if order.shipping_method == 'ocean'  else None">Ocean</option>
+                    <option value="road"   t-att-selected="'selected' if order.shipping_method == 'road'   else None">Road</option>
+                    <option value="postal" t-att-selected="'selected' if order.shipping_method == 'postal' else None">Postal</option>
+                    <option value="other"  t-att-selected="'selected' if order.shipping_method == 'other'  else None">Other</option>
+                </select>
+                
+                <label for="customer_po" class="form-label fw-bold mt-3">
+                    Reference Number
+                </label>
+                <input type="text" name="customer_po" id="customer_po" class="form-control" placeholder="Enter your reference number" t-att-value="order.customer_po or ''"/>
+            </div>
+
+            <script type="text/javascript">
+                // Using event delegation so it works even if Odoo refreshes the delivery form HTML
+                document.addEventListener('change', function (e) {
+                    if (e.target &amp;&amp; (e.target.id === 'shipping_method' || e.target.id === 'customer_po')) {
+                        
+                        const shipSelect = document.getElementById('shipping_method');
+                        const poInput = document.getElementById('customer_po');
+                        
+                        // Send data to the python controller securely
+                        fetch('/shop/update_custom_fields', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify({ 
+                                params: {
+                                    shipping_method: shipSelect ? shipSelect.value : '',
+                                    customer_po: poInput ? poInput.value : ''
+                                }
+                            })
+                        });
+                    }
+                });
+            </script>
+        </xpath>
+    </template>
+</odoo>

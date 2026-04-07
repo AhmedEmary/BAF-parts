@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_stock_move_pallet_info_tree" model="ir.ui.view">
+        <field name="name">stock.move.pallet.info.tree</field>
+        <field name="model">stock.move.pallet.info</field>
+        <field name="arch" type="xml">
+        <list string="Pallet Distribution" editable="top"> 
+               <field name="product_id" string="Product"/>
+                <field name="move_id" string="Move Reference" optional="hide"/>
+                <field name="quantity" sum="Total Quantity"/>
+                <field name="pallet_id" 
+                        string="Pallet Number" 
+                        domain="[('partner_id', '=', customer_id), ('state', '=', 'open')]"
+                        context="{'default_partner_id': customer_id}"
+                        placeholder="Select Pallet"/>            
+         </list>
+        </field>
+    </record>
+
+    <record id="view_picking_form_inherit_pallet" model="ir.ui.view">
+        <field name="name">stock.picking.form.inherit.pallet</field>
+        <field name="model">stock.picking</field>
+        <field name="inherit_id" ref="stock.view_picking_form"/>
+        <field name="arch" type="xml">
+            <div name="button_box" position="inside">
+                <button name="action_view_pallets"
+                        type="object"
+                        class="oe_stat_button"
+                        icon="fa-cubes"
+                        invisible="pallet_count == 0">
+                    <field name="pallet_count" widget="statinfo" string="Pallets"/>
+                </button>
+            </div>
+            <xpath expr="//sheet" position="before">
+                <div class="alert alert-danger" role="alert" 
+                     invisible="not is_address_mismatch"
+                     style="margin-bottom: 0;">
+                    <strong> Warning:</strong> The Delivery Address is different from the Billing Address.
+                </div>
+            </xpath>
+            <xpath expr="//field[@name='move_ids']/list//field[@name='product_uom_qty']" position="after">
+                <field name="qty_scanned" optional="show" string="Scanned (PO)"/>
+                <field name="qty_from_stock" optional="show" decoration-bf="1" string="Pick Stock"/>
+                
+                <button name="action_view_pallet_infos" 
+                        type="object" 
+                        icon="fa-cubes" 
+                        string=" "
+                        title="View Pallets" 
+                        class="btn-secondary"/>
+            </xpath>
+             <xpath expr="//field[@name='partner_id']" position="after">
+                <field name="billing_address_id" 
+                       options="{'no_open': True, 'no_create': True}"
+                       context="{'show_address': 1}"
+                       invisible="not sale_id"/>
+                <field name="delivery_address_id" 
+                       options="{'no_open': True, 'no_create': True}"
+                       context="{'show_address': 1}"
+                       invisible="not sale_id"
+                       decoration-danger="is_address_mismatch == True"/>
+
+            </xpath>
+        </field>
+    </record>
+</odoo>

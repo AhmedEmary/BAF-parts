@@ -1,0 +1,117 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <template id="backorders_page" name="Backorders">
+        <t t-call="website.layout">
+            <div class="container py-5">
+                <div class="row">
+                    <div class="col-12 mb-4">
+                        <h1>Backorders</h1>
+                    </div>
+                </div>
+
+                <!-- Filters -->
+                <form method="get" action="/backorders" class="row g-2 mb-3">
+                    <div class="col-md-3">
+                        <input type="text" name="search" class="form-control"
+                               placeholder="Order # or your ref…"
+                               t-att-value="search"/>
+                    </div>
+                    <div class="col-md-2">
+                        <input type="text" name="sku" class="form-control"
+                               placeholder="SKU (exact)"
+                               t-att-value="sku"/>
+                    </div>
+                    <div class="col-md-2">
+                        <select name="brand_id" class="form-select">
+                            <option value="">All Brands</option>
+                            <t t-foreach="brands" t-as="brand">
+                                <option t-att-value="brand.id"
+                                        t-att-selected="brand.id == selected_brand_id">
+                                    <t t-out="brand.name"/>
+                                </option>
+                            </t>
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <input type="date" name="date_begin" class="form-control"
+                               t-att-value="date_begin"/>
+                    </div>
+                    <div class="col-md-2">
+                        <input type="date" name="date_end" class="form-control"
+                               t-att-value="date_end"/>
+                    </div>
+                    <div class="col-md-1">
+                        <button type="submit" class="btn btn-primary w-100">Filter</button>
+                    </div>
+                </form>
+
+                <div class="d-flex justify-content-end mb-3">
+                    <t t-call="website.pager"/>
+                </div>
+
+                <div class="inline-block min-w-full py-4 align-middle sm:px-6 lg:px-8 bg-white shadow overflow-hidden sm:rounded-lg">
+                    <div class="table-responsive">
+                        <table class="min-w-full divide-y divide-gray-300 table table-hover">
+                            <thead>
+                                <tr>
+                                    <th scope="col" class="whitespace-nowrap py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900 sm:pl-0">Reference</th>
+                                    <th scope="col" class="whitespace-nowrap py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900 sm:pl-0">Order #</th>
+                                    <th scope="col" class="whitespace-nowrap py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900 sm:pl-0">Creation date</th>
+                                    <th scope="col" class="whitespace-nowrap py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900 sm:pl-0">Brand</th>
+                                    <th scope="col" class="whitespace-nowrap py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900 sm:pl-0">Code</th>
+                                    <th scope="col" class="whitespace-nowrap py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900 sm:pl-0">Title</th>
+                                    <th scope="col" class="whitespace-nowrap py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900 sm:pl-0">Unit (€)</th>
+                                    <th scope="col" class="whitespace-nowrap py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900 sm:pl-0">Surcharge (€)</th>
+                                    <th scope="col" class="whitespace-nowrap py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900 sm:pl-0">Unshipped</th>
+                                    <th scope="col" class="whitespace-nowrap py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900 sm:pl-0">Total (€)</th>
+                                    <th scope="col" class="whitespace-nowrap py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900 sm:pl-0">Arrived</th>
+                                    <th scope="col" class="whitespace-nowrap py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900 sm:pl-0">Arrived (€)</th>
+                                    <th scope="col" class="whitespace-nowrap py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900 sm:pl-0">ETA</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-gray-200 bg-white">
+                                <t t-foreach="lines" t-as="line">
+                                    <t t-set="qty_remaining" t-value="line.product_uom_qty - (line.qty_invoiced or 0.0)"/>
+                                    <t t-set="qty_arrived" t-value="line.reserved_qty"/>
+                                    <t t-set="qty_unshipped" t-value="max(0, qty_remaining - qty_arrived)"/>
+
+                                    <t t-set="eta_date" t-value="False"/>
+                                    <t t-set="related_pos" t-value="line.order_id.purchase_ids.filtered(lambda p: p.state in ['purchase', 'done'])"/>
+                                    <t t-set="related_po_lines" t-value="related_pos.mapped('order_line').filtered(lambda l: l.product_id == line.product_id)"/>
+                                    <t t-if="related_po_lines">
+                                        <t t-set="eta_date" t-value="min(related_po_lines.mapped('date_planned'))"/>
+                                    </t>
+
+                                    <tr>
+                                        <td class="whitespace-nowrap py-2 pl-4 pr-3 text-sm text-gray-500 sm:pl-0"><span t-field="line.order_id.customer_po"/></td>
+                                        <td class="whitespace-nowrap py-2 pl-4 pr-3 text-sm text-gray-500 sm:pl-0"><span t-field="line.order_id.name"/></td>
+                                        <td class="whitespace-nowrap py-2 pl-4 pr-3 text-sm text-gray-500 sm:pl-0"><span t-field="line.create_date" t-options='{"widget": "datetime", "format": "dd-MM-yyyy HH:mm"}'/></td>
+                                        <td class="whitespace-nowrap py-2 pl-4 pr-3 text-sm text-gray-500 sm:pl-0"><span t-field="line.product_id.brand.name"/></td>
+                                        <td class="whitespace-nowrap py-2 pl-4 pr-3 text-sm text-gray-500 sm:pl-0"><span t-field="line.product_id.sku"/></td>
+                                        <td class="whitespace-nowrap py-2 pl-4 pr-3 text-sm text-gray-500 sm:pl-0"><span t-field="line.product_id.name"/></td>
+                                        <td class="whitespace-nowrap py-2 pl-4 pr-3 text-sm text-gray-500 sm:pl-0"><span t-field="line.price_unit" t-options='{"widget": "monetary", "display_currency": line.currency_id}'/></td>
+                                        <td class="whitespace-nowrap py-2 pl-4 pr-3 text-sm text-gray-500 sm:pl-0"><span t-field="line.product_id.surcharge" t-options='{"widget": "monetary", "display_currency": line.currency_id}'/></td>
+                                        <td class="whitespace-nowrap py-2 pl-4 pr-3 text-sm text-gray-500 sm:pl-0"><span t-esc="qty_unshipped"/></td>
+                                        <td class="whitespace-nowrap py-2 pl-4 pr-3 text-sm text-gray-500 sm:pl-0"><span t-esc="qty_unshipped * line.price_unit" t-options='{"widget": "monetary", "display_currency": line.currency_id}'/></td>
+                                        <td class="whitespace-nowrap py-2 pl-4 pr-3 text-sm text-gray-500 sm:pl-0"><span t-esc="qty_arrived"/></td>
+                                        <td class="whitespace-nowrap py-2 pl-4 pr-3 text-sm text-gray-500 sm:pl-0"><span t-esc="qty_arrived * line.price_unit" t-options='{"widget": "monetary", "display_currency": line.currency_id}'/></td>
+                                        
+                                        <td class="whitespace-nowrap py-2 pl-4 pr-3 text-sm text-gray-500 sm:pl-0">
+                                            <t t-if="eta_date"><span t-esc="eta_date" t-options='{"widget": "date"}'/></t>
+                                            <t t-else=""><span>-</span></t>
+                                        </td>
+                                    </tr>
+                                </t>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="d-flex justify-content-end mt-3">
+                    <t t-call="website.pager"/>
+                </div>
+
+            </div>
+        </t>
+    </template>
+</odoo>

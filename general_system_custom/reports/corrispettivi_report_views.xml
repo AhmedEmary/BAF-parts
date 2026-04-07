@@ -1,0 +1,132 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="intelliwise_corrispettivi_journal_report" model="account.report">
+        <field name="name">Registro Corrispettivi (Receipts Only)</field>
+        <field name="root_report_id" ref="account_reports.journal_report"/>
+        <field name="custom_handler_model_id" ref="model_intelliwise_corrispettivi_report_handler"/>
+        <field name="filter_journals" eval="True"/>
+        <field name="default_opening_date_filter">this_month</field>
+
+        <field name="column_ids">
+            <record id="libro_giornale_report_code" model="account.report.column">
+                <field name="name">Code</field>
+                <field name="expression_label">code</field>
+                <field name="figure_type">string</field>
+            </record>
+            <record id="libro_giornale_report_debit" model="account.report.column">
+                <field name="name">Debit</field>
+                <field name="expression_label">debit</field>
+            </record>
+            <record id="libro_giornale_report_credit" model="account.report.column">
+                <field name="name">Credit</field>
+                <field name="expression_label">credit</field>
+            </record>
+            <record id="libro_giornale_report_balance" model="account.report.column">
+                <field name="name">Balance</field>
+                <field name="expression_label">balance</field>
+            </record>
+        </field>
+
+        <field name="line_ids">
+            <record id="libro_giornale_report_line" model="account.report.line">
+                <field name="name">Libro Giornale</field>
+                <field name="groupby">journal_id, account_id</field>
+                <field name="hierarchy_level">0</field>
+                <field name="expression_ids">
+                    <record id="libro_giornale_report_line_code" model="account.report.expression">
+                        <field name="label">code</field>
+                        <field name="engine">custom</field>
+                        <field name="formula">_report_custom_engine_journal_report</field>
+                        <field name="subformula">code</field>
+                    </record>
+                    <record id="libro_giornale_report_line_debit" model="account.report.expression">
+                        <field name="label">debit</field>
+                        <field name="engine">custom</field>
+                        <field name="formula">_report_custom_engine_journal_report</field>
+                        <field name="subformula">debit</field>
+                    </record>
+                    <record id="libro_giornale_report_line_credit" model="account.report.expression">
+                        <field name="label">credit</field>
+                        <field name="engine">custom</field>
+                        <field name="formula">_report_custom_engine_journal_report</field>
+                        <field name="subformula">credit</field>
+                    </record>
+                    <record id="libro_giornale_report_line_balance" model="account.report.expression">
+                        <field name="label">balance</field>
+                        <field name="engine">custom</field>
+                        <field name="formula">_report_custom_engine_journal_report</field>
+                        <field name="subformula">balance</field>
+                    </record>
+                </field>
+            </record>
+        </field>
+    </record>
+
+    <record id="action_report_corrispettivi" model="ir.actions.report">
+        <field name="name">Corrispettivi (Daily Summary)</field>
+        <field name="model">account.move</field>
+        <field name="report_type">qweb-pdf</field>
+        <field name="report_name">intelliwise_custom.report_corrispettivi_template</field>
+        <field name="report_file">intelliwise_custom.report_corrispettivi_template</field>
+        <field name="print_report_name">'Corrispettivi'</field>
+        <field name="binding_model_id" ref="account.model_account_move"/>
+        <field name="binding_type">report</field>
+    </record>
+
+    <template id="report_corrispettivi_template">
+        <t t-call="web.html_container">
+            <t t-call="web.external_layout">
+                <div class="page">
+                    <h2 class="mt-4 mb-4">Registro Corrispettivi</h2>
+
+                    <table class="table table-sm table-bordered mt-4">
+                        <thead style="background-color: #f2f2f2;">
+                            <tr>
+                                <th>Country</th>
+                                <th>Tax Name</th>
+                                <th class="text-end">Imponibile (Base)</th>
+                                <th class="text-end">Imposta (Tax)</th>
+                                <th class="text-end">Totale (Total)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <t t-foreach="grouped_list" t-as="group">
+                                <tr>
+                                    <td>
+                                        <span t-out="group['country']"/>
+                                    </td>
+                                    <td>
+                                        <strong><t t-out="group['tax_name']"/></strong>
+                                    </td>
+                                    <td class="text-end">
+                                        <span t-out="group['base']" t-options='{"widget": "monetary", "display_currency": env.company.currency_id}'/>
+                                    </td>
+                                    <td class="text-end">
+                                        <span t-out="group['tax']" t-options='{"widget": "monetary", "display_currency": env.company.currency_id}'/>
+                                    </td>
+                                    <td class="text-end">
+                                        <span t-out="group['total']" t-options='{"widget": "monetary", "display_currency": env.company.currency_id}'/>
+                                    </td>
+                                </tr>
+                            </t>
+                        </tbody>
+                    </table>
+
+                    <div class="row mt-4">
+                        <div class="col-4 offset-8">
+                            <table class="table table-sm">
+                                <tr class="border-black">
+                                    <td><strong>Grand Total</strong></td>
+                                    <td class="text-end">
+                                        <span t-out="grand_total" t-options='{"widget": "monetary", "display_currency": env.company.currency_id}'/>
+                                    </td>
+                                </tr>
+                            </table>
+                        </div>
+                    </div>
+
+                </div>
+            </t>
+        </t>
+    </template>
+</odoo>

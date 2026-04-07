@@ -1,0 +1,111 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <template id="cart_lines_pagination" inherit_id="website_sale.cart_lines">
+        <xpath expr="//div[@id='cart_products']" position="replace">
+            <div id="cart_products"
+                 t-if="website_sale_order and (website_sale_order.website_order_line or website_sale_order_lines_paged)"
+                 class="js_cart_lines d-flex flex-column mb32">
+                
+                <t t-set="lines_to_show" t-value="website_sale_order_lines_paged if website_sale_order_lines_paged else website_sale_order.website_order_line"/>
+
+                <t t-foreach="lines_to_show" t-as="line">
+                    <t t-set="is_combo" t-value="line.product_type == 'combo'"/>
+                    <div class="o_cart_product d-flex gap-3 pb-4" t-attf-data-product-id="#{line.product_id and line.product_id.id}">
+                        <div class="o_cart_product_image">
+                            <t t-call="website_sale.cart_line_product_link">
+                                <img t-if="not line._is_sellable() and line.product_id.image_128" t-att-src="image_data_uri(line.product_id.image_128)" class="img border rounded" t-att-alt="line.name_short"/>
+                                <div t-else="" t-field="line.product_id.image_128" t-options="{'widget': 'image', 'qweb_img_responsive': False, 'class': 'border rounded'}"/>
+                            </t>
+                        </div>
+                        <div class="d-flex flex-column flex-grow-1 gap-3 min-w-0">
+                            <div class="d-flex gap-3">
+                                <div class="flex-grow-1 text-wrap w-100">
+                                    <div class="d-flex justify-content-between">
+                                        <div class="d-md-flex flex-md-wrap column-gap-md-1 align-items-md-center">
+                                            <t t-call="website_sale.cart_line_product_link">
+                                                <h6 t-out="line._get_line_header()" class="text-wrap mb-1"/>
+                                            </t>
+                                            <t t-set="combination_name" t-value="line._get_combination_name()"/>
+                                            <span t-if="combination_name" class="d-none d-md-inline h6 text-muted mb-1">-</span>
+                                            <div t-if="combination_name or line.product_template_id._has_multiple_uoms()" class="d-inline-flex flex-wrap column-gap-2 row-gap-1 align-items-center my-1 my-md-0 w-100 w-md-auto">
+                                                <span t-if="combination_name" class="h6 text-muted mb-1" t-out="combination_name"/>
+                                                <span t-if="line.product_template_id._has_multiple_uoms()" class="badge bg-light mb-1" t-out="line.product_uom_id.name"/>
+                                            </div>
+                                        </div>
+                                        <div t-attf-class="{{'d-block d-md-none' if not is_combo else ''}}">
+                                            <t t-call="website_sale.cart_lines_price"/>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="text-muted small mb-2">
+                                        <span t-if="'brand' in line.product_id and line.product_id.brand" class="fw-bold text-dark"><t t-out="line.product_id.brand.name"/> - </span>
+                                        <span t-if="'sku' in line.product_id and line.product_id.sku">SKU: <t t-out="line.product_id.sku"/></span>
+                                        <span t-elif="'default_code' in line.product_id and line.product_id.default_code">SKU: <t t-out="line.product_id.default_code"/></span>
+                                    </div>
+                                    
+                                    <t t-call="website_sale.cart_line_description_following_lines"/>
+                                    <ul t-if="is_combo" class="list-group">
+                                        <t t-foreach="line.linked_line_ids.filtered('combo_item_id')" t-as="combo_item_line">
+                                            <t t-call="website_sale.cart_combo_item_line"/>
+                                        </t>
+                                    </ul>
+                                    <div name="o_wsale_cart_line_button_container" t-attf-class="d-none d-md-flex align-items-center gap-2 mt-2 {{'justify-content-between' if is_combo else ''}}">
+                                        <a href="#" class="js_delete_product small" aria-label="Remove from cart" title="Remove from cart">Remove</a>
+                                        <div t-if="is_combo" class="d-none d-md-block ms-auto">
+                                            <t t-call="website_sale.cart_lines_quantity"/>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div t-if="not is_combo" class="d-none d-md-block">
+                                    <t t-call="website_sale.cart_lines_price"/>
+                                    <div class="d-none d-md-block mt-2">
+                                        <t t-call="website_sale.cart_lines_quantity"/>
+                                    </div>
+                                </div>
+                            </div>
+                            <div name="o_wsale_cart_line_button_container_mobile" class="d-flex d-md-none">
+                                <div class="d-flex d-md-none align-items-center me-auto">
+                                    <t t-call="website_sale.cart_lines_quantity" is_mobile="True"/>
+                                </div>
+                                <button class="js_delete_product btn btn-link d-inline-block d-md-none px-2" title="Remove">
+                                    <i class="fa fa-fw fa-trash-o"/>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </t>
+            </div>
+            
+            <div class="d-flex justify-content-center w-100" t-if="pager">
+                <t t-call="website.pager"/>
+            </div>
+        </xpath>
+        
+    </template>
+    <template id="cart_export_button" inherit_id="website_sale.cart">
+        <xpath expr="//div[@id='shop_cart']" position="before">
+            <div class="d-flex justify-content-end mb-3 gap-2">
+                
+                <a role="button" href="/shop/cart/empty" class="btn btn-outline-danger">
+                    <i class="fa fa-trash-o"/> Clear Cart
+                </a>
+                
+                <a role="button" href="/shop/cart/export" class="btn btn-outline-success">
+                    <i class="fa fa-file-excel-o"/> Export Cart to Excel
+                </a>
+                
+            </div>
+        </xpath>
+    </template>
+    <template id="custom_cart_lines_price" inherit_id="website_sale.cart_lines_price">
+        <xpath expr="//h6[@name='website_sale_cart_line_price']" position="replace">
+            <h6 class="d-flex flex-column flex-md-row align-items-end align-items-md-start justify-content-md-end mb-1" name="website_sale_cart_line_price">
+                
+                <span t-field="line.price_subtotal" 
+                      class="fw-bold" 
+                      style="white-space: nowrap;" 
+                      t-options="{'widget': 'monetary', 'display_currency': website.currency_id}"/>
+            </h6>
+        </xpath>
+    </template>
+</odoo>

@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+    <t t-name="intelliwise_custom.BarcodeScanBox">
+        <div class="o_barcode_scan_box text-center p-4 border rounded bg-light mx-auto" 
+             style="border: 2px dashed #dee2e6; max-width: 600px; margin-top: 20px; margin-bottom: 20px;">
+            
+            <div class="mb-3" t-on-click="onScan" style="cursor: pointer;">
+                <i class="fa fa-barcode fa-3x text-primary mb-2" title="Tap to Scan"></i>
+                <h3 class="text-muted">Tap to Scan</h3>
+            </div>
+
+            <div class="text-muted mb-2 font-weight-bold">- Insert SKU OR Barcode -</div>
+
+            <div class="d-flex justify-content-center">
+                <input type="text" 
+                       class="form-control form-control-lg text-center" 
+                       style="max-width: 80%; font-weight: bold; border: 1px solid #ccc;"
+                       placeholder="Type Barcode &amp; Press Enter"
+                       t-att-value="props.record.data[props.name] || ''"
+                       t-on-change="onManualInput"
+                       t-on-keydown="onKeydown"/>
+            </div>
+        </div>
+    </t>
+</templates>

@@ -1,0 +1,185 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_warehouse_checking_wizard_form" model="ir.ui.view">
+        <field name="name">warehouse.checking.wizard.form</field>
+        <field name="model">warehouse.checking.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Select Lines to Add">
+                <sheet>
+                    <field name="has_dropship_lines" invisible="1"/>
+                    <field name="has_mismatch_lines" invisible="1"/>
+                    <div class="alert alert-info" role="alert">
+                        <strong>Check</strong> the boxes for lines you want to add, then click <strong>Add Selected</strong>.
+                    </div>
+                    
+                    <div class="alert alert-danger" role="alert" invisible="not has_dropship_lines">
+                        <strong>Warning:</strong> Lines highlighted in red indicate dropshipping orders.
+                    </div>
+                    
+                    <div class="alert alert-warning" role="alert" invisible="not has_mismatch_lines">
+                        <strong>Notice:</strong> Lines highlighted in yellow indicate mismatching addresses.
+                    </div>
+
+                    <group>
+                        <field name="product_id"/>
+                    </group>
+                    <field name="line_ids">
+                        <list editable="bottom" create="0" delete="1" multi_edit="1" 
+                            decoration-danger="is_dropship == True"
+                            decoration-warning="is_address_mismatch == True and is_dropship == False">
+                            <field name="is_selected" widget="boolean_toggle" width="50px" string="Add?"/>
+                            <field name="delivery_picking_id" string="Delivery N."/>
+                            <field name="customer_id"/>
+                            <field name="partner_shipping_id" string="Delivery Addr" optional="show"/>
+                            <field name="is_address_mismatch" column_invisible="1"/>
+                            <field name="sale_order_id"/>
+                            <field name="shipping_method" string="Ship Method" optional="show"/>
+                            <field name="purchase_order_id"/>
+                            <field name="open_qty"/>
+                            <field name="fulfill_qty"/>
+                            <field name="pallet_id" 
+                                domain="[('partner_id', '=', customer_id), ('state', '=', 'open')]"
+                                context="{'default_partner_id': customer_id}"/>
+                            <field name="is_dropship" column_invisible="1"/>
+                        </list>
+                    </field>
+                </sheet>
+                <footer>
+                    <button name="action_add_selected" string="Add Selected to Session" type="object" class="btn-primary"/>
+                    <button string="Cancel" class="btn-secondary" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+    <record id="view_warehouse_checking_line_tree" model="ir.ui.view">
+        <field name="name">warehouse.checking.line.tree</field>
+        <field name="model">warehouse.checking.line</field>
+        <field name="arch" type="xml">
+            <list create="0" delete="1" multi_edit="1" 
+                  decoration-danger="is_dropship == True or is_address_mismatch == True" 
+                  string="Select Line" editable="bottom">
+                <field name="delivery_picking_id" string="Delivery N."/>
+                <field name="customer_id" string="Customer"/>
+                <field name="partner_shipping_id" string="Delivery Addr" optional="show"/>
+                <field name="is_address_mismatch" column_invisible="1"/>
+                <field name="sale_order_id" string="SO #"/>
+                <field name="shipping_method" string="Ship Method" optional="show"/>
+                <field name="purchase_order_id" string="PO #"/>
+                <field name="open_qty" string="Open Qty"/>
+                <field name="fulfill_qty" string="Fulfill Qty"/>
+                <field name="pallet_id" 
+                       string="Pallet #"
+                       placeholder="Select Pallet" 
+                       domain="[('partner_id', '=', customer_id), ('state', '=', 'open')]"
+                       context="{'default_partner_id': customer_id}"
+                       required="1"/>
+                <field name="is_dropship" column_invisible="1"/>
+                <field name="product_id" column_invisible="1"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_warehouse_checking_form" model="ir.ui.view">
+        <field name="name">warehouse.checking.session.form</field>
+        <field name="model">warehouse.checking.session</field>
+        <field name="arch" type="xml">
+            <form>
+                <header>
+                    <button name="action_validate" string="Finish &amp; Validate Session" 
+                            type="object" class="btn-primary"
+                            invisible="state == 'done'"/>
+
+                    <button name="action_reset_draft" 
+                            string="Reset to Draft" 
+                            type="object" 
+                            class="btn-secondary"
+                            invisible="state != 'done'"
+                            confirm="This will undo the receipt and reservations. Are you sure?"/>
+
+                    <field name="state" widget="statusbar"/>
+                </header>
+                <sheet>
+                    <div class="oe_title">
+                        <h1><field name="name"/></h1>
+                    </div>
+                    
+                    <group>
+                        <field name="partner_id" readonly="state == 'done'" 
+                               options="{'no_create': True}" placeholder="Select Vendor..."/>
+                    </group>
+                    
+                   <div class="text-center" 
+                         style="background-color: #f8f9fa; border: 2px dashed #dee2e6; padding: 40px; margin: 20px 0; border-radius: 10px;"
+                         invisible="not partner_id or state == 'done'">
+                        <field name="scan_sku" 
+                                widget="intelliwise_scan_box" 
+                                nolabel="1" 
+                                readonly="state == 'done'" 
+                                invisible="not partner_id"/>
+                        
+                        <br/><br/>
+                        <button name="action_search_sku" string="Find Item" type="object" class="btn btn-primary btn-lg"/>
+                    </div>
+
+                    <group string="Scanned Items History">
+                        <field name="line_ids" readonly="state != 'draft'">
+                            <list decoration-danger="is_dropship == True or is_address_mismatch == True">
+                                <field name="product_id" string="Product"/>
+                                <field name="delivery_picking_id" string="Delivery N."/>
+                                
+                                <field name="customer_id" string="Customer" optional="show"/>
+                                <field name="partner_invoice_id" string="Billing Addr" optional="hide"/>
+                                
+                                <field name="partner_shipping_id" string="Delivery Addr" 
+                                       decoration-bf="is_address_mismatch == True"
+                                       optional="show"/>
+                                <field name="is_address_mismatch" column_invisible="1"/>
+                                
+                                <field name="sale_order_id" string="SO #"/>
+                                <field name="shipping_method" string="Ship Method" optional="show"/>
+                                <field name="purchase_order_id" string="PO #"/>
+                                
+                                <field name="open_qty" string="Quantity"/>
+                                <field name="fulfill_qty" string="Scanned Qty" sum="Total Scanned"/>
+                                <field name="pallet_id" 
+                                    string="Pallet #"
+                                    placeholder="Select Pallet" 
+                                    domain="[('partner_id', '=', customer_id), ('state', '=', 'open')]"
+                                    context="{'default_partner_id': customer_id}"/>
+
+                                <field name="is_dropship" column_invisible="1"/>
+                            </list>
+                        </field>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_warehouse_checking_tree" model="ir.ui.view">
+        <field name="name">warehouse.checking.session.tree</field>
+        <field name="model">warehouse.checking.session</field>
+        <field name="arch" type="xml">
+            <list decoration-success="state == 'done'" decoration-info="state == 'draft'">
+                <field name="name"/>
+                <field name="partner_id"/>
+                <field name="state" widget="badge" 
+                       decoration-success="state == 'done'" 
+                       decoration-info="state == 'draft'"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="action_warehouse_checking" model="ir.actions.act_window">
+        <field name="name">Warehouse Checking</field>
+        <field name="res_model">warehouse.checking.session</field>
+        <field name="view_mode">list,form</field>
+        <field name="target">current</field>
+    </record>
+
+    <menuitem id="menu_warehouse_checking" 
+              name="Checking Table" 
+              parent="stock.menu_stock_warehouse_mgmt" 
+              action="action_warehouse_checking" 
+              sequence="20"/>
+</odoo>

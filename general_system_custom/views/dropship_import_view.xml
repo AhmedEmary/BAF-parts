@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    
+    <record id="view_dropship_import_tree" model="ir.ui.view">
+        <field name="name">dropship.import.tree</field>
+        <field name="model">dropship.import</field>
+        <field name="arch" type="xml">
+            <list decoration-info="state == 'draft'" decoration-success="state == 'done'">
+                <field name="name"/>
+                <field name="customer_id" string="Default Customer"/>
+                <field name="supplier_doc_number"/>
+                <field name="create_date"/>
+                <field name="state" widget="badge" 
+                       decoration-info="state == 'draft'" 
+                       decoration-warning="state == 'processed'" 
+                       decoration-success="state == 'done'"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_dropship_import_form" model="ir.ui.view">
+        <field name="name">dropship.import.form</field>
+        <field name="model">dropship.import</field>
+        <field name="arch" type="xml">
+            <form string="Dropship Import">
+                <header>
+                    <button name="action_process_file" 
+                            string="Process" 
+                            type="object" 
+                            class="btn-primary" 
+                            invisible="state != 'draft'"/>
+                    
+                    <button name="action_confirm" 
+                            string="Confirm &amp; Create Pallets" 
+                            type="object" 
+                            class="btn-primary" 
+                            invisible="state != 'processed'"/>
+                    
+                    <field name="state" widget="statusbar"/>
+                </header>
+                <sheet>
+                    <div class="oe_title">
+                        <h1><field name="name"/></h1>
+                    </div>
+                    <group>
+                        <group>
+                            <field name="customer_id" readonly="state != 'draft'"/>
+                            <field name="supplier_doc_number" readonly="state == 'done'"/>
+                        </group>
+                        <group>
+                            <field name="file_data" filename="file_name" readonly="state != 'draft'"/>
+                            <field name="file_name" invisible="1"/>
+                        </group>
+                    </group>
+                    
+                    <notebook>
+                        <page string="Lines">
+                            <field name="line_ids" readonly="state == 'done'">
+                                <list editable="bottom" create="0">
+                                    <field name="product_id" readonly="1"/>
+                                    <field name="qty"/>
+                                    
+                                    <field name="available_po_ids" column_invisible="True"/>
+                                    <field name="po_id" 
+                                           domain="[('id', 'in', available_po_ids)]" 
+                                           options="{'no_create': True}"/>
+                                           
+                                    <field name="po_line_id" optional="hide"/>
+                                    <field name="customer_id" readonly="1" optional="show"/>
+                                    <field name="pallet_raw" string="Pallet (Excel)"/>
+                                </list>
+                            </field>
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_dropship_import" model="ir.actions.act_window">
+        <field name="name">Import Dropship</field>
+        <field name="res_model">dropship.import</field>
+        <field name="view_mode">list,form</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                Create a new Dropship Import
+            </p>
+            <p>
+                Upload Excel with columns: SKU, Quantity, PO Number (Optional), Pallet Number (Optional).
+            </p>
+        </field>
+    </record>
+
+</odoo>

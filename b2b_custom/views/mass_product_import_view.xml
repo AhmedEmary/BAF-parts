@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_mass_product_import_form" model="ir.ui.view">
+        <field name="name">mass.product.import.form</field>
+        <field name="model">mass.product.import</field>
+        <field name="arch" type="xml">
+            <form string="Mass Product Import">
+
+                <field name="state" invisible="1"/>
+
+                <div invisible="state != 'upload'">
+                    <div class="bg-light border border-info rounded p-3 mb-3" style="font-size: 13px;">
+                        <h4 class="text-info mb-2">
+                            <i class="fa fa-info-circle" title="Info"/> User Guide: High-Speed Mass Product Import
+                        </h4>
+                        <p>This tool imports or updates hundreds of thousands of products directly into the database at extreme speeds. Upload a <b>.CSV</b> or <b>.XLSX</b> file to begin mapping your columns.</p>
+
+                        <hr class="border-info"/>
+                        <h5 class="mb-1"><strong>Important Rules</strong></h5>
+                        <ul class="mb-0">
+                            <li><strong>Required fields:</strong> Your file MUST contain a <strong>SKU</strong> and a <strong>Brand</strong> column.</li>
+                            <li><strong>Origin / Country:</strong> MUST be the <strong>2-letter ISO Country Code</strong> (e.g., <code>IT</code>, <code>US</code>, <code>FR</code>).</li>
+                            <li><strong>Updating Existing:</strong> If the Brand and SKU already exist, the system will instantly <strong>update</strong> the product.</li>
+                        </ul>
+                    </div>
+
+                    <group>
+                        <field name="file_data"
+                               filename="file_name"
+                               widget="binary"
+                               options="{'accepted_file_extensions': '.csv,.xlsx'}"
+                               required="state == 'upload'"/>
+                        <field name="file_name" invisible="1"/>
+                    </group>
+                </div>
+
+                <div invisible="state != 'mapping'">
+                    <div class="bg-light border border-warning rounded p-3 mb-3">
+                        <span class="text-warning fw-bold"><i class="fa fa-list-alt" title="Map Columns"/> Map your columns:</span> The system has guessed the mapping based on your headers. Please verify and assign the correct Odoo Field to each column. Leave columns you don't want to import blank.
+                    </div>
+
+                    <field name="mapping_ids">
+                        <list editable="bottom" create="0" delete="0">
+                            <field name="column_index" readonly="1" force_save="1" column_invisible="True"/>
+                            <field name="file_column_name" readonly="1" force_save="1"/>
+                            <field name="field_name"/>
+                        </list>
+                    </field>
+                </div>
+
+                <footer>
+                    <button name="action_read_headers"
+                            string="Read File Headers"
+                            type="object"
+                            class="btn-primary"
+                            icon="fa-arrow-right"
+                            invisible="state != 'upload'"/>
+
+                    <button name="action_import_direct"
+                            string="Confirm &amp; Import Now"
+                            type="object"
+                            class="btn-danger"
+                            icon="fa-upload"
+                            invisible="state != 'mapping'"
+                            confirm="MASS IMPORT WARNING: You are about to import thousands of records. Once you click OK, the screen will freeze. Please DO NOT refresh the page. Do you want to proceed?"/>
+
+                    <button name="action_reset"
+                            string="Back to Upload"
+                            type="object"
+                            class="btn-secondary"
+                            invisible="state != 'mapping'"/>
+
+                    <button string="Cancel" class="btn-secondary" special="cancel" icon="fa-times"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_mass_product_import_leo" model="ir.actions.act_window">
+        <field name="name">Mass Direct Products Import</field>
+        <field name="res_model">mass.product.import</field>
+        <field name="view_mode">form</field>
+        <field name="target">new</field>
+    </record>
+
+    <menuitem id="menu_mass_product_import_leo"
+              name="Mass Direct Products Import"
+              parent="sale.prod_config_main"
+              action="action_mass_product_import_leo"
+              sequence="99"/>
+</odoo>

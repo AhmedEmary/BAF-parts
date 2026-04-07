@@ -1,0 +1,147 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="action_server_send_grouped_po" model="ir.actions.server">
+        <field name="name">Send PO with Excel</field>
+        <field name="model_id" ref="purchase.model_purchase_order"/>
+        <field name="binding_model_id" ref="purchase.model_purchase_order"/>
+        <field name="binding_view_types">list</field>
+        <field name="state">code</field>
+        <field name="code">
+            action = records.action_send_grouped_po_email()
+        </field>
+    </record>
+
+    <record id="view_purchase_order_line_tree_intelliwise" model="ir.ui.view">
+        <field name="name">purchase.order.line.tree.intelliwise</field>
+        <field name="model">purchase.order.line</field>
+        <field name="arch" type="xml">
+            <list string="PO Lines" create="0" edit="1" editable="bottom" decoration-info="product_qty > 0" multi_edit="1">
+                <field name="product_id" readonly="1"/>
+                <field name="product_qty" string="Qty"/>
+                <field name="name" optional="hide"/>
+                <field name="retail_price" string="Retail" optional="show"/>
+                <field name="disc_code_1" string="Disc 1%" optional="show"/>
+                <field name="disc_code_2" string="Disc 2%" optional="show"/>
+                <field name="surcharge" string="Surcharge" optional="show"/>
+                <field name="price_unit" string="Unit Price" readonly="0" force_save="1"/>
+                <field name="price_subtotal" widget="monetary"/>
+                <field name="qty_received" optional="show"/>
+                <field name="qty_split" string="Qty Allocated" optional="hide" readonly="1"/>
+                <field name="qty_open" string="Qty Open" optional="hide"/>
+                <field name="qty_invoiced" optional="show"/>
+                <field name="tax_ids" widget="many2many_tags" optional="show"/>
+                <field name="state" widget="badge" decoration-success="state == 'purchase'" decoration-info="state == 'draft'"/>
+                <field name="order_id" optional="hide"/>
+                <field name="currency_id" column_invisible="1"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_purchase_order_kpis_tree_inherit_send_status" model="ir.ui.view">
+        <field name="name">purchase.order.tree.inherit.send.status</field>
+        <field name="model">purchase.order</field>
+        <field name="inherit_id" ref="purchase.purchase_order_kpis_tree"/>
+        <field name="arch" type="xml">
+            <xpath expr="//list" position="attributes">
+                <attribute name="decoration-danger">send_po_status == 'pending'</attribute>
+            </xpath>
+            
+            <xpath expr="//field[@name='date_approve']" position="after">
+                <field name="send_po_status" widget="badge" 
+                       decoration-success="send_po_status == 'success'" 
+                       decoration-warning="send_po_status == 'pending'"/>
+            </xpath>
+        </field>
+    </record>
+    
+    <record id="view_purchase_order_tree_inherit_send_status" model="ir.ui.view">
+        <field name="name">purchase.order.tree.inherit.send.status</field>
+        <field name="model">purchase.order</field>
+        <field name="inherit_id" ref="purchase.purchase_order_view_tree"/>
+        <field name="arch" type="xml">
+            <xpath expr="//list" position="attributes">
+                <attribute name="decoration-danger">send_po_status == 'pending'</attribute>
+            </xpath>
+            
+            <xpath expr="//field[@name='partner_id']" position="after">
+                <field name="send_po_status" widget="badge" 
+                       decoration-success="send_po_status == 'success'" 
+                       decoration-warning="send_po_status == 'pending'"/>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="purchase_order_view_form_inherit_custom_layout" model="ir.ui.view">
+        <field name="name">purchase.order.form.inherit.custom.layout</field>
+        <field name="model">purchase.order</field>
+        <field name="inherit_id" ref="purchase.purchase_order_form"/>
+        <field name="arch" type="xml">
+            
+            <xpath expr="//field[@name='order_line']/list//field[@name='name']" position="attributes">
+                <attribute name="optional">hide</attribute>
+            </xpath>
+            <xpath expr="//field[@name='order_line']/list//field[@name='date_planned']" position="attributes">
+                <attribute name="optional">hide</attribute>
+            </xpath>
+
+            <xpath expr="//field[@name='order_line']/list//field[@name='price_unit']" position="before">
+                <field name="retail_price" string="Retail" optional="show"/>
+                <field name="disc_code_1" string="Disc 1%" optional="show"/>
+                <field name="disc_code_2" string="Disc 2%" optional="show"/>
+                <field name="surcharge" string="Surcharge" optional="show"/>
+            </xpath>
+
+            <xpath expr="//field[@name='order_line']/list//field[@name='price_unit']" position="attributes">
+                <attribute name="string">Unit Price</attribute>
+                <attribute name="readonly">0</attribute>
+                <attribute name="force_save">1</attribute>
+            </xpath>
+
+            <xpath expr="//field[@name='order_line']/list//field[@name='product_qty']" position="replace">
+                </xpath>
+            <xpath expr="//field[@name='order_line']/list//field[@name='product_id']" position="after">
+                <field name="product_qty" string="Qty"/>
+            </xpath>
+
+            <xpath expr="//field[@name='order_line']/list//field[@name='tax_ids']" position="replace">
+                </xpath>
+            <xpath expr="//field[@name='order_line']/list//field[@name='price_subtotal']" position="after">
+                <field name="qty_split" string="Qty Allocated" optional="hide" readonly="1"/>
+                <field name="qty_open" string="Qty Open" optional="hide"/>
+                <field name="tax_ids" widget="many2many_tags" optional="show" string="Taxes"/>
+            </xpath>
+
+            <div name="button_box" position="inside">
+                <button name="action_view_sale_order"
+                        type="object"
+                        class="oe_stat_button"
+                        icon="fa-dollar"
+                        invisible="not sale_order_id">
+                    <div class="o_stat_info">
+                        <span class="o_stat_text">Sales Order</span>
+                    </div>
+                </button>
+
+                <button name="action_view_po_lines"
+                        type="object"
+                        class="oe_stat_button"
+                        icon="fa-list">
+                    <field name="line_count" widget="statinfo" string="PO Lines"/>
+                </button>
+                
+                <button name="action_view_pallets"
+                        type="object"
+                        class="oe_stat_button"
+                        icon="fa-cubes"
+                        invisible="pallet_count == 0">
+                    <field name="pallet_count" widget="statinfo" string="Pallets"/>
+                </button>
+            </div>
+            
+            <xpath expr="//field[@name='date_order']" position="after">
+                <field name="send_po_status" readonly="1"/>
+            </xpath>
+            
+        </field>
+    </record>
+</odoo>

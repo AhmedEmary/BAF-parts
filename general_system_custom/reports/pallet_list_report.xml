@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="action_report_packing_list_document" model="ir.actions.report">
+        <field name="name">Packing List</field>
+        <field name="model">warehouse.pallet</field>
+        <field name="report_type">qweb-pdf</field>
+        <field name="report_name">intelliwise_custom.report_packing_list_document</field>
+        <field name="report_file">intelliwise_custom.report_packing_list_document</field>
+        <field name="print_report_name">'Packing List - %s' % (object.name)</field>
+        <field name="binding_model_id" ref="model_warehouse_pallet"/>
+        <field name="binding_type">report</field>
+    </record>
+
+    <template id="report_packing_list_document">
+        <t t-call="web.html_container">
+            <t t-foreach="docs" t-as="o">
+                <t t-call="web.external_layout">
+                    <div class="page">
+                        <div class="oe_structure"/>
+                        
+                        <h2 class="mt-4">Packing List: <span t-field="o.name"/></h2>
+                        
+                        <div class="row mt-4 mb-4" id="informations">
+                            <div class="col-auto mw-100 mb-2">
+                                <strong>Customer:</strong>
+                                <p class="m-0" t-field="o.partner_id"/>
+                                <div t-if="o.partner_id.street">
+                                    <span t-field="o.partner_id.street"/>
+                                    <span t-if="o.partner_id.city" t-field="o.partner_id.city"/>
+                                </div>
+                            </div>
+                            <div class="col-auto mw-100 mb-2">
+                                <strong>Date:</strong>
+                                <p class="m-0" t-field="o.ready_date"/>
+                            </div>
+                            <div class="col-auto mw-100 mb-2">
+                                <strong>Shipment Method:</strong>
+                                <p class="m-0" t-field="o.shipment_method"/>
+                            </div>
+                        </div>
+
+                        <div class="row mb-4">
+                            <div class="col-12">
+                                <table class="table table-sm table-bordered">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>Dimensions (L x W x H)</th>
+                                            <th>Gross Weight</th>
+                                            <th>Packing Ref</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr>
+                                            <td>
+                                                <span t-field="o.length"/> x 
+                                                <span t-field="o.width"/> x 
+                                                <span t-field="o.height"/> cm
+                                            </td>
+                                            <td><span t-field="o.weight"/> kg</td>
+
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <h3>Contents</h3>
+                        <table class="table table-sm table-striped mt-2">
+                            <thead>
+                                <tr>
+                                    <th>SKU</th>
+                                    <th>Description</th>
+                                    <th>Sale Order Ref <span class="text-muted">(customer po #)</span></th>
+                                    <th>Purchase Order Ref</th>
+                                    <th class="text-end">Quantity</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr t-foreach="o.line_ids" t-as="line">
+                                    <td><span t-field="line.product_id.default_code"/></td>
+                                    <td><span t-field="line.product_id.name"/></td>
+                                    <td>
+                                        <span t-if="line.sale_order_id" t-field="line.sale_order_id.name"/>
+                                        <span t-if="line.sale_order_id.customer_po" class="text-muted"> (<span t-field="line.sale_order_id.customer_po"/>)</span>
+                                    </td>
+                                    <td>
+                                        <span t-if="line.purchase_order_id" t-field="line.purchase_order_id.name"/>
+                                    </td>
+                                    <td class="text-end">
+                                        <span t-field="line.fulfill_qty"/>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+
+                        <div class="oe_structure"/>
+                    </div>
+                </t>
+            </t>
+        </t>
+    </template>
+</odoo>
