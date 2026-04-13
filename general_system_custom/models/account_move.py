@@ -54,33 +54,6 @@ class AccountMove(models.Model):
         help="Check this box if this invoice represents a Down Payment."
     )
 
-    @api.model_create_multi
-    def create(self, vals_list):
-        try:
-            eu_country_codes = set(self.env.ref('base.europe').country_ids.mapped('code'))
-        except ValueError:
-            eu_country_codes = set()
-
-        for vals in vals_list:
-            if vals.get('move_type') == 'out_invoice' and vals.get('partner_id'):
-                partner = self.env['res.partner'].browse(vals['partner_id'])
-                if partner.country_id.code in eu_country_codes and not partner.vat and not getattr(partner, 'l10n_it_codice_fiscale', False):
-                    vals['move_type'] = 'out_receipt'
-
-                    # Ensure the current user has access to Sale Receipts
-                    receipt_group = self.env.ref('account.group_sale_receipts', raise_if_not_found=False)
-                    if receipt_group:
-                        base_group = self.env.ref('base.group_user', raise_if_not_found=False)
-                        if base_group and receipt_group not in base_group.implied_ids:
-                            base_group.sudo().write({'implied_ids': [(4, receipt_group.id)]})
-
-                        if self.env.user.id not in receipt_group.all_user_ids.ids:
-                            receipt_group.sudo().write({'users': [(4, self.env.user.id)]})
-
-        moves = super(AccountMove, self).create(vals_list)
-
-        return moves
-
     @api.depends('pallet_ids')
     def _compute_pallet_count(self):
         for move in self:
