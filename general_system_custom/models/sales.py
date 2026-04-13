@@ -379,21 +379,3 @@ class SaleOrder(models.Model):
             'url': f'/web/content/{attachment.id}?download=true',
             'target': 'self',
         }
-
-    def _prepare_invoice(self):
-        invoice_vals = super()._prepare_invoice()
-        partner = self.partner_id
-        eu_country_codes = set(self.env.ref('base.europe').country_ids.mapped('code'))
-
-        if partner.country_code in eu_country_codes and not partner.vat and not partner.l10n_it_codice_fiscale:
-            invoice_vals['move_type'] = 'out_receipt'
-            receipt_group = self.env.ref('account.group_sale_receipts', raise_if_not_found=False)
-            if receipt_group:
-                base_group = self.env.ref('base.group_user')
-                if receipt_group not in base_group.implied_ids:
-                    base_group.sudo().write({'implied_ids': [(4, receipt_group.id)]})
-
-                if self.env.user.id not in receipt_group.all_user_ids.ids:
-                    receipt_group.sudo().write({'users': [(4, self.env.user.id)]})
-
-        return invoice_vals
