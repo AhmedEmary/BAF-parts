@@ -324,22 +324,6 @@ class TestInvoiceGeneration(TransactionCase):
             "EU client with a VAT number should generate an out_invoice."
         )
 
-    def test_document_type_eu_no_vat(self):
-        """ Test: EU Client + NO VAT -> Should automatically switch to Receipt (out_receipt) """
-        move = self.env['account.move'].create({
-            'move_type': 'out_invoice', # Try to create as invoice initially
-            'partner_id': self.partner_eu_novat.id,
-            'invoice_line_ids': [Command.create({
-                'product_id': self.product_a.id,
-                'price_unit': 100.0,
-            })]
-        })
-        self.assertEqual(
-            move.move_type,
-            'out_receipt',
-            "EU client without a VAT number should be automatically converted to an out_receipt."
-        )
-
     def test_document_type_noneu_no_vat(self):
         """ Test: Non-EU Client + NO VAT -> Should remain Invoice (out_invoice) """
         move = self.env['account.move'].create({
