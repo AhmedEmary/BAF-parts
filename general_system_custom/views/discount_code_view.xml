@@ -7,9 +7,6 @@
             <search>
                 <field name="name"/>
                 <field name="partner_ids"/>
-                <searchpanel>
-                    <field name="partner_ids" icon="fa-users" select="multi" string="Filter by Supplier"/>
-                </searchpanel>
             </search>
         </field>
     </record>
