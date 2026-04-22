@@ -20,8 +20,6 @@
                 <field name="product_qty" string="Qty"/>
                 <field name="name" optional="hide"/>
                 <field name="retail_price" string="Retail" optional="show"/>
-                <field name="disc_code_1" string="Disc 1%" optional="show"/>
-                <field name="disc_code_2" string="Disc 2%" optional="show"/>
                 <field name="surcharge" string="Surcharge" optional="show"/>
                 <field name="price_unit" string="Unit Price" readonly="0" force_save="1"/>
                 <field name="price_subtotal" widget="monetary"/>
@@ -45,15 +43,15 @@
             <xpath expr="//list" position="attributes">
                 <attribute name="decoration-danger">send_po_status == 'pending'</attribute>
             </xpath>
-            
+
             <xpath expr="//field[@name='date_approve']" position="after">
-                <field name="send_po_status" widget="badge" 
-                       decoration-success="send_po_status == 'success'" 
+                <field name="send_po_status" widget="badge"
+                       decoration-success="send_po_status == 'success'"
                        decoration-warning="send_po_status == 'pending'"/>
             </xpath>
         </field>
     </record>
-    
+
     <record id="view_purchase_order_tree_inherit_send_status" model="ir.ui.view">
         <field name="name">purchase.order.tree.inherit.send.status</field>
         <field name="model">purchase.order</field>
@@ -62,10 +60,10 @@
             <xpath expr="//list" position="attributes">
                 <attribute name="decoration-danger">send_po_status == 'pending'</attribute>
             </xpath>
-            
+
             <xpath expr="//field[@name='partner_id']" position="after">
-                <field name="send_po_status" widget="badge" 
-                       decoration-success="send_po_status == 'success'" 
+                <field name="send_po_status" widget="badge"
+                       decoration-success="send_po_status == 'success'"
                        decoration-warning="send_po_status == 'pending'"/>
             </xpath>
         </field>
@@ -76,7 +74,7 @@
         <field name="model">purchase.order</field>
         <field name="inherit_id" ref="purchase.purchase_order_form"/>
         <field name="arch" type="xml">
-            
+
             <xpath expr="//field[@name='order_line']/list//field[@name='name']" position="attributes">
                 <attribute name="optional">hide</attribute>
             </xpath>
@@ -86,8 +84,6 @@
 
             <xpath expr="//field[@name='order_line']/list//field[@name='price_unit']" position="before">
                 <field name="retail_price" string="Retail" optional="show"/>
-                <field name="disc_code_1" string="Disc 1%" optional="show"/>
-                <field name="disc_code_2" string="Disc 2%" optional="show"/>
                 <field name="surcharge" string="Surcharge" optional="show"/>
             </xpath>
 
