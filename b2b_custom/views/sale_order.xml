@@ -7,8 +7,6 @@
         <field name="arch" type="xml">
             <xpath expr="//field[@name='order_line']/list//field[@name='price_unit']" position="before">
                <field name="retail_price"/>
-                <field name="disc_code_1"/>
-                <field name="disc_code_2"/>
                 <field name="surcharge"/>
             </xpath>
         </field>

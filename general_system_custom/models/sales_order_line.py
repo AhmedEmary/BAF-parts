@@ -47,6 +47,23 @@ class SaleOrderLine(models.Model):
             reserved = line.reserved_qty if line.reserve_qty else 0.0
             line.qty_to_purchase = max(0, line.product_uom_qty - reserved - line.purchased_qty)
 
+    @api.depends('product_id')
+    def _compute_stock_quantity(self):
+        for line in self:
+            # Assuming you want to get the available stock of the product
+            if line.product_id:
+                line.stock_quantity = line.product_id.qty_available
+            else:
+                line.stock_quantity = 0.0
+
+    @api.depends('product_uom_qty', 'reserved_qty')
+    def _compute_percentage_reserved(self):
+        for line in self:
+            if line.product_uom_qty > 0:
+                line.percentage_reserved = (line.reserved_qty / line.product_uom_qty) * 100.0
+            else:
+                line.percentage_reserved = 0.0
+
     def action_create_purchase_order(self):
         lines_to_process = self.filtered(lambda l: l.qty_to_purchase > 0)
 
@@ -65,21 +82,18 @@ class SaleOrderLine(models.Model):
                 grouped_lines[vendor] = []
             grouped_lines[vendor].append(line)
 
-        # Context to silence the chatter
         ctx = {
-            'tracking_disable': True,        # Stop tracking field changes (audit trail)
-            'mail_notrack': True,            # Stop standard mail tracking
-            'mail_create_nolog': True,       # Stop "Purchase Order created" message
-            'mail_create_nosubscribe': True,  # Stop auto-subscribing the creator/partner
+            'tracking_disable': True,
+            'mail_notrack': True,
+            'mail_create_nolog': True,
+            'mail_create_nosubscribe': True,
         }
 
         created_pos = self.env['purchase.order']
-        # Prepare the models with the context already applied
         PurchaseOrder = self.env['purchase.order'].with_context(ctx)
         PurchaseOrderLine = self.env['purchase.order.line'].with_context(ctx)
 
         for vendor, so_lines in grouped_lines.items():
-            # Create PO without logging 'Purchase Order Created'
             po = PurchaseOrder.create({
                 'partner_id': vendor.id,
                 'origin': so_lines[0].order_id.name,
@@ -89,25 +103,12 @@ class SaleOrderLine(models.Model):
             })
             created_pos += po
 
-            # Optimization: Prepare list of vals for batch create (much faster than loop create)
             pol_vals_list = []
-
             for line in so_lines:
-                retail_price = line.price_unit
-
-                # Logic for discounts
-                def get_pct(code_record):
-                    if not code_record:
-                        return 0.0
-                    val = code_record.value_ids.filtered(lambda v: v.partner_id == vendor)
-                    return val[0].percentage if val else 0.0
-
-                d1_pct = get_pct(line.product_id.disc_code_1)
-                d2_pct = get_pct(line.product_id.disc_code_2)
-
-                price_after_d1 = retail_price * (1 - (d1_pct / 100.0))
-                price_after_d2 = price_after_d1 * (1 - (d2_pct / 100.0))
-                final_cost = price_after_d2 + line.product_id.surcharge
+                # Use BAF purchase price engine
+                supplier_code = getattr(vendor, 'baf_supplier_code', 'SUP1') or 'SUP1'
+                baf_price = line.product_id.baf_get_purchase_price(supplier_code=supplier_code)
+                final_cost = baf_price if baf_price is not None else line.price_unit
 
                 pol_vals_list.append({
                     'order_id': po.id,
@@ -115,106 +116,22 @@ class SaleOrderLine(models.Model):
                     'name': line.name,
                     'product_qty': line.qty_to_purchase,
                     'product_uom_id': line.product_uom_id.id,
-                    'retail_price': retail_price,
+                    'retail_price': line.price_unit,
                     'price_unit': final_cost,
-                    'disc_code_1': d1_pct,
-                    'disc_code_2': d2_pct,
-                    'surcharge': line.product_id.surcharge,
+                    'surcharge': line.product_id.surcharge or 0.0,
                     'date_planned': fields.Datetime.now(),
                 })
 
             if pol_vals_list:
                 PurchaseOrderLine.create(pol_vals_list)
 
+        if not created_pos:
+            raise UserError("No Purchase Orders were created.")
+
         return {
-            'name': 'Created Purchase Orders',
+            'name': 'Purchase Orders',
             'type': 'ir.actions.act_window',
             'res_model': 'purchase.order',
             'view_mode': 'list,form',
             'domain': [('id', 'in', created_pos.ids)],
         }
-
-    @api.depends('reserved_qty', 'product_uom_qty', 'reserve_qty', 'purchased_qty')
-    def _compute_percentage_reserved(self):
-        for line in self:
-            if line.reserve_qty and line.product_uom_qty > 0:
-                line.percentage_reserved = ((line.reserved_qty + line.purchased_qty) / line.product_uom_qty) * 100
-            else:
-                line.percentage_reserved = 0.0
-
-    @api.depends('product_id', 'product_id.free_qty')
-    def _compute_stock_quantity(self):
-        for line in self:
-            if not line.product_id:
-                line.stock_quantity = 0
-                continue
-
-            official_free_qty = line.product_id.free_qty
-            line_id = line._origin.id if line._origin else line.id
-            domain = [
-                ('product_id', '=', line.product_id.id),
-                ('state', 'in', ['draft', 'sent']),
-                ('reserve_qty', '=', True),
-            ]
-            if isinstance(line_id, int):
-                domain.append(('id', '!=', line_id))
-
-            other_draft_lines = self.env['sale.order.line'].search(domain)
-            reserved_by_others = sum(other_draft_lines.mapped('reserved_qty'))
-            base_available = max(0, official_free_qty - reserved_by_others)
-
-            if line.state == 'sale':
-                current_moves = line.move_ids.filtered(lambda m: m.state not in ['done', 'cancel'])
-                already_held_by_me = sum(current_moves.mapped('quantity'))
-                line.stock_quantity = base_available + already_held_by_me
-            else:
-                line.stock_quantity = base_available
-
-    def write(self, vals):
-        res = super().write(vals)
-        if any(field in vals for field in ['reserve_qty', 'reserved_qty', 'product_uom_qty']):
-            for line in self:
-                moves = line.move_ids.filtered(lambda m: m.state not in ['done', 'cancel'])
-                if moves:
-                    new_qty = line.reserved_qty if line.reserve_qty else 0.0
-                    moves.write({'reserved_qty_custom': new_qty})
-                    moves._do_unreserve()
-                    if line.reserve_qty and new_qty > 0:
-                        moves._action_assign()
-        return res
-
-    @api.onchange('product_uom_qty', 'product_id')
-    def _stock_reservation(self):
-        for line in self:
-            line.reserved_qty = max(0, min(line.product_uom_qty, line.stock_quantity))
-
-    def _prepare_procurement_values(self):
-        res = super()._prepare_procurement_values()
-        res['reserved_qty_custom'] = self.reserved_qty
-        return res
-
-    @api.constrains('reserve_qty', 'reserved_qty', 'product_id', 'product_uom_qty')
-    def _check_stock_availability(self):
-        for line in self:
-            if line.reserve_qty and line.reserved_qty > 0:
-                uom_name = line.product_uom_id.name if line.product_uom_id else "Units"
-                if line.reserved_qty > line.product_uom_qty:
-                    raise UserError("Cannot reserve more than required.")
-                if line.reserved_qty > line.stock_quantity:
-                    raise UserError(f"Cannot reserve more than available ({line.stock_quantity} {uom_name}).")
-
-
-class MassVendorWizard(models.TransientModel):
-    _name = 'mass.vendor.wizard'
-    _description = 'Mass Assign Vendor to SO Lines'
-
-    vendor_id = fields.Many2one('res.partner', string='Vendor', required=True)
-
-    def action_apply_vendor(self):
-        # active_ids contains all the lines you selected in the list view (even if it's > 80)
-        active_ids = self.env.context.get('active_ids', [])
-        if active_ids:
-            lines = self.env['sale.order.line'].browse(active_ids)
-            lines.write({'purchase_vendor_id': self.vendor_id.id})
-
-        return {'type': 'ir.actions.act_window_close'}
