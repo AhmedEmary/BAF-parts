@@ -16,8 +16,8 @@ class PurchaseOrder(models.Model):
     _inherit = 'purchase.order'
 
     sale_order_id = fields.Many2one(
-        'sale.order', 
-        string="Sales Order", 
+        'sale.order',
+        string="Sales Order",
         readonly=True,
         help="The Sales Order that triggered this Purchase Order."
     )
@@ -31,7 +31,7 @@ class PurchaseOrder(models.Model):
         copy=False,
         help="Status of the PO email sending process."
     )
-    
+
     pallet_count = fields.Integer(string='Pallets', compute='_compute_pallet_count')
 
     def _compute_pallet_count(self):
@@ -39,7 +39,7 @@ class PurchaseOrder(models.Model):
             if not isinstance(order.id, int):
                 order.pallet_count = 0
                 continue
-                
+
             pallets = self.env['warehouse.pallet'].search([
                 ('line_ids.purchase_order_id', '=', order.id)
             ])
@@ -95,37 +95,37 @@ class PurchaseOrder(models.Model):
         return value
 
     def action_send_grouped_po_email(self):
-        """ 
+        """
         Reliable Excel generation with sanitization and error handling.
         """
         if not self:
             return
-        
+
         partners = self.mapped('partner_id')
         if len(set(partners)) > 1:
             raise UserError(_("Different suppliers detected. Please select orders from a single supplier."))
-        
+
         vendor = partners[0]
         is_trusted = vendor.is_trusted_vendor
-        
+
         if not openpyxl:
             raise UserError(_("The 'openpyxl' library is missing."))
 
         wb = openpyxl.Workbook()
-        
+
         headers = ["PO N."]
         if is_trusted:
             headers.append("Customer")
-        
+
         headers.extend([
-            "Brand", "SKU", "Quantity", "Retail", 
+            "Brand", "SKU", "Quantity", "Retail",
             "Discount 1", "Discount 2", "Surcharge", "Unit Net", "Total"
         ])
-        
+
         ws_std = wb.active
         ws_std.title = "Standard Orders"
         ws_std.append(headers)
-        
+
         ws_drop = wb.create_sheet("Dropship Orders")
         # Dropship headers have extra columns
         drop_headers = list(headers) + ["Delivery Address", "Phone"]
@@ -136,25 +136,23 @@ class PurchaseOrder(models.Model):
 
         for po in self:
             is_dropship = bool(po.dest_address_id)
-            
+
             customer_name = po.sale_order_id.partner_id.name if po.sale_order_id else ""
-            
+
             for line in po.order_line:
                 brand_name = self._sanitize(line.product_id.brand.name)
                 sku = self._sanitize(line.product_id.default_code)
-                
+
                 row_data = [self._sanitize(po.name)]
-                
+
                 if is_trusted:
                     row_data.append(self._sanitize(customer_name))
-                
+
                 row_data.extend([
                     brand_name,
                     sku,
                     line.product_qty or 0.0,
                     line.retail_price or 0.0,
-                    line.disc_code_1 or 0.0,
-                    line.disc_code_2 or 0.0,
                     line.surcharge or 0.0,
                     line.price_unit or 0.0,
                     line.price_subtotal or 0.0
@@ -183,14 +181,14 @@ class PurchaseOrder(models.Model):
                     has_std = True
 
         if not has_std and not has_drop:
-            pass 
+            pass
         else:
             if not has_drop and "Dropship Orders" in wb.sheetnames:
                 del wb["Dropship Orders"]
             if not has_std and "Standard Orders" in wb.sheetnames:
                 if len(wb.sheetnames) > 1:
                     del wb["Standard Orders"]
-            
+
         output = BytesIO()
         wb.save(output)
         output.seek(0)
