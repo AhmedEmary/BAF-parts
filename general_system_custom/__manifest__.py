@@ -2,7 +2,7 @@
     'name': "Auto parts Sale",
     'summary': "This is a custom sale module for Auto parts companies",
     'category': 'Sales/Sales',
-    'version': '1.0',
+    'version': '1.1',
     'depends': ['base', 'product', 'sale_management', 'stock', 'sale_stock', 'purchase', 'stock_dropshipping', 'barcodes', 'stock_barcode', 'accountant', 'portal'],
     'installable': True,
     'data': [
@@ -16,6 +16,7 @@
         'views/purchase_view.xml',
         'views/import_so_lines_view.xml',
         'views/sales_view.xml',
+        'views/baf_pricing_views.xml',
         'views/auto_product_view.xml',
         'views/discount_code_view.xml',
         'views/partner_view.xml',
@@ -28,6 +29,7 @@
         'views/stock_view.xml',
         'views/down_payment_wizard_view.xml',
         'views/portal_templates.xml',
+        'views/discount_import_wizard_view.xml'
     ],
     'assets': {
     'web.assets_backend': [
