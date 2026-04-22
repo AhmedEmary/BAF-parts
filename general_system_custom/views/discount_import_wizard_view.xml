@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_baf_discount_import_wizard" model="ir.ui.view">
+        <field name="name">baf.discount.import.wizard.form</field>
+        <field name="model">baf.discount.import.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Import Discount Matrix">
+                <group>
+                    <field name="format_type" widget="radio"/>
+                    <field name="file_name" invisible="1"/>
+                    <field name="file_data" filename="file_name" string="Upload File (xlsx / xls / csv)"/>
+                </group>
+                <div class="alert alert-info" role="alert">
+                    Need the right column layout?
+                    <button name="action_download_template"
+                            type="object"
+                            string="Download Template"
+                            class="btn-link"
+                            icon="fa-download"/>
+                </div>
+                <footer>
+                    <button name="action_import" string="Import" type="object" class="btn-primary"/>
+                    <button string="Cancel" class="btn-secondary" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_baf_discount_import" model="ir.actions.act_window">
+        <field name="name">Import Matrix Discount Table</field>
+        <field name="res_model">baf.discount.import.wizard</field>
+        <field name="view_mode">form</field>
+        <field name="target">new</field>
+    </record>
+
+    <menuitem id="menu_baf_discount_import"
+          name="Import Matrix Table"
+          parent="baf_pricing_menu_root"
+          action="action_baf_discount_import"/>
+</odoo>

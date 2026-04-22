@@ -58,9 +58,7 @@
         <field name="inherit_id" ref="product.product_template_form_view" />
         <field name="arch" type="xml">
             <xpath expr="//field[@name='invoice_policy']" position="after">
-                <field name="brand" widget="many2one"/> 
-                <field name="disc_code_1" placeholder="Enter discount code 1"/>
-                <field name="disc_code_2" placeholder="Enter discount code 2"/>
+                <field name="brand" widget="many2one"/>
                 <field name="origin" placeholder="Select origin country"/>
                 <field name="hs_code" placeholder="Enter HS code"/>
             </xpath>

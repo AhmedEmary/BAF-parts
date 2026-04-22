@@ -1,4 +1,5 @@
 from . import test_flows
+from . import test_baf_pricing
 from . import test_po_export
 from . import test_warehouse_checking
 from . import test_imports
