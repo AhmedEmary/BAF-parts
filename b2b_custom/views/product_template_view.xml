@@ -6,9 +6,36 @@
         <field name="inherit_id" ref="product.product_template_form_view" />
         <field name="arch" type="xml">
             <xpath expr="//field[@name='hs_code']" position="after">
-                <field name="replaced_by_id" widget="many2one"/> 
+                <field name="replaced_by_id" widget="many2one"/>
                 <field name="sku"/>
                 <field name="unit_of_sales"/>
+            </xpath>
+            <!-- Replace the native volume row: swap system UoM label for a fixed cm³ badge -->
+            <xpath expr="//div[@name='volume']" position="replace">
+                <div class="o_row" name="volume"
+                     invisible="product_variant_count &gt; 1 and not is_product_variant">
+                    <field name="volume" string="Volume" class="oe_inline" style="max-width: 7rem;"/>
+                    <span class="o_field_widget oe_inline">cm³</span>
+                </div>
+            </xpath>
+
+            <!-- Physical dimensions: each on its own labelled row inside the Logistics group -->
+            <xpath expr="//group[@name='group_lots_and_weight']" position="inside">
+                <label for="height"/>
+                <div class="o_row">
+                    <field name="height" class="oe_inline" style="max-width: 7rem;"/>
+                    <span class="o_field_widget oe_inline">cm</span>
+                </div>
+                <label for="width"/>
+                <div class="o_row">
+                    <field name="width" class="oe_inline" style="max-width: 7rem;"/>
+                    <span class="o_field_widget oe_inline">cm</span>
+                </div>
+                <label for="length"/>
+                <div class="o_row">
+                    <field name="length" class="oe_inline" style="max-width: 7rem;"/>
+                    <span class="o_field_widget oe_inline">cm</span>
+                </div>
             </xpath>
         </field>
     </record>

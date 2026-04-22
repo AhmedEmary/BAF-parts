@@ -26,3 +26,10 @@ access_product_brand_public,product.brand,model_product_brand,base.group_public,
 access_discount_code_portal,discount.code,model_discount_code,base.group_portal,1,0,0,0
 access_discount_code_value_portal,discount.code.value,model_discount_code_value,base.group_portal,1,0,0,0
 access_product_brand_portal,product.brand,model_product_brand,base.group_portal,1,0,0,0
+access_baf_sales_group_user,baf.sales.group user,model_baf_sales_group,base.group_user,1,1,1,1
+access_baf_discount_line_user,baf.discount.line user,model_baf_discount_line,base.group_user,1,1,1,1
+access_baf_sales_group_public,baf.sales.group public,model_baf_sales_group,base.group_public,1,0,0,0
+access_baf_discount_line_public,baf.discount.line public,model_baf_discount_line,base.group_public,1,0,0,0
+access_baf_sales_group_portal,baf.sales.group portal,model_baf_sales_group,base.group_portal,1,0,0,0
+access_baf_discount_line_portal,baf.discount.line portal,model_baf_discount_line,base.group_portal,1,0,0,0
+access_baf_discount_import_wizard,baf.discount.import.wizard,model_baf_discount_import_wizard,base.group_user,1,1,1,1
