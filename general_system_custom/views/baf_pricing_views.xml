@@ -1,0 +1,214 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- ═══════════════════════════════════════════════════════
+         BAF Sales Group
+    ═══════════════════════════════════════════════════════ -->
+
+    <record id="baf_sales_group_view_list" model="ir.ui.view">
+        <field name="name">baf.sales.group.list</field>
+        <field name="model">baf.sales.group</field>
+        <field name="arch" type="xml">
+            <list>
+                <field name="name"/>
+                <field name="pricing_method"/>
+                <field name="markup_pct"/>
+                <field name="group_column_suffix"/>
+                <field name="active"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="baf_sales_group_view_form" model="ir.ui.view">
+        <field name="name">baf.sales.group.form</field>
+        <field name="model">baf.sales.group</field>
+        <field name="arch" type="xml">
+            <form>
+                <sheet>
+                    <group>
+                        <group string="Group Identity">
+                            <field name="name"/>
+                            <field name="active"/>
+                        </group>
+                        <group string="Pricing Method">
+                            <field name="pricing_method"/>
+                            <field name="markup_pct"
+                                   invisible="pricing_method != 'markup_pct'"
+                                   string="Markup % on purchase price"/>
+                            <field name="group_column_suffix"
+                                   invisible="pricing_method != 'table_lookup'"
+                                   help="e.g. GR1, GR2, GR3, GR4, MOTO"/>
+                        </group>
+                    </group>
+                    <notebook>
+                        <page string="Customers in this group">
+                            <field name="partner_ids">
+                                <list>
+                                    <field name="name"/>
+                                    <field name="email"/>
+                                    <field name="country_id"/>
+                                </list>
+                            </field>
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="baf_sales_group_action" model="ir.actions.act_window">
+        <field name="name">Sales Pricing Groups</field>
+        <field name="res_model">baf.sales.group</field>
+        <field name="view_mode">list,form</field>
+    </record>
+
+    <!-- ═══════════════════════════════════════════════════════
+         BAF Discount Lines
+    ═══════════════════════════════════════════════════════ -->
+
+    <record id="baf_discount_line_view_list" model="ir.ui.view">
+        <field name="name">baf.discount.line.list</field>
+        <field name="model">baf.discount.line</field>
+        <field name="arch" type="xml">
+            <list editable="bottom">
+                <field name="table_type"/>
+                <field name="column_key"/>
+                <field name="discount_code"/>
+                <field name="discount_pct" string="Discount %"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="baf_discount_line_view_form" model="ir.ui.view">
+        <field name="name">baf.discount.line.form</field>
+        <field name="model">baf.discount.line</field>
+        <field name="arch" type="xml">
+            <form>
+                <sheet>
+                    <group>
+                        <field name="table_type"/>
+                        <field name="column_key"/>
+                        <field name="discount_code"/>
+                        <field name="discount_pct" string="Discount %"/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+<record id="baf_discount_line_view_search" model="ir.ui.view">
+        <field name="name">baf.discount.line.search</field>
+        <field name="model">baf.discount.line</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="column_key"/>
+                <field name="discount_code"/>
+                <filter string="Purchase" name="purchase" domain="[('table_type','=','purchase')]"/>
+                <filter string="Sales" name="sales" domain="[('table_type','=','sales')]"/>
+
+                <separator/>
+                <filter string="Table Type" name="group_table_type" context="{'group_by':'table_type'}"/>
+                <filter string="Column Key" name="group_column_key" context="{'group_by':'column_key'}"/>
+            </search>
+        </field>
+    </record>
+    <record id="baf_discount_line_action" model="ir.actions.act_window">
+        <field name="name">BAF Discount Table</field>
+        <field name="res_model">baf.discount.line</field>
+        <field name="view_mode">list,form</field>
+        <field name="context">{'search_default_purchase': 1}</field>
+    </record>
+
+    <!-- ═══════════════════════════════════════════════════════
+         Menu entries under Sales > Products
+    ═══════════════════════════════════════════════════════ -->
+
+    <menuitem
+        id="baf_pricing_menu_root"
+        name="BAF Pricing"
+        parent="sale.product_menu_catalog"
+        sequence="200"/>
+
+    <menuitem
+        id="baf_sales_group_menu"
+        name="Sales Pricing Groups"
+        parent="baf_pricing_menu_root"
+        action="baf_sales_group_action"
+        sequence="10"/>
+
+    <menuitem
+        id="baf_discount_line_menu"
+        name="Discount Table"
+        parent="baf_pricing_menu_root"
+        action="baf_discount_line_action"
+        sequence="20"/>
+
+    <!-- Also add Discount Table under Purchase menu -->
+    <menuitem
+        id="baf_discount_line_menu_purchase"
+        name="BAF Discount Table"
+        parent="purchase.menu_purchase_root"
+        action="baf_discount_line_action"
+        sequence="6"/>
+
+    <!-- ═══════════════════════════════════════════════════════
+         Extend res.partner form — add Sales Pricing Group field
+    ═══════════════════════════════════════════════════════ -->
+
+    <record id="view_partner_form_baf_sales_group" model="ir.ui.view">
+        <field name="name">res.partner.form.baf.sales.group</field>
+        <field name="model">res.partner</field>
+        <field name="inherit_id" ref="base.view_partner_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='property_supplier_payment_term_id']" position="after">
+                <field name="sales_group_id"
+                       string="Sales Pricing Group"
+                       help="Leave empty → customer sees full UPE (MSRP). Assign a group to apply discounts."/>
+            </xpath>
+        </field>
+    </record>
+
+    <!-- ═══════════════════════════════════════════════════════
+         Extend product.template form — BAF Pricing tab
+    ═══════════════════════════════════════════════════════ -->
+
+    <record id="product_template_view_baf_pricing" model="ir.ui.view">
+        <field name="name">product.template.form.baf.pricing</field>
+        <field name="model">product.template</field>
+        <field name="inherit_id" ref="product.product_template_form_view"/>
+        <field name="arch" type="xml">
+            <xpath expr="//notebook" position="inside">
+                <page string="BAF Pricing" name="baf_pricing">
+                    <group string="Supplier Route">
+                        <field name="supplier_route"/>
+                       <field name="baf_discount_code"
+                               invisible="supplier_route == 'eu_direct'"
+                               string="Discount Code # (0–60)"/>
+                        <field name="baf_column_key"
+                               invisible="supplier_route == 'eu_direct'"
+                               readonly="1"
+                               string="Resolved Column Key"/>
+                    </group>
+                    <group string="Brand / Type / Mod"
+                           invisible="supplier_route == 'eu_direct'">
+                        <field name="baf_type_code" string="Type Code (1–9)"/>
+                        <field name="baf_mod" string="Mod"/>
+                        <field name="baf_sb_surcharge_override"
+                               invisible="baf_mod != 'sb'"
+                               string="SB Surcharge Override % (0 = use default 5.2%)"/>
+                    </group>
+                    <group string="LR / JLR Pre-calculated Price Levels"
+                           invisible="supplier_route != 'lr_level'">
+                        <field name="baf_lr_price_level_1" string="Level 1 (highest discount)"/>
+                        <field name="baf_lr_price_level_2" string="Level 2"/>
+                        <field name="baf_lr_price_level_3" string="Level 3"/>
+                        <field name="baf_lr_price_level_4" string="Level 4"/>
+                        <field name="baf_lr_price_level_5" string="Level 5"/>
+                        <field name="baf_lr_price_level_6" string="Level 6 (closest to UPE)"/>
+                    </group>
+                </page>
+            </xpath>
+        </field>
+    </record>
+
+</odoo>

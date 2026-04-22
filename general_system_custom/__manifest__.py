@@ -24,10 +24,12 @@
         'views/warehouse_pallet_view.xml',
         'views/warehouse_checking_view.xml',
         'views/account_move_view.xml',
+        'views/baf_pricing_views.xml',
         'views/credit_note_wizard_view.xml',
         'views/stock_view.xml',
         'views/down_payment_wizard_view.xml',
         'views/portal_templates.xml',
+        'views/discount_import_wizard_view.xml'
     ],
     'assets': {
     'web.assets_backend': [
