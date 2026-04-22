@@ -21,3 +21,8 @@ from . import down_payment_wizard
 from . import base_document_layout
 from . import corrispettivi_report
 from . import corrispettivi_report_handler
+from . import baf_pricing
+from . import baf_product_pricing
+from . import baf_partner
+from . import mass_vendor_wizard
+from . import discount_import_wizard
