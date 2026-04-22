@@ -63,5 +63,51 @@ class TestProductTemplate(TransactionCase):
         """Test that an empty search caps the count at 50,000 for /shop performance"""
         search_detail = {'base_domain': []}
         results, count = self.env['product.template']._search_fetch(search_detail, '', limit=10, order='name asc')
-        
+
         self.assertTrue(count <= 50000, "Count should be capped at 50,000 to prevent database lag.")
+
+    def test_06_volume_computed_from_dimensions(self):
+        """volume = h × w × l / 1_000_000 (cm → m³) on create."""
+        product = self.env['product.template'].create({
+            'name': 'Volume Product',
+            'brand': self.brand_maserati.id,
+            'sku': 'VOL001',
+            'height': 10.0,
+            'width': 20.0,
+            'length': 30.0,
+        })
+        self.assertAlmostEqual(product.volume, 6000.0 / 1_000_000.0, places=9)
+
+    def test_07_volume_recomputes_on_dimension_change(self):
+        """Changing any dimension must recompute the stored volume."""
+        product = self.env['product.template'].create({
+            'name': 'Recompute Product',
+            'brand': self.brand_maserati.id,
+            'sku': 'VOL002',
+            'height': 5.0,
+            'width': 5.0,
+            'length': 5.0,
+        })
+        self.assertAlmostEqual(product.volume, 125.0 / 1_000_000.0, places=9)
+
+        product.length = 10.0
+        self.assertAlmostEqual(product.volume, 250.0 / 1_000_000.0, places=9)
+
+        product.write({'height': 2.0, 'width': 3.0, 'length': 4.0})
+        self.assertAlmostEqual(product.volume, 24.0 / 1_000_000.0, places=9)
+
+    def test_08_volume_zero_when_any_dimension_missing(self):
+        """A missing/zero dimension yields zero volume."""
+        product = self.env['product.template'].create({
+            'name': 'Zero Volume Product',
+            'brand': self.brand_maserati.id,
+            'sku': 'VOL003',
+            'height': 10.0,
+            'width': 20.0,
+            # length omitted
+        })
+        self.assertEqual(product.volume, 0.0)
+
+        product.length = 5.0
+        product.width = 0.0
+        self.assertEqual(product.volume, 0.0)

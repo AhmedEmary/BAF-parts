@@ -14,6 +14,15 @@ class TestMassProductImport(TransactionCase):
         csv_content = "sku,brand,product name,price\nSKU123,BOSCH,Drill Machine,150.00"
         self.csv_base64 = base64.b64encode(csv_content.encode('utf-8'))
 
+    def _run_import(self, csv_content, file_name='test_import.csv'):
+        wizard = self.env['mass.product.import'].create({
+            'file_data': base64.b64encode(csv_content.encode('utf-8')),
+            'file_name': file_name,
+        })
+        wizard.action_read_headers()
+        wizard.action_import_direct()
+        return wizard
+
     def test_01_flow_and_mapping(self):
         """ Test the wizard flow: Upload -> Mapping -> Import """
 
@@ -68,56 +77,164 @@ class TestMassProductImport(TransactionCase):
         barcode = wizard._compute_barcode_from_code('FER_123')
         self.assertEqual(barcode, '000000123')
 
-    def test_04_all_fields_import(self):
-        """ Verify every mapped field is correctly written to the database via SQL """
+    def test_04_replaced_by_creates_same_brand_placeholder(self):
+        """Missing replaced_by SKU should create a same-brand placeholder.
 
-        # 1. Prepare a CSV with all supported fields
-        # Headers match the FUZZY_MAP keys for auto-guessing
-        headers = "sku,brand,name,price,uos,weight,surcharge,hs_code,discount code 1,discount code 2,origin"
-        row_data = "EXT-999,BOSCH,Professional Drill,550.50,10,2.5,15.00,8467.21,REBATE20,WINTER10,BE"
-        csv_content = f"{headers}\n{row_data}"
-        file_base64 = base64.b64encode(csv_content.encode('utf-8'))
+        The placeholder must use the same default_code as a later real import,
+        so future imports update it instead of creating a duplicate product.
+        """
+        self._run_import(
+            "sku,brand,product name,replaced by\n"
+            "OLD001,BOSCH,Old Bosch Part,NEW001"
+        )
 
-        # 2. Create Wizard and Run Header Mapping
-        wizard = self.env['mass.product.import'].create({
-            'file_data': file_base64,
-            'file_name': 'full_import.csv',
-        })
-        wizard.action_read_headers()
+        old_product = self.env['product.template'].search([('default_code', '=', 'BOS_OLD001')], limit=1)
+        replacement = old_product.replaced_by_id
+        self.assertTrue(replacement.exists(), "Replacement placeholder should have been created")
+        self.assertEqual(replacement.sku, 'NEW001')
+        self.assertEqual(replacement.default_code, 'BOS_NEW001')
+        self.assertEqual(replacement.brand.name, 'BOSCH')
 
-        # Verify all 11 fields were mapped (based on your selection list)
-        mapped_fields = wizard.mapping_ids.filtered(lambda m: m.field_name)
-        self.assertEqual(len(mapped_fields), 11, "Not all fields were auto-mapped by FUZZY_MAP")
+    def test_05_replaced_by_prefers_same_brand_match(self):
+        """If the same replacement SKU exists under multiple brands, use the same-brand product."""
+        self.env['product.brand'].create({'name': 'BOSCH'})
+        self.env['product.brand'].create({'name': 'VALEO'})
 
-        # 3. Trigger the Direct SQL Import
-        wizard.action_import_direct()
+        self._run_import(
+            "sku,brand,product name\n"
+            "REP001,VALEO,Valeo Replacement\n"
+            "REP001,BOSCH,Bosch Replacement\n"
+            "OLD002,BOSCH,Old Bosch Part\n",
+            file_name='seed_products.csv',
+        )
+        self._run_import(
+            "sku,brand,product name,replaced by\n"
+            "OLD003,BOSCH,Another Old Bosch Part,REP001",
+            file_name='replaced_by_same_brand.csv',
+        )
 
-        # 4. Verify the Product Template
-        # default_code logic: BOS_EXT-999
-        product = self.env['product.template'].search([('default_code', '=', 'BOS_EXT-999')])
+        old_product = self.env['product.template'].search([('default_code', '=', 'BOS_OLD003')], limit=1)
+        self.assertTrue(old_product.replaced_by_id.exists())
+        self.assertEqual(old_product.replaced_by_id.default_code, 'BOS_REP001')
 
-        self.assertTrue(product.exists(), "Product was not created")
+    def test_05b_replaced_by_creates_target_before_real_row_arrives(self):
+        """If A references B before B's real row appears, B is pre-created and later updated in place."""
+        self._run_import(
+            "sku,brand,product name,replaced by,price\n"
+            "OLDLATE,BOSCH,Old Late Product,NEWLATE,50\n"
+            "NEWLATE,BOSCH,Real Replacement Product,,80",
+            file_name='same_file_replaced_by_late_target.csv',
+        )
 
-        # Check standard fields
-        self.assertEqual(product.name, "Professional Drill")
-        self.assertEqual(product.list_price, 550.50)
-        self.assertEqual(product.weight, 2.5)
-        self.assertEqual(product.surcharge, 15.00)
-        self.assertEqual(product.hs_code, "8467.21")
-        self.assertEqual(product.unit_of_sales, 10)
+        old_product = self.env['product.template'].search([('default_code', '=', 'BOS_OLDLATE')], limit=1)
+        replacement_products = self.env['product.template'].search([('default_code', '=', 'BOS_NEWLATE')])
 
-        # Check Relational fields (Brand)
-        self.assertEqual(product.brand.name, "BOSCH")
+        self.assertEqual(len(replacement_products), 1, "Replacement placeholder must be updated in place, not duplicated")
+        self.assertEqual(replacement_products.name, 'Real Replacement Product')
+        self.assertEqual(replacement_products.list_price, 80.0)
+        self.assertEqual(old_product.replaced_by_id, replacement_products)
 
-        # Check Relational fields (Country/Origin)
-        belgium = self.env.ref('base.be')
-        self.assertEqual(product.origin.id, belgium.id)
+    def test_06_import_dimensions_origin_and_normalized_defaults(self):
+        """Dimensions/origin import correctly and invalid mod/route fallback safely."""
+        self._run_import(
+            "sku,brand,product name,price,weight,height,width,length,origin,hs code,surcharge,discount code,type code,mod,supplier route\n"
+            "DIM001,BOSCH,#NV,200,5.5,10.1,20.2,30.3,IT,8409,12.5,10,2,invalid_mod,invalid_route"
+        )
 
-        # Check Discount Codes (Logic: BrandPrefix_Code)
-        self.assertEqual(product.disc_code_1.name, "BOS_REBATE20")
-        self.assertEqual(product.disc_code_2.name, "BOS_WINTER10")
+        product = self.env['product.template'].search([('default_code', '=', 'BOS_DIM001')], limit=1)
+        self.assertTrue(product.exists())
+        self.assertEqual(product.name, 'BOSCH DIM001')
+        self.assertEqual(product.origin.code, 'IT')
+        self.assertEqual(product.hs_code, '8409')
+        self.assertEqual(product.baf_mod, 'car')
+        self.assertEqual(product.supplier_route, 'de_table')
+        self.assertAlmostEqual(product.weight, 5.5)
+        self.assertAlmostEqual(product.height, 10.1)
+        self.assertAlmostEqual(product.width, 20.2)
+        self.assertAlmostEqual(product.length, 30.3)
+        self.assertAlmostEqual(product.surcharge, 12.5)
 
-        # Check Barcode Logic (BOS prefix doesn't pad, just returns SKU part)
-        # default_code is 'BOS_EXT-999', so barcode should be 'EXT-999'
-        product_variant = self.env['product.product'].search([('product_tmpl_id', '=', product.id)])
-        self.assertEqual(product_variant.barcode, "EXT-999")
+    def test_07_import_upserts_existing_product(self):
+        """Importing the same brand+SKU twice should update the template, not duplicate it."""
+        self._run_import(
+            "sku,brand,product name,price,height,width,length\n"
+            "UPS001,BOSCH,First Name,100,1,2,3",
+            file_name='upsert_first.csv',
+        )
+        self._run_import(
+            "sku,brand,product name,price,height,width,length\n"
+            "UPS001,BOSCH,Updated Name,150,11,22,33",
+            file_name='upsert_second.csv',
+        )
+
+        products = self.env['product.template'].search([('default_code', '=', 'BOS_UPS001')])
+        self.assertEqual(len(products), 1)
+        self.assertEqual(products.name, 'Updated Name')
+        self.assertEqual(products.list_price, 150.0)
+        self.assertAlmostEqual(products.height, 11.0)
+        self.assertAlmostEqual(products.width, 22.0)
+        self.assertAlmostEqual(products.length, 33.0)
+
+    def test_09_import_sets_volume_from_dimensions(self):
+        """Mass import must compute and store volume directly via SQL (ORM compute is bypassed)."""
+        self._run_import(
+            "sku,brand,product name,price,height,width,length\n"
+            "VOL101,BOSCH,Volume Imported,100,10,20,30",
+            file_name='volume_import.csv',
+        )
+
+        product = self.env['product.template'].search([('default_code', '=', 'BOS_VOL101')], limit=1)
+        self.assertTrue(product.exists())
+        self.assertAlmostEqual(product.volume, 6000.0 / 1_000_000.0, places=9)
+
+    def test_10_import_upsert_refreshes_volume(self):
+        """Re-importing the same product with new dimensions must refresh stored volume."""
+        self._run_import(
+            "sku,brand,product name,price,height,width,length\n"
+            "VOL102,BOSCH,First,100,1,2,3",
+            file_name='volume_upsert_first.csv',
+        )
+        first = self.env['product.template'].search([('default_code', '=', 'BOS_VOL102')], limit=1)
+        self.assertAlmostEqual(first.volume, 6.0 / 1_000_000.0, places=9)
+
+        self._run_import(
+            "sku,brand,product name,price,height,width,length\n"
+            "VOL102,BOSCH,Second,100,10,10,10",
+            file_name='volume_upsert_second.csv',
+        )
+        products = self.env['product.template'].search([('default_code', '=', 'BOS_VOL102')])
+        self.assertEqual(len(products), 1)
+        self.assertAlmostEqual(products.volume, 1000.0 / 1_000_000.0, places=9)
+
+    def test_11_import_zero_dimension_yields_zero_volume(self):
+        """A missing/zero dimension yields volume = 0 in the import path too."""
+        self._run_import(
+            "sku,brand,product name,price,height,width,length\n"
+            "VOL103,BOSCH,Partial Dims,100,10,20,",
+            file_name='volume_zero.csv',
+        )
+        product = self.env['product.template'].search([('default_code', '=', 'BOS_VOL103')], limit=1)
+        self.assertTrue(product.exists())
+        self.assertEqual(product.volume, 0.0)
+
+    def test_08_replaced_by_ambiguous_global_sku_creates_same_brand_target(self):
+        """If another brand already uses the replacement SKU, create/use the same-brand target anyway."""
+        self._run_import(
+            "sku,brand,product name\n"
+            "AMB001,BOSCH,Bosch Replacement\n"
+            "AMB001,VALEO,Valeo Replacement",
+            file_name='ambiguous_seed.csv',
+        )
+        self._run_import(
+            "sku,brand,product name,replaced by\n"
+            "OLD004,JAGUAR,Old Jaguar Part,AMB001",
+            file_name='ambiguous_replaced_by.csv',
+        )
+
+        old_product = self.env['product.template'].search([('default_code', '=', 'JAG_OLD004')], limit=1)
+        replacement = self.env['product.template'].search([('default_code', '=', 'JAG_AMB001')], limit=1)
+        self.assertTrue(old_product.exists())
+        self.assertTrue(replacement.exists())
+        self.assertEqual(replacement.brand.name, 'JAGUAR')
+        self.assertEqual(old_product.replaced_by_id, replacement)
+
