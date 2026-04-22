@@ -7,9 +7,9 @@
         <field name="arch" type="xml">
             <xpath expr="//field[@name='order_line']/list//field[@name='price_unit']" position="before">
                <field name="retail_price"/>
-                <field name="disc_code_1"/>
-                <field name="disc_code_2"/>
                 <field name="surcharge"/>
+                <field name="baf_applied_column_key" optional="show"/>
+                <field name="baf_applied_discount_pct" string="Disc %" optional="show"/>
             </xpath>
         </field>
     </record>
