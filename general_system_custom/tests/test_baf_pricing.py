@@ -78,6 +78,7 @@ class TestBafPricing(TransactionCase):
 
         discount_lines = [
             {'table_type': 'purchase', 'column_key': 'SUP1_BMW_T12', 'discount_code': '10', 'discount_pct': 20.0},
+            {'table_type': 'purchase', 'column_key': 'SUP2_BMW_T12', 'discount_code': '10', 'discount_pct': 20.0},  # SUP2 gets same 20% — SB surcharge only applies for SUP1
             {'table_type': 'purchase', 'column_key': 'SUP1_BMW_T39', 'discount_code': '10', 'discount_pct': 30.0},
             {'table_type': 'purchase', 'column_key': 'SUP3_MOTO', 'discount_code': '10', 'discount_pct': 40.0},
             {'table_type': 'sales', 'column_key': 'BMW_T12_GR1', 'discount_code': '10', 'discount_pct': 5.0},
