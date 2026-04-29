@@ -74,7 +74,6 @@ class ProductTemplateBafPricing(models.Model):
             ('eu_direct', 'EU Supplier — Direct Price'),
         ],
         string='Supplier Pricing Route',
-        default='de_table',
         help=(
             "de_table : German supplier (Sup1/Sup2/Sup3). "
             "           Purchase price = UPE × (1 − discount%). "
@@ -85,7 +84,6 @@ class ProductTemplateBafPricing(models.Model):
     # ── Discount code (alphanumeric) ──────────────────────────────────────────
     baf_discount_code = fields.Char(
         string='BAF Discount Code',
-        default='0',
         help="Discount code used to look up the effective discount %% in the BAF "
              "discount table. Numeric for BMW/MINI (e.g. '0'..'60'), alphanumeric "
              "for JLR (e.g. '1A', '2D') or Mercedes (e.g. 'M03').",
@@ -94,7 +92,6 @@ class ProductTemplateBafPricing(models.Model):
     # ── Type code (1–9) ───────────────────────────────────────────────────────
     baf_type_code = fields.Integer(
         string='Type Code (1–9)',
-        default=0,
         help="BMW/MINI type code. 1–2 → T12 column, 3–9 → T39 column. "
              "Leave 0 for brands without a type split.",
     )
@@ -107,7 +104,6 @@ class ProductTemplateBafPricing(models.Model):
             ('sb',         'SB (Supplier 1 surcharge)'),
         ],
         string='Mod',
-        default='car',
         help="Controls which sub-table to use and whether the SB surcharge applies.",
     )
 
@@ -116,7 +112,6 @@ class ProductTemplateBafPricing(models.Model):
     # override it by leaving this at 0 (= use group default).
     baf_sb_surcharge_override = fields.Float(
         string='SB Surcharge Override %',
-        default=0.0,
         help="Leave 0 to use the default SB surcharge from the supplier configuration. "
              "Set a non-zero value to override for this product only.",
     )
