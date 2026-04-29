@@ -246,8 +246,8 @@ class MassProductImport(models.TransientModel):
         height = self._parse_float(self._get_cell_value(row, indices['height_idx'])) or 0.0
         width = self._parse_float(self._get_cell_value(row, indices['width_idx'])) or 0.0
         length = self._parse_float(self._get_cell_value(row, indices['length_idx'])) or 0.0
-        # h/w/l in cm → volume in m³
-        volume = (height * width * length) / 1_000_000.0
+        # h/w/l in cm → volume in cm3
+        volume = height * width * length
         hs_code = self._get_cell_value(row, indices['hs_code_idx'], None)
 
         replaced_by_sku_raw = self._get_cell_value(row, indices['replaced_by_idx'])

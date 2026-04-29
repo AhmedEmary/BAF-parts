@@ -27,15 +27,16 @@ class ProductTemplate(models.Model):
                           help="Product width in centimetres.")
     length = fields.Float(string='Length (cm)', digits=(10, 4),
                           help="Product length in centimetres.")
+    weight = fields.Float(string='Weight (kg)', help="Product weight in kilograms.")
 
-    # h/w/l are stored in cm; Odoo's volume convention is m³.
-    # Keep enough precision so tiny volumes (e.g. 125 cm3) are not rounded to 0.
-    volume = fields.Float(compute='_compute_volume', store=True, digits=(16, 9))
+    # h/w/l are stored in cm; volume is stored as cm3 for this project.
+    # Keep enough precision for fractional dimensions.
+    volume = fields.Float(string='Volume (cm3)', compute='_compute_volume', store=True, digits=(16, 4))
 
     @api.depends('height', 'width', 'length')
     def _compute_volume(self):
         for rec in self:
-            rec.volume = (rec.height or 0.0) * (rec.width or 0.0) * (rec.length or 0.0) / 1_000_000.0
+            rec.volume = (rec.height or 0.0) * (rec.width or 0.0) * (rec.length or 0.0)
 
     _default_code_uniq = models.Constraint(
         'unique(default_code)',

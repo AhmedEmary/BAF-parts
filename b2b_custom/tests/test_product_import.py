@@ -176,7 +176,7 @@ class TestMassProductImport(TransactionCase):
         self.assertAlmostEqual(products.length, 33.0)
 
     def test_09_import_sets_volume_from_dimensions(self):
-        """Mass import must compute and store volume directly via SQL (ORM compute is bypassed)."""
+        """Mass import must compute and store volume in cm3 via SQL (ORM compute is bypassed)."""
         self._run_import(
             "sku,brand,product name,price,height,width,length\n"
             "VOL101,BOSCH,Volume Imported,100,10,20,30",
@@ -185,7 +185,7 @@ class TestMassProductImport(TransactionCase):
 
         product = self.env['product.template'].search([('default_code', '=', 'BOS_VOL101')], limit=1)
         self.assertTrue(product.exists())
-        self.assertAlmostEqual(product.volume, 6000.0 / 1_000_000.0, places=9)
+        self.assertAlmostEqual(product.volume, 6000.0, places=4)
 
     def test_10_import_upsert_refreshes_volume(self):
         """Re-importing the same product with new dimensions must refresh stored volume."""
@@ -195,7 +195,7 @@ class TestMassProductImport(TransactionCase):
             file_name='volume_upsert_first.csv',
         )
         first = self.env['product.template'].search([('default_code', '=', 'BOS_VOL102')], limit=1)
-        self.assertAlmostEqual(first.volume, 6.0 / 1_000_000.0, places=9)
+        self.assertAlmostEqual(first.volume, 6.0, places=4)
 
         self._run_import(
             "sku,brand,product name,price,height,width,length\n"
@@ -204,7 +204,7 @@ class TestMassProductImport(TransactionCase):
         )
         products = self.env['product.template'].search([('default_code', '=', 'BOS_VOL102')])
         self.assertEqual(len(products), 1)
-        self.assertAlmostEqual(products.volume, 1000.0 / 1_000_000.0, places=9)
+        self.assertAlmostEqual(products.volume, 1000.0, places=4)
 
     def test_11_import_zero_dimension_yields_zero_volume(self):
         """A missing/zero dimension yields volume = 0 in the import path too."""

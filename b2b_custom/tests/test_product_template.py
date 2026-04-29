@@ -67,7 +67,7 @@ class TestProductTemplate(TransactionCase):
         self.assertTrue(count <= 50000, "Count should be capped at 50,000 to prevent database lag.")
 
     def test_06_volume_computed_from_dimensions(self):
-        """volume = h × w × l / 1_000_000 (cm → m³) on create."""
+        """volume = h × w × l (cm3) on create."""
         product = self.env['product.template'].create({
             'name': 'Volume Product',
             'brand': self.brand_maserati.id,
@@ -76,7 +76,7 @@ class TestProductTemplate(TransactionCase):
             'width': 20.0,
             'length': 30.0,
         })
-        self.assertAlmostEqual(product.volume, 6000.0 / 1_000_000.0, places=9)
+        self.assertAlmostEqual(product.volume, 6000.0, places=4)
 
     def test_07_volume_recomputes_on_dimension_change(self):
         """Changing any dimension must recompute the stored volume."""
@@ -88,13 +88,13 @@ class TestProductTemplate(TransactionCase):
             'width': 5.0,
             'length': 5.0,
         })
-        self.assertAlmostEqual(product.volume, 125.0 / 1_000_000.0, places=9)
+        self.assertAlmostEqual(product.volume, 125.0, places=4)
 
         product.length = 10.0
-        self.assertAlmostEqual(product.volume, 250.0 / 1_000_000.0, places=9)
+        self.assertAlmostEqual(product.volume, 250.0, places=4)
 
         product.write({'height': 2.0, 'width': 3.0, 'length': 4.0})
-        self.assertAlmostEqual(product.volume, 24.0 / 1_000_000.0, places=9)
+        self.assertAlmostEqual(product.volume, 24.0, places=4)
 
     def test_08_volume_zero_when_any_dimension_missing(self):
         """A missing/zero dimension yields zero volume."""
