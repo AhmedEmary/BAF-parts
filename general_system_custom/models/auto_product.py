@@ -28,6 +28,14 @@ class ProductTemplate(models.Model):
     length = fields.Float(string='Length (cm)', digits=(10, 4),
                           help="Product length in centimetres.")
 
+    # ── Physical dimensions (cm) ──────────────────────────────────────────────
+    height = fields.Float(string='Height (cm)', digits=(10, 4), default=0.0,
+                          help="Product height in centimetres.")
+    width  = fields.Float(string='Width (cm)',  digits=(10, 4), default=0.0,
+                          help="Product width in centimetres.")
+    length = fields.Float(string='Length (cm)', digits=(10, 4), default=0.0,
+                          help="Product length in centimetres.")
+
     _default_code_uniq = models.Constraint(
         'unique(default_code)',
         'The Internal Reference (SKU Odoo) must be unique!'
