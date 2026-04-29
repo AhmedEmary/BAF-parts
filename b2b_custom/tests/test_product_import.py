@@ -175,6 +175,48 @@ class TestMassProductImport(TransactionCase):
         self.assertAlmostEqual(products.width, 22.0)
         self.assertAlmostEqual(products.length, 33.0)
 
+    def test_09_import_sets_volume_from_dimensions(self):
+        """Mass import must compute and store volume directly via SQL (ORM compute is bypassed)."""
+        self._run_import(
+            "sku,brand,product name,price,height,width,length\n"
+            "VOL101,BOSCH,Volume Imported,100,10,20,30",
+            file_name='volume_import.csv',
+        )
+
+        product = self.env['product.template'].search([('default_code', '=', 'BOS_VOL101')], limit=1)
+        self.assertTrue(product.exists())
+        self.assertAlmostEqual(product.volume, 6000.0 / 1_000_000.0, places=9)
+
+    def test_10_import_upsert_refreshes_volume(self):
+        """Re-importing the same product with new dimensions must refresh stored volume."""
+        self._run_import(
+            "sku,brand,product name,price,height,width,length\n"
+            "VOL102,BOSCH,First,100,1,2,3",
+            file_name='volume_upsert_first.csv',
+        )
+        first = self.env['product.template'].search([('default_code', '=', 'BOS_VOL102')], limit=1)
+        self.assertAlmostEqual(first.volume, 6.0 / 1_000_000.0, places=9)
+
+        self._run_import(
+            "sku,brand,product name,price,height,width,length\n"
+            "VOL102,BOSCH,Second,100,10,10,10",
+            file_name='volume_upsert_second.csv',
+        )
+        products = self.env['product.template'].search([('default_code', '=', 'BOS_VOL102')])
+        self.assertEqual(len(products), 1)
+        self.assertAlmostEqual(products.volume, 1000.0 / 1_000_000.0, places=9)
+
+    def test_11_import_zero_dimension_yields_zero_volume(self):
+        """A missing/zero dimension yields volume = 0 in the import path too."""
+        self._run_import(
+            "sku,brand,product name,price,height,width,length\n"
+            "VOL103,BOSCH,Partial Dims,100,10,20,",
+            file_name='volume_zero.csv',
+        )
+        product = self.env['product.template'].search([('default_code', '=', 'BOS_VOL103')], limit=1)
+        self.assertTrue(product.exists())
+        self.assertEqual(product.volume, 0.0)
+
     def test_08_replaced_by_ambiguous_global_sku_creates_same_brand_target(self):
         """If another brand already uses the replacement SKU, create/use the same-brand target anyway."""
         self._run_import(

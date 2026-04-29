@@ -78,306 +78,6 @@ class MassProductImport(models.TransientModel):
                 'file_column_name': str(header),
                 'field_name': self._guess_mapped_field(header),
             }))
-        return mapping_lines
-
-    def _decode_csv_text(self, binary_data):
-        try:
-            return base64.b64decode(binary_data).decode('utf-8-sig')
-        except UnicodeDecodeError:
-            return base64.b64decode(binary_data).decode('ISO-8859-1')
-
-    def _read_import_source(self, binary_data, file_name):
-        file_name_lower = (file_name or '').lower()
-        if file_name_lower.endswith('.csv'):
-            file_content = self._decode_csv_text(binary_data)
-            csv_reader = csv.reader(io.StringIO(file_content))
-            headers = next(csv_reader)
-            total_rows = max(0, file_content.count('\n') - 1)
-            return headers, csv_reader, total_rows
-
-        file_content = io.BytesIO(base64.b64decode(binary_data))
-        wb = openpyxl.load_workbook(filename=file_content, read_only=True)
-        ws = wb.active
-        rows_iter = ws.iter_rows(values_only=True)
-        headers = next(rows_iter)
-        total_rows = None
-        try:
-            if ws.max_row:
-                total_rows = max(0, ws.max_row - 1)
-        except Exception:
-            total_rows = None
-        return headers, rows_iter, total_rows
-
-    def _prepare_import_context(self):
-        uom_record = self.env.ref('uom.product_uom_unit', raise_if_not_found=False)
-        uom_id = uom_record.id if uom_record else self.env['uom.uom'].search([], limit=1).id
-
-        categ_record = self.env['product.category'].search([('name', '=ilike', 'Goods')], limit=1)
-        if not categ_record:
-            categ_record = self.env['product.category'].create({'name': 'Goods'})
-        categ_id = categ_record.id
-
-        if not uom_id or not categ_id:
-            raise UserError("Missing Category or Unit of Measure in the database!")
-
-        brand_cache = {
-            b.name.strip().lower(): b.id
-            for b in self.env['product.brand'].search([])
-            if b.name
-        }
-        country_cache = {
-            c.code.upper(): c.id
-            for c in self.env['res.country'].search([])
-            if c.code
-        }
-        replacement_cache = {}
-        return {
-            'uom_id': uom_id,
-            'categ_id': categ_id,
-            'brand_cache': brand_cache,
-            'country_cache': country_cache,
-            'replacement_cache': replacement_cache,
-        }
-
-    def _get_column_map(self):
-        return {line.field_name: line.column_index for line in self.mapping_ids if line.field_name}
-
-    def _get_column_indices(self, col_map):
-        return {
-            'sku_idx': col_map.get('sku'),
-            'brand_idx': col_map.get('brand'),
-            'name_idx': col_map.get('name'),
-            'price_idx': col_map.get('price'),
-            'uos_idx': col_map.get('uos'),
-            'baf_disc_idx': col_map.get('baf_disc_code'),
-            'baf_type_idx': col_map.get('baf_type_code'),
-            'baf_mod_idx': col_map.get('baf_mod'),
-            'route_idx': col_map.get('supplier_route'),
-            'origin_idx': col_map.get('origin'),
-            'hs_code_idx': col_map.get('hs_code'),
-            'surcharge_idx': col_map.get('surcharge'),
-            'weight_idx': col_map.get('weight'),
-            'height_idx': col_map.get('height'),
-            'width_idx': col_map.get('width'),
-            'length_idx': col_map.get('length'),
-            'replaced_by_idx': col_map.get('replaced_by'),
-        }
-
-    def _get_cell_value(self, row_data, idx, default=''):
-        if idx is not None and len(row_data) > idx and row_data[idx] not in (None, ''):
-            return str(row_data[idx]).strip()
-        return default
-
-    def _parse_float(self, value):
-        if not value:
-            return None
-        try:
-            return float(str(value).replace(',', ''))
-        except ValueError:
-            return None
-
-    def _parse_int(self, value):
-        if not value:
-            return None
-        try:
-            return int(float(str(value).replace(',', '')))
-        except ValueError:
-            return None
-
-    def _normalize_baf_mod(self, baf_mod):
-        baf_mod = str(baf_mod or 'car').lower()
-        if baf_mod in ('motorrad', 'motorcycle', 'moto'):
-            return 'motorcycle'
-        if baf_mod == 'sb':
-            return 'sb'
-        return 'car'
-
-    def _normalize_supplier_route(self, route):
-        route = str(route or 'de_table').lower()
-        return route if route in ('de_table', 'eu_direct') else 'de_table'
-
-    def _resolve_brand_id(self, brand_name, brand_cache):
-        brand_key = brand_name.lower()
-        if brand_key not in brand_cache:
-            new_brand = self.env['product.brand'].create({'name': brand_name})
-            brand_cache[brand_key] = new_brand.id
-        return brand_cache[brand_key]
-
-    def _resolve_origin_id(self, origin_input, country_cache):
-        if not origin_input:
-            return None
-        country_code = origin_input.strip().upper()
-        if country_code in country_cache:
-            return country_cache[country_code]
-
-        target_country = self.env['res.country'].search([('code', '=', country_code)], limit=1)
-        if target_country:
-            country_cache[country_code] = target_country.id
-            return target_country.id
-        return None
-
-    def _extract_row_core_values(self, row, indices):
-        sku = self._get_cell_value(row, indices['sku_idx'])
-        brand_name = self._get_cell_value(row, indices['brand_idx'])
-        return sku, brand_name
-
-    def _build_row_payload(self, row, indices, ctx):
-        sku, brand_name = self._extract_row_core_values(row, indices)
-        if not sku or not brand_name:
-            return None
-        if _is_sentinel(brand_name) or _is_sentinel(sku):
-            return 'sentinel'
-
-        brand_id = self._resolve_brand_id(brand_name, ctx['brand_cache'])
-        origin_id = self._resolve_origin_id(
-            self._get_cell_value(row, indices['origin_idx']),
-            ctx['country_cache'],
-        )
-
-        raw_name = self._get_cell_value(row, indices['name_idx'])
-        if not raw_name or _is_sentinel(raw_name):
-            raw_name = f"{brand_name} {sku}"
-
-        price = self._parse_float(self._get_cell_value(row, indices['price_idx']))
-        uos = self._parse_int(self._get_cell_value(row, indices['uos_idx']))
-        surcharge = self._parse_float(self._get_cell_value(row, indices['surcharge_idx'])) or 0.0
-        weight = self._parse_float(self._get_cell_value(row, indices['weight_idx'])) or 0.0
-        height = self._parse_float(self._get_cell_value(row, indices['height_idx'])) or 0.0
-        width = self._parse_float(self._get_cell_value(row, indices['width_idx'])) or 0.0
-        length = self._parse_float(self._get_cell_value(row, indices['length_idx'])) or 0.0
-        hs_code = self._get_cell_value(row, indices['hs_code_idx'], None)
-
-        replaced_by_sku_raw = self._get_cell_value(row, indices['replaced_by_idx'])
-        replaced_by_sku = (
-            replaced_by_sku_raw.strip()
-            if replaced_by_sku_raw and not _is_sentinel(replaced_by_sku_raw)
-            else None
-        )
-        replaced_by_id = None
-        replacement_created = False
-        if replaced_by_sku:
-            replaced_by_id, replacement_created = self._ensure_replacement_template(
-                replaced_by_sku,
-                brand_id,
-                brand_name,
-                ctx['uom_id'],
-                ctx['categ_id'],
-                ctx['replacement_cache'],
-            )
-
-        baf_disc = self._get_cell_value(row, indices['baf_disc_idx'], '0') or '0'
-        baf_type = self._parse_int(self._get_cell_value(row, indices['baf_type_idx'])) or 0
-        baf_mod = self._normalize_baf_mod(self._get_cell_value(row, indices['baf_mod_idx'], 'car'))
-        route = self._normalize_supplier_route(self._get_cell_value(row, indices['route_idx'], 'de_table'))
-        default_code = self._compute_default_code(brand_name, sku)
-        computed_col_key, computed_family = resolve_baf_brand_info(brand_name, baf_type, baf_mod)
-
-        return {
-            'name_json': json.dumps({"en_US": raw_name}),
-            'default_code': default_code,
-            'sku': sku,
-            'brand_name': brand_name,
-            'brand_id': brand_id,
-            'price': price,
-            'uos': uos,
-            'origin_id': origin_id,
-            'hs_code': hs_code,
-            'surcharge': surcharge,
-            'weight': weight,
-            'height': height,
-            'width': width,
-            'length': length,
-            'replaced_by_id': replaced_by_id,
-            'replaced_by_present': bool(replaced_by_sku),
-            'replacement_created': replacement_created,
-            'baf_disc': baf_disc,
-            'baf_type': baf_type,
-            'baf_mod': baf_mod,
-            'route': route,
-            'computed_col_key': computed_col_key,
-            'computed_family': computed_family,
-        }
-
-    def _build_template_upsert_tuple(self, payload, ctx):
-        return (
-            payload['name_json'],      # 1. name
-            payload['default_code'],   # 2. default_code
-            payload['sku'],            # 3. sku
-            payload['brand_id'],       # 4. brand
-            payload['price'],          # 5. list_price
-            'consu',                   # 6. type
-            True,                      # 7. is_storable
-            ctx['uom_id'],             # 8. uom_id
-            ctx['categ_id'],           # 9. categ_id
-            True,                      # 10. active
-            'no',                      # 11. service_tracking
-            'none',                    # 12. tracking
-            0.0,                       # 13. base_unit_count
-            True,                      # 14. sale_ok
-            True,                      # 15. purchase_ok
-            payload['baf_disc'],       # 16. baf_discount_code
-            payload['baf_type'],       # 17. baf_type_code
-            payload['baf_mod'],        # 18. baf_mod
-            payload['route'],          # 19. supplier_route
-            payload['computed_col_key'],   # 20. baf_column_key
-            payload['computed_family'],    # 21. baf_brand_family
-            payload['origin_id'],      # 22. origin
-            payload['hs_code'],        # 23. hs_code
-            payload['surcharge'],      # 24. surcharge
-            payload['weight'],         # 25. weight
-            payload['height'],         # 26. height
-            payload['width'],          # 27. width
-            payload['length'],         # 28. length
-            payload['replaced_by_id'], # 29. replaced_by_id
-            'order',                   # 30. invoice_policy
-            fields.Datetime.now(),     # 31. publish_date
-        )
-
-    def _get_product_template_upsert_query(self):
-        return """
-                    INSERT INTO product_template (
-                        name, default_code, sku, brand, list_price,
-                        type, is_storable, uom_id, categ_id, active, service_tracking,
-                        tracking, base_unit_count,
-                        sale_ok, purchase_ok,
-                        baf_discount_code, baf_type_code, baf_mod, supplier_route,
-                        baf_column_key, baf_brand_family,
-                        origin, hs_code, surcharge, weight,
-                        height, width, length,
-                        replaced_by_id,
-                        invoice_policy, publish_date
-                    ) VALUES %s
-                    ON CONFLICT (default_code) DO UPDATE SET
-                        name             = EXCLUDED.name,
-                        list_price       = EXCLUDED.list_price,
-                        sku              = EXCLUDED.sku,
-                        brand            = EXCLUDED.brand,
-                        baf_discount_code= EXCLUDED.baf_discount_code,
-                        baf_type_code    = EXCLUDED.baf_type_code,
-                        baf_mod          = EXCLUDED.baf_mod,
-                        supplier_route   = EXCLUDED.supplier_route,
-                        baf_column_key   = EXCLUDED.baf_column_key,
-                        baf_brand_family = EXCLUDED.baf_brand_family,
-                        origin           = EXCLUDED.origin,
-                        hs_code          = EXCLUDED.hs_code,
-                        surcharge        = EXCLUDED.surcharge,
-                        weight           = EXCLUDED.weight,
-                        height           = EXCLUDED.height,
-                        width            = EXCLUDED.width,
-                        length           = EXCLUDED.length,
-                        replaced_by_id   = COALESCE(EXCLUDED.replaced_by_id, product_template.replaced_by_id),
-                        invoice_policy   = EXCLUDED.invoice_policy,
-                        publish_date     = EXCLUDED.publish_date
-                    RETURNING id, default_code;
-                """
-
-    def action_read_headers(self):
-        self.ensure_one()
-        if not self.file_name or not self.file_name.lower().endswith(('.xlsx', '.csv')):
-            raise UserError(_("Unsupported file format. Please upload a .csv or .xlsx file."))
-
-        headers = self._get_file_headers()
-        mapping_lines = self._build_mapping_lines(headers)
 
         return mapping_lines
 
@@ -546,6 +246,8 @@ class MassProductImport(models.TransientModel):
         height = self._parse_float(self._get_cell_value(row, indices['height_idx'])) or 0.0
         width = self._parse_float(self._get_cell_value(row, indices['width_idx'])) or 0.0
         length = self._parse_float(self._get_cell_value(row, indices['length_idx'])) or 0.0
+        # h/w/l in cm → volume in m³
+        volume = (height * width * length) / 1_000_000.0
         hs_code = self._get_cell_value(row, indices['hs_code_idx'], None)
 
         replaced_by_sku_raw = self._get_cell_value(row, indices['replaced_by_idx'])
@@ -588,6 +290,7 @@ class MassProductImport(models.TransientModel):
             'height': height,
             'width': width,
             'length': length,
+            'volume': volume,
             'replaced_by_id': replaced_by_id,
             'replaced_by_present': bool(replaced_by_sku),
             'replacement_created': replacement_created,
@@ -629,9 +332,10 @@ class MassProductImport(models.TransientModel):
             payload['height'],         # 26. height
             payload['width'],          # 27. width
             payload['length'],         # 28. length
-            payload['replaced_by_id'], # 29. replaced_by_id
-            'order',                   # 30. invoice_policy
-            fields.Datetime.now(),     # 31. publish_date
+            payload['volume'],         # 29. volume
+            payload['replaced_by_id'], # 30. replaced_by_id
+            'order',                   # 31. invoice_policy
+            fields.Datetime.now(),     # 32. publish_date
         )
 
     def _get_product_template_upsert_query(self):
@@ -644,7 +348,7 @@ class MassProductImport(models.TransientModel):
                         baf_discount_code, baf_type_code, baf_mod, supplier_route,
                         baf_column_key, baf_brand_family,
                         origin, hs_code, surcharge, weight,
-                        height, width, length,
+                        height, width, length, volume,
                         replaced_by_id,
                         invoice_policy, publish_date
                     ) VALUES %s
@@ -666,6 +370,7 @@ class MassProductImport(models.TransientModel):
                         height           = EXCLUDED.height,
                         width            = EXCLUDED.width,
                         length           = EXCLUDED.length,
+                        volume           = EXCLUDED.volume,
                         replaced_by_id   = COALESCE(EXCLUDED.replaced_by_id, product_template.replaced_by_id),
                         invoice_policy   = EXCLUDED.invoice_policy,
                         publish_date     = EXCLUDED.publish_date
@@ -819,7 +524,7 @@ class MassProductImport(models.TransientModel):
                 baf_discount_code, baf_type_code, baf_mod, supplier_route,
                 baf_column_key, baf_brand_family,
                 origin, hs_code, surcharge, weight,
-                height, width, length,
+                height, width, length, volume,
                 invoice_policy, publish_date
             ) VALUES %s
             ON CONFLICT (default_code) DO UPDATE SET
@@ -859,6 +564,7 @@ class MassProductImport(models.TransientModel):
             0.0,
             0.0,
             0.0,
+            0.0,
             'order',
             fields.Datetime.now(),
         )], fetch=True)
@@ -885,7 +591,7 @@ class MassProductImport(models.TransientModel):
         indices = self._get_column_indices(col_map)
         upsert_query = self._get_product_template_upsert_query()
 
-        batch_size = 100000
+        batch_size = 50000
         data_batch_dict = {}
         batch_counter = 0
         rows_committed = 0
