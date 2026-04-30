@@ -1,10 +1,11 @@
-from odoo import models, fields, api
+from odoo import models, fields, api, _
+from odoo.exceptions import ValidationError
 
 
 class BafSalesGroup(models.Model):
     """
     Defines a customer pricing group.
-    Each res.partner can belong to one or more sales_group_ids.
+    Each res.partner can belong to at most one sales_group per brand family.
     The group controls HOW the sales price is computed:
       - table_lookup : look up discount% from baf.discount.line using the
                        product's discount_code + resolved column_key
@@ -77,6 +78,34 @@ class BafSalesGroup(models.Model):
         'partner_id',
         string='Customers in this group',
     )
+
+    @api.constrains('partner_ids', 'brand_family')
+    def _check_partner_ids_unique_family(self):
+        family_labels = dict(self._fields['brand_family'].selection)
+        for group in self:
+            conflicting_partners = []
+            for partner in group.partner_ids:
+                same_family_groups = partner.sales_group_ids.filtered(
+                    lambda sales_group: sales_group.brand_family == group.brand_family
+                )
+                if len(same_family_groups) > 1:
+                    conflicting_partners.append((partner, same_family_groups))
+
+            if conflicting_partners:
+                details = '; '.join(
+                    _("%(partner)s → %(groups)s") % {
+                        'partner': partner.display_name,
+                        'groups': ', '.join(groups.mapped('name')),
+                    }
+                    for partner, groups in conflicting_partners
+                )
+                raise ValidationError(_(
+                    "Customers can only belong to one sales pricing group in the %(family)s family. "
+                    "Conflicts found: %(details)s"
+                ) % {
+                    'family': family_labels.get(group.brand_family, group.brand_family),
+                    'details': details,
+                })
 
 
 class BafDiscountLine(models.Model):

@@ -1,3 +1,4 @@
+from odoo.exceptions import ValidationError
 from odoo.tests import TransactionCase, tagged
 
 from odoo.addons.general_system_custom.models.baf_product_pricing import resolve_baf_brand_info
@@ -233,5 +234,24 @@ class TestBafPricing(TransactionCase):
             variant.baf_get_sales_price_details(self.partner_bmw),
             product_tmpl.baf_get_sales_price_details(self.partner_bmw),
         )
+
+    def test_13_partner_write_cannot_add_two_groups_in_same_family(self):
+        with self.assertRaises(ValidationError):
+            self.partner_bmw.write({
+                'sales_group_ids': [(4, self.group_bmw_default_suffix.id)],
+            })
+
+    def test_14_partner_create_cannot_have_two_groups_in_same_family(self):
+        with self.assertRaises(ValidationError):
+            self.Partner.create({
+                'name': 'Duplicate BMW Family Customer',
+                'sales_group_ids': [(6, 0, [self.group_bmw_gr1.id, self.group_bmw_default_suffix.id])],
+            })
+
+    def test_15_group_form_assignment_cannot_create_same_family_conflict(self):
+        with self.assertRaises(ValidationError):
+            self.group_bmw_default_suffix.write({
+                'partner_ids': [(4, self.partner_bmw.id)],
+            })
 
 
