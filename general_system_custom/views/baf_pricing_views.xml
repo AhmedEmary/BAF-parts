@@ -169,7 +169,7 @@
                        string="Sales Pricing Groups"
                        widget="many2many_tags"
                        options="{'no_quick_create': True}"
-                       help="Leave empty → customer sees full UPE (MSRP). Assign one or more groups to apply discounts. The first group is used for pricing."/>
+                       help="Leave empty → customer sees full UPE (MSRP). Assign at most one sales pricing group per brand family (for example one BMW/MINI group and one JLR group)."/>
             </xpath>
         </field>
     </record>
