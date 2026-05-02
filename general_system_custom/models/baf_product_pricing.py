@@ -217,9 +217,37 @@ class ProductTemplateBafPricing(models.Model):
 
         upe = self.list_price
         surcharge = self.surcharge or 0.0
+        product_family = self.baf_brand_family or 'other'
 
         # Guest or no partner → full UPE
-        if not partner or not partner.sales_group_ids:
+        if not partner:
+            return {
+                'price': upe + surcharge,
+                'column_key': '',
+                'discount_pct': 0.0,
+                'pricing_method': 'guest',
+            }
+
+        # B2B EU VAT tier ─────────────────────────────────────────────────────
+        # Registered customers with a VAT number from an EU country get a flat
+        # −5 % on JLR products when they don't already have a JLR pricing group
+        # (pricing groups always take priority and usually offer more).
+        if (
+            product_family == 'jlr'
+            and getattr(partner, 'is_b2b_eu_vat', False)
+            and not partner.sales_group_ids.filtered(
+                lambda g: g.active and g.brand_family in ('jlr', 'all')
+            )
+        ):
+            return {
+                'price': upe * 0.95 + surcharge,
+                'column_key': 'B2B_EU_VAT',
+                'discount_pct': 5.0,
+                'pricing_method': 'b2b_vat_discount',
+            }
+
+        # No pricing groups at all → full UPE
+        if not partner.sales_group_ids:
             return {
                 'price': upe + surcharge,
                 'column_key': '',
@@ -231,7 +259,6 @@ class ProductTemplateBafPricing(models.Model):
         # A customer can hold one group per family (BMW_MINI_GR1 for BMW,
         # JLR_GR4 for Jaguar, MERCEDES_GR1 for Mercedes). Wildcard groups
         # (brand_family='all') act as a catch-all when no exact match exists.
-        product_family = self.baf_brand_family or 'other'
         groups = partner.sales_group_ids.filtered(lambda g: g.active)
         group = (
             groups.filtered(lambda g: g.brand_family == product_family)[:1]

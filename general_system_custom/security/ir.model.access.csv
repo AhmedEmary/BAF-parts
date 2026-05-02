@@ -33,3 +33,6 @@ access_baf_discount_line_public,baf.discount.line public,model_baf_discount_line
 access_baf_sales_group_portal,baf.sales.group portal,model_baf_sales_group,base.group_portal,1,0,0,0
 access_baf_discount_line_portal,baf.discount.line portal,model_baf_discount_line,base.group_portal,1,0,0,0
 access_baf_discount_import_wizard,baf.discount.import.wizard,model_baf_discount_import_wizard,base.group_user,1,1,1,1
+access_baf_delivery_rule_user,baf.delivery.rule user,model_baf_delivery_rule,base.group_user,1,1,1,1
+access_baf_delivery_rule_public,baf.delivery.rule public,model_baf_delivery_rule,base.group_public,1,0,0,0
+access_baf_delivery_rule_portal,baf.delivery.rule portal,model_baf_delivery_rule,base.group_portal,1,0,0,0

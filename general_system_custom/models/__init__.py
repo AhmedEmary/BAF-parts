@@ -6,6 +6,7 @@ from . import baf_product_pricing
 from . import partner
 from . import auto_product
 from . import discount_code
+from . import baf_delivery_rule
 
 # 2. Then load Order Lines and logic that depends on the base models
 from . import sales_order_line
@@ -29,3 +30,4 @@ from . import corrispettivi_report
 from . import corrispettivi_report_handler
 from . import mass_vendor_wizard
 from . import discount_import_wizard
+from .import website

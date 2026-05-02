@@ -92,8 +92,9 @@ class BafSalesGroup(models.Model):
                     conflicting_partners.append((partner, same_family_groups))
 
             if conflicting_partners:
+                detail_tpl = _("%(partner)s -> %(groups)s")
                 details = '; '.join(
-                    _("%(partner)s → %(groups)s") % {
+                    detail_tpl % {
                         'partner': partner.display_name,
                         'groups': ', '.join(groups.mapped('name')),
                     }
