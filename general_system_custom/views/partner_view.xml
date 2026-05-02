@@ -1,13 +1,35 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
     <record id="view_partner_form_inherit_trusted_vendor" model="ir.ui.view">
-        <field name="name">res.partner.form.inherit.trusted.vendor</field>
+        <field name="name">res.partner.form.inherit.baf</field>
         <field name="model">res.partner</field>
         <field name="inherit_id" ref="base.view_partner_form"/>
         <field name="arch" type="xml">
+
             <xpath expr="//field[@name='property_supplier_payment_term_id']" position="after">
                 <field name="is_trusted_vendor"/>
             </xpath>
+
+            <xpath expr="//page[@name='sales_purchases']" position="inside">
+                <separator string="BAF Webshop &amp; Pricing"/>
+                <group>
+                    <group string="Pricing Groups">
+                        <field name="sales_group_ids"
+                               widget="many2many_tags"
+                               domain="[('active','=',True)]"
+                               help="At most one group per brand family. Leave empty for guest prices."/>
+                        <field name="is_b2b_eu_vat" readonly="1"
+                               help="Auto-detected from VAT number + EU country. Grants −5 % on JLR when no JLR group is assigned."/>
+                    </group>
+                    <group string="Webshop Brand Visibility">
+                        <field name="visible_brand_ids"
+                               widget="many2many_tags"
+                               options="{'no_create': True}"
+                               placeholder="Select allowed brands..."/>
+                    </group>
+                </group>
+            </xpath>
+
         </field>
     </record>
 </odoo>

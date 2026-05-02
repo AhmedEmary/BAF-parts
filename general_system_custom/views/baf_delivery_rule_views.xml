@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- ── List view ──────────────────────────────────────────────────────── -->
+    <record id="view_baf_delivery_rule_list" model="ir.ui.view">
+        <field name="name">baf.delivery.rule.list</field>
+        <field name="model">baf.delivery.rule</field>
+        <field name="arch" type="xml">
+            <list string="Shipping Rules" editable="top">
+                <field name="name"/>
+                <field name="country_zone"/>
+                <field name="package_type"/>
+                <field name="free_above" optional="show"/>
+                <field name="base_cost"/>
+                <field name="cost_per_kg" optional="show"/>
+                <field name="currency_id" optional="hide"/>
+                <field name="active" optional="show"/>
+            </list>
+        </field>
+    </record>
+
+    <!-- ── Form view ──────────────────────────────────────────────────────── -->
+    <record id="view_baf_delivery_rule_form" model="ir.ui.view">
+        <field name="name">baf.delivery.rule.form</field>
+        <field name="model">baf.delivery.rule</field>
+        <field name="arch" type="xml">
+            <form string="Shipping Rule">
+                <sheet>
+                    <div class="oe_title">
+                        <h1><field name="name" placeholder="Rule Name"/></h1>
+                    </div>
+                    <group>
+                        <group string="Scope">
+                            <field name="country_zone"/>
+                            <field name="package_type"/>
+                            <field name="active"/>
+                        </group>
+                        <group string="Cost">
+                            <field name="currency_id"/>
+                            <field name="free_above"
+                                   help="Order untaxed total that triggers free shipping. 0 = never free."/>
+                            <field name="base_cost"/>
+                            <field name="cost_per_kg"
+                                   help="Extra cost per kg of total order weight (bulky surcharge)."/>
+                        </group>
+                    </group>
+                    <group string="How the zones map to countries">
+                        <div colspan="2" class="o_field_widget o_wrap_field">
+                            <p>
+                                <strong>Germany (DE)</strong>: DE<br/>
+                                <strong>EU Zone 1</strong>: AT, NL, BE, LU, PL, CZ, SK, DK<br/>
+                                <strong>EU Zone 2</strong>: FR, IT, ES, PT, SE, FI, HU, RO, BG, SI, HR, EE, LV, LT, GR<br/>
+                                <strong>EU Zone 3</strong>: IE, CY, MT, GB, CH, NO + remaining EU<br/>
+                                <strong>World</strong>: all other countries
+                            </p>
+                            <p class="text-muted">
+                                Tip: the bulky-goods threshold can be changed in
+                                Settings → Technical → System Parameters →
+                                <em>baf.bulky_volume_threshold_cm3</em>
+                                (default 45 000 cm³).
+                            </p>
+                        </div>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <!-- ── Action ─────────────────────────────────────────────────────────── -->
+    <record id="action_baf_delivery_rule" model="ir.actions.act_window">
+        <field name="name">Shipping Rules</field>
+        <field name="res_model">baf.delivery.rule</field>
+        <field name="view_mode">list,form</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                Create your first shipping rule
+            </p>
+            <p>
+                Define one rule per country zone × package type combination.
+                The shipping cost calculator uses these rules at checkout.
+            </p>
+        </field>
+    </record>
+
+    <!-- ── Menu entry (under BAF Pricing) ─────────────────────────────────── -->
+    <menuitem
+        id="menu_baf_delivery_rule"
+        name="Shipping Rules"
+        parent="general_system_custom.baf_pricing_menu_root"
+        action="action_baf_delivery_rule"
+        sequence="30"/>
+
+</odoo>
+

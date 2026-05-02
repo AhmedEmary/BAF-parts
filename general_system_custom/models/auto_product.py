@@ -7,6 +7,11 @@ class ProductBrand(models.Model):
 
     name = fields.Char(string='Brand Name', required=True)
     description = fields.Text(string='Description')
+    is_public = fields.Boolean(
+        string='Publicly Available',
+        default=False,
+        help="If checked, this brand is visible to all users (including guests) in the e-commerce."
+    )
 
 
 class ProductTemplate(models.Model):
@@ -31,12 +36,39 @@ class ProductTemplate(models.Model):
 
     # h/w/l are stored in cm; volume is stored as cm3 for this project.
     # Keep enough precision for fractional dimensions.
-    volume = fields.Float(string='Volume (cm3)', compute='_compute_volume', store=True, digits=(16, 4))
+    volume = fields.Float(string='Volume (cm³)', compute='_compute_volume', store=True, digits=(16, 4))
+
+    # ── Bulky goods classification ────────────────────────────────────────────
+    # Default threshold: 45 000 cm³ (45 L).  Override per product with
+    # force_bulky_goods, or change the system-wide default in Settings →
+    # Technical → System Parameters → baf.bulky_volume_threshold_cm3.
+    force_bulky_goods = fields.Boolean(
+        string='Force Bulky Goods',
+        default=False,
+        help="Always classify this product as bulky regardless of its volume.",
+    )
+    is_bulky_goods = fields.Boolean(
+        string='Bulky Goods',
+        compute='_compute_is_bulky_goods',
+        store=True,
+        help="True when volume ≥ threshold (default 45 000 cm³) or when "
+             "'Force Bulky Goods' is checked. Controls the shipping rate bracket.",
+    )
 
     @api.depends('height', 'width', 'length')
     def _compute_volume(self):
         for rec in self:
             rec.volume = (rec.height or 0.0) * (rec.width or 0.0) * (rec.length or 0.0)
+
+    @api.depends('volume', 'force_bulky_goods')
+    def _compute_is_bulky_goods(self):
+        threshold = float(
+            self.env['ir.config_parameter'].sudo().get_param(
+                'baf.bulky_volume_threshold_cm3', default='45000'
+            )
+        )
+        for rec in self:
+            rec.is_bulky_goods = rec.force_bulky_goods or (rec.volume or 0.0) >= threshold
 
     _default_code_uniq = models.Constraint(
         'unique(default_code)',

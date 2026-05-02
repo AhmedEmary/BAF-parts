@@ -12,6 +12,26 @@ except ImportError:
 
 _logger = logging.getLogger(__name__)
 
+
+def _get_partner_allowed_families(partner):
+    """
+    Return the list of baf_brand_family values that should be visible for a
+    given partner.  Falls back to ['jlr'] for guests / public users.
+    """
+    if not partner:
+        return ['jlr']
+    allowed = []
+    if getattr(partner, 'shop_show_jlr', True):
+        allowed.append('jlr')
+    if getattr(partner, 'shop_show_bmw_mini', False):
+        allowed.append('bmw_mini')
+    if getattr(partner, 'shop_show_mercedes', False):
+        allowed.append('mercedes')
+    if getattr(partner, 'shop_show_other', False):
+        # 'other' visibility also covers products with no brand family set
+        allowed.append('other')
+    return allowed or ['jlr']
+
 class WebsiteSalePagination(Cart):
 
     @http.route([
@@ -117,7 +137,82 @@ _logger = logging.getLogger(__name__)
 
 class WebsiteSaleCustomDelivery(WebsiteSale):
 
-    @http.route(['/shop/payment'], type='http', auth="public", website=True, sitemap=False)
+    # ── Brand-family visibility filter ───────────────────────────────────────
+
+    def _get_search_domain(self, search, category, attrib_values, search_in_description=True):
+        # 1. Get the standard Odoo domain first
+        domain = super()._get_search_domain(search, category, attrib_values, search_in_description)
+
+        # 2. Identify the current user and their partner record
+        user = request.env.user
+        partner = user.partner_id
+
+        # 3. Base rule: Always show brands that are marked as "Publicly Available"
+        # Note: In your product.template, the field is named 'brand'
+        brand_domain = [('brand.is_public', '=', True)]
+
+        # 4. If the user is logged in, also show brands explicitly assigned to them
+        if not user._is_public() and partner.visible_brand_ids:
+            # We use an OR '|' condition: Either it's public, OR it's in their allowed brands list
+            brand_domain = [
+                '|',
+                ('brand.is_public', '=', True),
+                ('brand.id', 'in', partner.visible_brand_ids.ids)
+            ]
+
+        # OPTIONAL: If you want products that have NO brand assigned to be visible to everyone,
+        # you can uncomment the following line:
+        # brand_domain = ['|', ('brand', '=', False)] + brand_domain
+
+        # 5. Append the custom brand visibility domain to the main search domain
+        domain += brand_domain
+
+        return domain
+
+    # ── Shipping cost API ─────────────────────────────────────────────────────
+
+    @http.route('/shop/baf_shipping_cost', type='jsonrpc', auth='public', website=True)
+    def baf_shipping_cost(self, **kwargs):
+        """
+        Return the computed BAF shipping cost for the current cart.
+
+        Response: {'cost': float, 'free': bool, 'zone': str, 'package_type': str}
+        """
+        order = request.cart
+        if not order or not order.order_line:
+            return {'cost': 0.0, 'free': True, 'zone': 'n/a', 'package_type': 'standard'}
+
+        shipping_partner = order.partner_shipping_id or order.partner_id
+        country_code = shipping_partner.country_id.code if shipping_partner.country_id else ''
+
+        total_weight = sum(
+            (line.product_id.weight or 0.0) * line.product_uom_qty
+            for line in order.order_line
+            if not line.display_type
+        )
+        has_bulky = any(
+            getattr(line.product_id, 'is_bulky_goods', False)
+            for line in order.order_line
+            if not line.display_type
+        )
+
+        DeliveryRule = request.env['baf.delivery.rule'].sudo()
+        zone = DeliveryRule.get_zone_for_country(country_code)
+        package_type = 'bulky' if has_bulky else 'standard'
+        cost = DeliveryRule.compute_shipping_cost(
+            order_amount=order.amount_untaxed,
+            total_weight_kg=total_weight,
+            country_code=country_code,
+            has_bulky=has_bulky,
+        )
+        return {
+            'cost': cost,
+            'free': cost == 0.0,
+            'zone': zone,
+            'package_type': package_type,
+        }
+
+    @http.route()
     def shop_payment(self, **post):
         """ Override the payment route to capture custom delivery fields """
         

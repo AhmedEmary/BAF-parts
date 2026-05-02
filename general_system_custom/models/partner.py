@@ -6,7 +6,7 @@ class ResPartner(models.Model):
     _inherit = 'res.partner'
 
     is_trusted_vendor = fields.Boolean(
-        string="Trusted Vendor", 
+        string="Trusted Vendor",
         help="If checked, the Customer Name column will be included in the PO Excel export sent to this vendor."
     )
     sales_group_ids = fields.Many2many(
@@ -23,6 +23,37 @@ class ResPartner(models.Model):
             "(for example one BMW/MINI group and one JLR group)."
         ),
     )
+
+    visible_brand_ids = fields.Many2many(
+        'product.brand',
+        'res_partner_product_brand_rel',
+        'partner_id',
+        'brand_id',
+        string='Visible Brands',
+        help="Specific brands this customer is allowed to see in the webshop. Brands marked 'Publicly Available' are visible regardless of this selection."
+    )
+
+    # ── B2B EU VAT flag ───────────────────────────────────────────────────────
+    is_b2b_eu_vat = fields.Boolean(
+        string='B2B EU VAT Customer',
+        compute='_compute_is_b2b_eu_vat',
+        store=True,
+        help="Automatically True when the partner has a VAT number and is located "
+             "in an EU member state. These customers receive a −5 %% discount on "
+             "JLR products unless a specific JLR pricing group is assigned.",
+    )
+
+    @api.depends('vat', 'country_id')
+    def _compute_is_b2b_eu_vat(self):
+        eu_countries = self.env.ref('base.europe', raise_if_not_found=False)
+        for partner in self:
+            has_vat = bool(partner.vat and partner.vat.strip())
+            in_eu = bool(
+                eu_countries
+                and partner.country_id
+                and partner.country_id in eu_countries.country_ids
+            )
+            partner.is_b2b_eu_vat = has_vat and in_eu
 
     @api.constrains('sales_group_ids')
     def _check_sales_group_ids_unique_family(self):
@@ -49,4 +80,3 @@ class ResPartner(models.Model):
                     "A customer can only belong to one sales pricing group per brand family. "
                     "Conflicts found: %(details)s"
                 ) % {'details': details})
-
