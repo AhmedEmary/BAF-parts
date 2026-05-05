@@ -25,7 +25,13 @@ class SaleOrderLine(models.Model):
     @api.depends('product_id')
     def _compute_purchase_vendor_id(self):
         for line in self:
-            if line.product_id and line.product_id.seller_ids:
+            if not line.product_id:
+                line.purchase_vendor_id = False
+                continue
+            best = line.product_id.baf_get_best_vendor()
+            if best['vendor']:
+                line.purchase_vendor_id = best['vendor']
+            elif line.product_id.seller_ids:
                 line.purchase_vendor_id = line.product_id.seller_ids[0].partner_id
             else:
                 line.purchase_vendor_id = False
@@ -63,6 +69,17 @@ class SaleOrderLine(models.Model):
                 line.percentage_reserved = (line.reserved_qty / line.product_uom_qty) * 100.0
             else:
                 line.percentage_reserved = 0.0
+
+    def action_open_vendor_compare(self):
+        self.ensure_one()
+        return {
+            'name': 'Compare Vendor Prices',
+            'type': 'ir.actions.act_window',
+            'res_model': 'baf.vendor.price.compare',
+            'view_mode': 'form',
+            'target': 'new',
+            'context': {'default_sale_line_id': self.id},
+        }
 
     def action_create_purchase_order(self):
         lines_to_process = self.filtered(lambda l: l.qty_to_purchase > 0)
@@ -107,8 +124,15 @@ class SaleOrderLine(models.Model):
             for line in so_lines:
                 # Use BAF purchase price engine
                 supplier_code = getattr(vendor, 'baf_supplier_code', 'SUP1') or 'SUP1'
-                baf_price = line.product_id.baf_get_purchase_price(supplier_code=supplier_code)
-                final_cost = baf_price if baf_price is not None else line.price_unit
+                details = line.product_id.baf_get_purchase_price_details(supplier_code=supplier_code)
+                if details:
+                    final_cost = details['price']
+                    discount_pct = details['discount_pct']
+                    column_key = details['column_key']
+                else:
+                    final_cost = line.price_unit
+                    discount_pct = 0.0
+                    column_key = False
 
                 pol_vals_list.append({
                     'order_id': po.id,
@@ -119,6 +143,9 @@ class SaleOrderLine(models.Model):
                     'retail_price': line.price_unit,
                     'price_unit': final_cost,
                     'surcharge': line.product_id.surcharge or 0.0,
+                    'baf_discount_code': line.product_id.baf_discount_code or False,
+                    'baf_discount_pct': discount_pct,
+                    'baf_column_key': column_key,
                     'date_planned': fields.Datetime.now(),
                 })
 

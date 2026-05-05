@@ -29,5 +29,6 @@ from . import base_document_layout
 from . import corrispettivi_report
 from . import corrispettivi_report_handler
 from . import mass_vendor_wizard
+from . import baf_vendor_compare_wizard
 from . import discount_import_wizard
 from .import website

@@ -147,6 +147,6 @@ class ProductProduct(models.Model):
             records = self.search(exact_domain, limit=limit, order=order)
             if records:
                 return records
-        return super()._name_search(
-            name=name, domain=domain, operator=operator, limit=limit, order=order,
+        return super().name_search(
+            name=name, domain=domain, operator=operator, limit=limit,
         )

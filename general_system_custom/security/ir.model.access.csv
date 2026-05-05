@@ -36,3 +36,5 @@ access_baf_discount_import_wizard,baf.discount.import.wizard,model_baf_discount_
 access_baf_delivery_rule_user,baf.delivery.rule user,model_baf_delivery_rule,base.group_user,1,1,1,1
 access_baf_delivery_rule_public,baf.delivery.rule public,model_baf_delivery_rule,base.group_public,1,0,0,0
 access_baf_delivery_rule_portal,baf.delivery.rule portal,model_baf_delivery_rule,base.group_portal,1,0,0,0
+access_baf_vendor_price_compare,baf.vendor.price.compare,model_baf_vendor_price_compare,base.group_user,1,1,1,1
+access_baf_vendor_price_compare_line,baf.vendor.price.compare.line,model_baf_vendor_price_compare_line,base.group_user,1,1,1,1
