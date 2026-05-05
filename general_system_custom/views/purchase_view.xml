@@ -21,6 +21,9 @@
                 <field name="name" optional="hide"/>
                 <field name="retail_price" string="Retail" optional="show"/>
                 <field name="surcharge" string="Surcharge" optional="show"/>
+                <field name="baf_discount_code" string="Disc Code" optional="show" readonly="1"/>
+                <field name="baf_discount_pct" string="Disc %" optional="show" readonly="1"/>
+                <field name="baf_column_key" string="Column" optional="show" readonly="1"/>
                 <field name="price_unit" string="Unit Price" readonly="0" force_save="1"/>
                 <field name="price_subtotal" widget="monetary"/>
                 <field name="qty_received" optional="show"/>
@@ -85,6 +88,9 @@
             <xpath expr="//field[@name='order_line']/list//field[@name='price_unit']" position="before">
                 <field name="retail_price" string="Retail" optional="show"/>
                 <field name="surcharge" string="Surcharge" optional="show"/>
+                <field name="baf_discount_code" string="Disc Code" optional="show" readonly="1"/>
+                <field name="baf_discount_pct" string="Disc %" optional="show" readonly="1"/>
+                <field name="baf_column_key" string="Column" optional="show" readonly="1"/>
             </xpath>
 
             <xpath expr="//field[@name='order_line']/list//field[@name='price_unit']" position="attributes">

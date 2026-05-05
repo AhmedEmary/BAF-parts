@@ -8,6 +8,11 @@
 
             <xpath expr="//field[@name='property_supplier_payment_term_id']" position="after">
                 <field name="is_trusted_vendor"/>
+                <field name="baf_supplier_code"/>
+                <field name="baf_brand_ids"
+                       widget="many2many_tags"
+                       options="{'no_create': True}"
+                       placeholder="Brands this vendor can deliver..."/>
             </xpath>
 
             <xpath expr="//page[@name='sales_purchases']" position="inside">

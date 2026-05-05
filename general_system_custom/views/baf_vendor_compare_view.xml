@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_baf_vendor_price_compare_form" model="ir.ui.view">
+        <field name="name">baf.vendor.price.compare.form</field>
+        <field name="model">baf.vendor.price.compare</field>
+        <field name="arch" type="xml">
+            <form string="Compare Vendor Prices">
+                <sheet>
+                    <group>
+                        <group>
+                            <field name="product_id" readonly="1"/>
+                            <field name="brand_id" readonly="1"/>
+                            <field name="qty_to_purchase" readonly="1"/>
+                        </group>
+                        <group>
+                            <field name="selected_vendor_id"
+                                   options="{'no_create': True, 'no_open': True}"/>
+                        </group>
+                    </group>
+
+                    <group string="Why this vendor was preselected">
+                        <field name="reason" nolabel="1" readonly="1"/>
+                    </group>
+
+                    <field name="line_ids" nolabel="1">
+                        <list create="0" delete="0" edit="0"
+                              decoration-success="is_winner == True"
+                              decoration-muted="priceable == False">
+                            <field name="vendor_id"/>
+                            <field name="supplier_code"/>
+                            <field name="method"/>
+                            <field name="column_key" optional="show"/>
+                            <field name="discount_pct" optional="show"/>
+                            <field name="sb_surcharge" optional="hide"/>
+                            <field name="price"/>
+                            <field name="is_winner" widget="boolean_toggle" readonly="1"/>
+                            <field name="note" optional="show"/>
+                            <field name="priceable" column_invisible="1"/>
+                        </list>
+                    </field>
+                    <field name="selectable_vendor_ids" invisible="1" widget="many2many_tags"/>
+                </sheet>
+                <footer>
+                    <button name="action_apply" string="Apply Selection" type="object" class="btn-primary"/>
+                    <button string="Cancel" class="btn-secondary" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_baf_vendor_price_compare" model="ir.actions.act_window">
+        <field name="name">Compare Vendor Prices</field>
+        <field name="res_model">baf.vendor.price.compare</field>
+        <field name="view_mode">form</field>
+        <field name="target">new</field>
+    </record>
+</odoo>

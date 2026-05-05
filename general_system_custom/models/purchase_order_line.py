@@ -7,6 +7,22 @@ class PurchaseOrderLine(models.Model):
     retail_price = fields.Monetary(string='Retail', currency_field='currency_id')
     surcharge = fields.Monetary(string='Surcharge', currency_field='currency_id')
 
+    # ── BAF pricing breakdown (snapshot of how price_unit was derived) ───────
+    baf_discount_code = fields.Char(
+        string='Discount Code',
+        help="Discount code that was used to look up this line's purchase price. "
+             "Snapshotted from the product when the line was created.",
+    )
+    baf_discount_pct = fields.Float(
+        string='Discount %',
+        digits=(6, 4),
+        help="Discount percentage applied from the BAF discount table.",
+    )
+    baf_column_key = fields.Char(
+        string='Column Key',
+        help="Full discount-table column key used (e.g. SUP1_BMW_T12).",
+    )
+
     # Inbound reconciliation
     qty_split = fields.Float(
         string='Qty Allocated',
@@ -32,9 +48,9 @@ class PurchaseOrderLine(models.Model):
             return
 
         self.surcharge = self.product_id.surcharge
+        self.baf_discount_code = self.product_id.baf_discount_code or False
 
-        # Compute BAF purchase price if the product has a DE table route
-        baf_price = self.product_id.baf_get_purchase_price(
+        details = self.product_id.baf_get_purchase_price_details(
             supplier_code=self._get_supplier_code()
         )
 
@@ -50,11 +66,14 @@ class PurchaseOrderLine(models.Model):
         if not sale_price_found:
             self.retail_price = self.product_id.list_price
 
-        if baf_price is not None:
-            self.price_unit = baf_price
+        if details:
+            self.price_unit = details['price']
+            self.baf_discount_pct = details['discount_pct']
+            self.baf_column_key = details['column_key']
         else:
             # EU direct — keep whatever the vendor pricelist resolved
-            pass
+            self.baf_discount_pct = 0.0
+            self.baf_column_key = False
 
     def _get_supplier_code(self):
         """
@@ -72,9 +91,11 @@ class PurchaseOrderLine(models.Model):
         res = super().write(vals)
         if 'retail_price' in vals or 'surcharge' in vals:
             for line in self:
-                baf_price = line.product_id.baf_get_purchase_price(
+                details = line.product_id.baf_get_purchase_price_details(
                     supplier_code=line._get_supplier_code()
                 )
-                if baf_price is not None:
-                    line.price_unit = baf_price
+                if details:
+                    line.price_unit = details['price']
+                    line.baf_discount_pct = details['discount_pct']
+                    line.baf_column_key = details['column_key']
         return res

@@ -10,9 +10,11 @@
                 <field name="reserved_qty" string="Reserved" readonly="1"/>
                 <field name="purchased_qty" optional="show" string="Purchased"/>
                 <field name="qty_to_purchase" string="Qty to Buy" sum="Total Needed" readonly="1"/>
-                
+
                 <field name="purchase_vendor_id" string="Select Vendor"/>
-                
+                <button name="action_open_vendor_compare" type="object"
+                        string="Compare Prices" icon="fa-balance-scale"
+                        title="Show all eligible vendors and explain why one was preselected"/>
             </list>
         </field>
     </record>

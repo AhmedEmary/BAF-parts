@@ -9,6 +9,37 @@ class ResPartner(models.Model):
         string="Trusted Vendor",
         help="If checked, the Customer Name column will be included in the PO Excel export sent to this vendor."
     )
+
+    baf_supplier_code = fields.Selection(
+        selection=[
+            ('SUP1', 'Supplier 1 (DE table — SUP1)'),
+            ('SUP2', 'Supplier 2 (DE table — SUP2)'),
+            ('SUP3', 'Supplier 3 (DE table — SUP3 / Moto)'),
+            ('SUP_JLR', 'JLR Supplier (DE table — SUP_JLR)'),
+            ('EU_DIRECT', 'EU Direct (use vendor pricelist)'),
+        ],
+        string='BAF Supplier Code',
+        help=(
+            "Selects which discount-table column prefix to use for this vendor. "
+            "BMW/MINI vendors share the same brand columns, so the prefix "
+            "(SUP1/SUP2/SUP3) is the only thing that distinguishes their prices. "
+            "Set to EU_DIRECT for vendors who quote net prices directly through "
+            "the standard product.supplierinfo pricelist."
+        ),
+    )
+
+    baf_brand_ids = fields.Many2many(
+        'product.brand',
+        'res_partner_baf_vendor_brand_rel',
+        'partner_id',
+        'brand_id',
+        string='Brands Supplied',
+        help=(
+            "Brands that this vendor can deliver. Used by the auto-vendor "
+            "selection on Sales Order lines: only vendors whose brand list "
+            "contains the product's brand will be considered for that line."
+        ),
+    )
     sales_group_ids = fields.Many2many(
         'baf.sales.group',
         'baf_sales_group_partner_rel',
