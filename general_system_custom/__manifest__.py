@@ -31,6 +31,7 @@
         'views/portal_templates.xml',
         'views/discount_import_wizard_view.xml',
         'views/baf_delivery_rule_views.xml',
+        'views/baf_vendor_compare_view.xml',
     ],
     'assets': {
     'web.assets_backend': [

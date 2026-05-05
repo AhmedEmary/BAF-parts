@@ -1,6 +1,6 @@
 import re
 
-from odoo import models, fields, api
+from odoo import _, models, fields, api
 
 
 # ── Brand family detection ───────────────────────────────────────────────────
@@ -159,29 +159,38 @@ class ProductTemplateBafPricing(models.Model):
         """
         Compute the BAF purchase price for this product.
 
-        supplier_code: 'SUP1', 'SUP2', or 'SUP3'
+        supplier_code: 'SUP1', 'SUP2', 'SUP3', or 'SUP_JLR'
         Returns float (net purchase price) or None if route is eu_direct.
+        """
+        details = self.baf_get_purchase_price_details(supplier_code=supplier_code)
+        return details['price'] if details else None
 
-        Logic:
-          eu_direct  → return None (use standard Odoo vendor pricelist)
-          de_table   → look up discount table → apply SB surcharge if needed
+    def baf_get_purchase_price_details(self, supplier_code='SUP1'):
+        """
+        Same calculation as baf_get_purchase_price but returns the lookup
+        breakdown so callers (auto-vendor selection, comparison wizard) can
+        explain *how* the price was derived.
+
+        Returns a dict or None (eu_direct / no column key):
+          {
+            'price':         net purchase price,
+            'column_key':    full lookup key used (e.g. 'SUP1_BMW_T12'),
+            'discount_pct':  discount % applied,
+            'sb_surcharge':  surcharge % applied (0.0 unless SB+SUP1),
+            'pricing_method': 'discount_table',
+          }
         """
         self.ensure_one()
 
         if self.supplier_route == 'eu_direct':
             return None
 
-        # ── de_table path ──
-        # Motorcycle parts: always Supplier 3, single column SUP3_MOTO
-        # (purchase side has no brand/type split for moto)
         if self.baf_mod == MOD_MOTORCYCLE:
             full_column_key = 'SUP3_MOTO'
         else:
             column_key = self.baf_column_key
             if not column_key:
                 return None
-            # SB products always read their base discount from Supplier 1.
-            # The caller's supplier_code still matters for surcharge handling.
             lookup_supplier = 'SUP1' if self.baf_mod == 'sb' else supplier_code
             full_column_key = f"{lookup_supplier}_{column_key}"
 
@@ -194,12 +203,18 @@ class ProductTemplateBafPricing(models.Model):
         upe = self.list_price
         purchase_price = upe * (1.0 - discount_pct / 100.0)
 
-        # SB surcharge — Supplier 1 only
+        sb_surcharge = 0.0
         if self.baf_mod == 'sb' and supplier_code == 'SUP1':
-            surcharge_pct = self.baf_sb_surcharge_override or 5.2
-            purchase_price = purchase_price * (1.0 - surcharge_pct / 100.0)
+            sb_surcharge = self.baf_sb_surcharge_override or 5.2
+            purchase_price = purchase_price * (1.0 - sb_surcharge / 100.0)
 
-        return purchase_price
+        return {
+            'price': purchase_price,
+            'column_key': full_column_key,
+            'discount_pct': discount_pct,
+            'sb_surcharge': sb_surcharge,
+            'pricing_method': 'discount_table',
+        }
 
     def baf_get_sales_price_details(self, partner=None):
         """
@@ -320,14 +335,207 @@ class ProductProductBafPricing(models.Model):
 
     def baf_get_purchase_price(self, supplier_code='SUP1'):
         self.ensure_one()
-        # Delegate the call to the underlying product.template
         return self.product_tmpl_id.baf_get_purchase_price(supplier_code=supplier_code)
+
+    def baf_get_purchase_price_details(self, supplier_code='SUP1'):
+        self.ensure_one()
+        return self.product_tmpl_id.baf_get_purchase_price_details(supplier_code=supplier_code)
 
     def baf_get_sales_price(self, partner=None):
         self.ensure_one()
-        # Delegate the call to the underlying product.template
         return self.product_tmpl_id.baf_get_sales_price(partner=partner)
 
     def baf_get_sales_price_details(self, partner=None):
         self.ensure_one()
         return self.product_tmpl_id.baf_get_sales_price_details(partner=partner)
+
+    # ── Auto vendor selection ─────────────────────────────────────────────────
+    # Tie-break order matches the client's spec:
+    #   SUP1 wins on equal-price ties, then SUP2, then SUP3, then SUP_JLR,
+    #   then EU_DIRECT. Motorcycle parts ignore everyone except SUP3 vendors.
+    _BAF_VENDOR_PREFERENCE = ('SUP1', 'SUP2', 'SUP3', 'SUP_JLR', 'EU_DIRECT')
+
+    def _baf_eligible_vendors(self):
+        """Return vendors with a BAF supplier code that supply this brand."""
+        self.ensure_one()
+        brand = self.brand
+        if not brand:
+            return self.env['res.partner']
+        return self.env['res.partner'].search([
+            ('baf_supplier_code', '!=', False),
+            ('baf_brand_ids', 'in', brand.id),
+        ])
+
+    def _baf_supplierinfo_price(self, vendor):
+        """Lookup the standard product.supplierinfo price for an EU-direct vendor."""
+        self.ensure_one()
+        seller = self.seller_ids.filtered(lambda s: s.partner_id == vendor)[:1]
+        if not seller:
+            seller = self.product_tmpl_id.seller_ids.filtered(
+                lambda s: s.partner_id == vendor
+            )[:1]
+        return seller.price if seller else None
+
+    def baf_get_best_vendor(self):
+        """
+        Auto-select the cheapest eligible vendor for this product.
+
+        Returns:
+          {
+            'vendor':     winning res.partner record (or empty record),
+            'price':      winning net price (or 0.0),
+            'method':     'discount_table' | 'supplierinfo' | None,
+            'reason':     human-readable explanation,
+            'candidates': list of dicts (one per eligible vendor) with keys
+                          vendor, price, method, column_key, discount_pct,
+                          sb_surcharge, is_winner, note.
+          }
+        """
+        self.ensure_one()
+
+        empty_result = {
+            'vendor': self.env['res.partner'],
+            'price': 0.0,
+            'method': None,
+            'reason': '',
+            'candidates': [],
+        }
+
+        eligible = self._baf_eligible_vendors()
+        if not eligible:
+            empty_result['reason'] = _(
+                "No vendor in the system has '%(brand)s' in their Brands Supplied list."
+            ) % {'brand': self.brand.name if self.brand else ''}
+            return empty_result
+
+        is_motorcycle = self.product_tmpl_id.baf_mod == MOD_MOTORCYCLE
+        if is_motorcycle:
+            sup3 = eligible.filtered(lambda v: v.baf_supplier_code == 'SUP3')
+            if not sup3:
+                empty_result['reason'] = _(
+                    "Motorcycle product — only Supplier 3 vendors are eligible, "
+                    "but none supply '%(brand)s'."
+                ) % {'brand': self.brand.name if self.brand else ''}
+                return empty_result
+            eligible = sup3
+
+        candidates = []
+        for vendor in eligible:
+            code = vendor.baf_supplier_code
+            note = ''
+            if code == 'EU_DIRECT':
+                price = self._baf_supplierinfo_price(vendor)
+                if price is None:
+                    note = _("No supplier pricelist entry for this product.")
+                    candidates.append({
+                        'vendor': vendor,
+                        'price': None,
+                        'method': 'supplierinfo',
+                        'column_key': '',
+                        'discount_pct': 0.0,
+                        'sb_surcharge': 0.0,
+                        'is_winner': False,
+                        'note': note,
+                    })
+                    continue
+                candidates.append({
+                    'vendor': vendor,
+                    'price': price,
+                    'method': 'supplierinfo',
+                    'column_key': '',
+                    'discount_pct': 0.0,
+                    'sb_surcharge': 0.0,
+                    'is_winner': False,
+                    'note': _("Net price from product supplier pricelist."),
+                })
+                continue
+
+            details = self.baf_get_purchase_price_details(supplier_code=code)
+            if not details:
+                candidates.append({
+                    'vendor': vendor,
+                    'price': None,
+                    'method': 'discount_table',
+                    'column_key': '',
+                    'discount_pct': 0.0,
+                    'sb_surcharge': 0.0,
+                    'is_winner': False,
+                    'note': _("Product has no discount-table column for this vendor."),
+                })
+                continue
+
+            candidates.append({
+                'vendor': vendor,
+                'price': details['price'],
+                'method': details['pricing_method'],
+                'column_key': details['column_key'],
+                'discount_pct': details['discount_pct'],
+                'sb_surcharge': details['sb_surcharge'],
+                'is_winner': False,
+                'note': '',
+            })
+
+        priced = [c for c in candidates if c['price'] is not None]
+        if not priced:
+            empty_result['candidates'] = candidates
+            empty_result['reason'] = _(
+                "No vendor produced a usable price (missing discount table rows or supplier pricelist)."
+            )
+            return empty_result
+
+        pref = {code: idx for idx, code in enumerate(self._BAF_VENDOR_PREFERENCE)}
+        priced.sort(key=lambda c: (
+            round(c['price'], 4),
+            pref.get(c['vendor'].baf_supplier_code, 99),
+        ))
+
+        winner = priced[0]
+        winner['is_winner'] = True
+
+        cheapest_price = round(winner['price'], 4)
+        ties = [c for c in priced if round(c['price'], 4) == cheapest_price]
+
+        winner_code = winner['vendor'].baf_supplier_code
+        if is_motorcycle:
+            reason = _(
+                "Motorcycle product → only Supplier 3 is eligible. "
+                "%(vendor)s wins at %(price).2f (column %(col)s)."
+            ) % {
+                'vendor': winner['vendor'].display_name,
+                'price': winner['price'],
+                'col': winner['column_key'] or '—',
+            }
+        elif len(ties) > 1:
+            tied_codes = ', '.join(c['vendor'].baf_supplier_code for c in ties)
+            reason = _(
+                "%(vendor)s (%(code)s) wins at %(price).2f. Tie at this price between %(tied)s → preference order picks %(code)s."
+            ) % {
+                'vendor': winner['vendor'].display_name,
+                'code': winner_code,
+                'price': winner['price'],
+                'tied': tied_codes,
+            }
+        elif winner['method'] == 'supplierinfo':
+            reason = _(
+                "%(vendor)s wins at %(price).2f from the supplier pricelist (EU direct)."
+            ) % {
+                'vendor': winner['vendor'].display_name,
+                'price': winner['price'],
+            }
+        else:
+            reason = _(
+                "%(vendor)s (%(code)s) wins at %(price).2f from discount table column %(col)s."
+            ) % {
+                'vendor': winner['vendor'].display_name,
+                'code': winner_code,
+                'price': winner['price'],
+                'col': winner['column_key'] or '—',
+            }
+
+        return {
+            'vendor': winner['vendor'],
+            'price': winner['price'],
+            'method': winner['method'],
+            'reason': reason,
+            'candidates': candidates,
+        }

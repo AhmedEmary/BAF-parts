@@ -25,7 +25,13 @@ class SaleOrderLine(models.Model):
     @api.depends('product_id')
     def _compute_purchase_vendor_id(self):
         for line in self:
-            if line.product_id and line.product_id.seller_ids:
+            if not line.product_id:
+                line.purchase_vendor_id = False
+                continue
+            best = line.product_id.baf_get_best_vendor()
+            if best['vendor']:
+                line.purchase_vendor_id = best['vendor']
+            elif line.product_id.seller_ids:
                 line.purchase_vendor_id = line.product_id.seller_ids[0].partner_id
             else:
                 line.purchase_vendor_id = False
@@ -63,6 +69,17 @@ class SaleOrderLine(models.Model):
                 line.percentage_reserved = (line.reserved_qty / line.product_uom_qty) * 100.0
             else:
                 line.percentage_reserved = 0.0
+
+    def action_open_vendor_compare(self):
+        self.ensure_one()
+        return {
+            'name': 'Compare Vendor Prices',
+            'type': 'ir.actions.act_window',
+            'res_model': 'baf.vendor.price.compare',
+            'view_mode': 'form',
+            'target': 'new',
+            'context': {'default_sale_line_id': self.id},
+        }
 
     def action_create_purchase_order(self):
         lines_to_process = self.filtered(lambda l: l.qty_to_purchase > 0)
