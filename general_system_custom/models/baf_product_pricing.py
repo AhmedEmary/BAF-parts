@@ -271,14 +271,25 @@ class ProductTemplateBafPricing(models.Model):
             }
 
         # Pick the customer's group whose brand_family matches the product.
-        # A customer can hold one group per family (BMW_MINI_GR1 for BMW,
-        # JLR_GR4 for Jaguar, MERCEDES_GR1 for Mercedes). Wildcard groups
-        # (brand_family='all') act as a catch-all when no exact match exists.
+        # A customer can hold one car group + one moto group per family
+        # (e.g. BMW_MINI_GR1 for BMW car parts AND BMW_MINI_MOTO for BMW
+        # motorcycle parts). The moto tier is detected from the group's
+        # column suffix == 'MOTO'. Wildcard groups (brand_family='all')
+        # act as a catch-all when no exact match exists.
+        is_moto_product = self.baf_mod == MOD_MOTORCYCLE and self.baf_brand_family == 'bmw_mini'
         groups = partner.sales_group_ids.filtered(lambda g: g.active)
-        group = (
-            groups.filtered(lambda g: g.brand_family == product_family)[:1]
-            or groups.filtered(lambda g: g.brand_family == 'all')[:1]
-        )
+        family_groups = groups.filtered(lambda g: g.brand_family == product_family)
+        if is_moto_product:
+            group = (
+                family_groups.filtered(lambda g: g._is_moto_group())[:1]
+                or family_groups.filtered(lambda g: not g._is_moto_group())[:1]
+                or groups.filtered(lambda g: g.brand_family == 'all')[:1]
+            )
+        else:
+            group = (
+                family_groups.filtered(lambda g: not g._is_moto_group())[:1]
+                or groups.filtered(lambda g: g.brand_family == 'all')[:1]
+            )
         if not group:
             # Customer has groups, but none cover this product's family.
             # Treat them as a guest for this brand → full UPE.

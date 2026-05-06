@@ -254,4 +254,85 @@ class TestBafPricing(TransactionCase):
                 'partner_ids': [(4, self.partner_bmw.id)],
             })
 
+    # ─────────────────────────────────────────────────────────────────────
+    # Car + Moto tier groups can coexist in the same family
+    # ─────────────────────────────────────────────────────────────────────
+
+    def _make_moto_bmw_group(self):
+        return self.SalesGroup.create({
+            'name': 'BMW/MINI MOTO',
+            'brand_family': 'bmw_mini',
+            'pricing_method': 'table_lookup',
+            'group_column_suffix': 'MOTO',
+        })
+
+    def test_16_car_and_moto_groups_can_coexist_in_same_family(self):
+        moto_group = self._make_moto_bmw_group()
+        # Should NOT raise — GR1 (car) + MOTO (moto) is allowed.
+        self.partner_bmw.write({'sales_group_ids': [(4, moto_group.id)]})
+        self.assertIn(self.group_bmw_gr1, self.partner_bmw.sales_group_ids)
+        self.assertIn(moto_group, self.partner_bmw.sales_group_ids)
+
+    def test_17_two_moto_groups_in_same_family_raise(self):
+        moto_a = self._make_moto_bmw_group()
+        moto_b = self.SalesGroup.create({
+            'name': 'BMW/MINI MOTO 2',
+            'brand_family': 'bmw_mini',
+            'pricing_method': 'table_lookup',
+            'group_column_suffix': 'MOTO',
+        })
+        with self.assertRaises(ValidationError):
+            self.Partner.create({
+                'name': 'Customer with two MOTO groups',
+                'sales_group_ids': [(6, 0, [moto_a.id, moto_b.id])],
+            })
+
+    def test_18_partner_with_car_and_moto_uses_moto_group_for_moto_product(self):
+        # Make the MOTO group use a markup so its pricing method is observably
+        # different from the GR1 (table_lookup) group. Whichever group the
+        # engine picks decides the pricing_method in the result.
+        moto_group = self.SalesGroup.create({
+            'name': 'BMW/MINI MOTO markup',
+            'brand_family': 'bmw_mini',
+            'pricing_method': 'markup_pct',
+            'group_column_suffix': 'MOTO',
+            'markup_pct': 25.0,
+        })
+        partner = self.Partner.create({
+            'name': 'BMW car+moto Customer',
+            'sales_group_ids': [(6, 0, [self.group_bmw_gr1.id, moto_group.id])],
+        })
+        moto_product = self._create_product(
+            self.brand_bmw, 'S-CARMOTO-MOTO',
+            baf_type_code=1, baf_mod='motorcycle',
+        )
+        details = moto_product.baf_get_sales_price_details(partner)
+        # If the moto group was picked we'd see markup_pct, not table_lookup.
+        self.assertEqual(details['pricing_method'], 'markup_pct')
+        self.assertAlmostEqual(details['discount_pct'], 25.0)
+
+    def test_19_partner_with_car_and_moto_uses_car_group_for_car_product(self):
+        moto_group = self._make_moto_bmw_group()
+        partner = self.Partner.create({
+            'name': 'BMW car+moto Customer 2',
+            'sales_group_ids': [(6, 0, [self.group_bmw_gr1.id, moto_group.id])],
+        })
+        car_product = self._create_product(self.brand_bmw, 'S-CARMOTO-CAR', baf_type_code=1)
+        details = car_product.baf_get_sales_price_details(partner)
+        self.assertEqual(details['column_key'], 'BMW_T12_GR1')
+        self.assertAlmostEqual(details['discount_pct'], 5.0)
+
+    def test_20_moto_only_partner_buying_car_part_falls_to_guest(self):
+        # Customer has ONLY the moto group → no car-tier group → guest price
+        # for a car BMW part. (Backwards-compat: customers with only a car
+        # group still get the existing MOTO override on moto products.)
+        moto_group = self._make_moto_bmw_group()
+        partner = self.Partner.create({
+            'name': 'BMW moto-only Customer',
+            'sales_group_ids': [(6, 0, [moto_group.id])],
+        })
+        car_product = self._create_product(self.brand_bmw, 'S-MOTOONLY-CAR', baf_type_code=1)
+        details = car_product.baf_get_sales_price_details(partner)
+        self.assertEqual(details['pricing_method'], 'guest')
+
 
