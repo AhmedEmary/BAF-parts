@@ -356,15 +356,26 @@ class ProductProductBafPricing(models.Model):
     _BAF_VENDOR_PREFERENCE = ('SUP1', 'SUP2', 'SUP3', 'SUP_JLR', 'EU_DIRECT')
 
     def _baf_eligible_vendors(self):
-        """Return vendors with a BAF supplier code that supply this brand."""
+        """Return vendors with a BAF supplier code that supply this brand.
+
+        SUP3 is the motorcycle-only vendor: SUP3 partners are eligible only
+        for motorcycle products. Conversely, non-motorcycle products exclude
+        SUP3 vendors entirely (the brand entries on the SUP3 partner are
+        informational — the moto filter takes precedence).
+        """
         self.ensure_one()
         brand = self.brand
         if not brand:
             return self.env['res.partner']
-        return self.env['res.partner'].search([
+        domain = [
             ('baf_supplier_code', '!=', False),
             ('baf_brand_ids', 'in', brand.id),
-        ])
+        ]
+        if self.product_tmpl_id.baf_mod == MOD_MOTORCYCLE:
+            domain.append(('baf_supplier_code', '=', 'SUP3'))
+        else:
+            domain.append(('baf_supplier_code', '!=', 'SUP3'))
+        return self.env['res.partner'].search(domain)
 
     def _baf_supplierinfo_price(self, vendor):
         """Lookup the standard product.supplierinfo price for an EU-direct vendor."""
@@ -401,23 +412,19 @@ class ProductProductBafPricing(models.Model):
             'candidates': [],
         }
 
+        is_motorcycle = self.product_tmpl_id.baf_mod == MOD_MOTORCYCLE
         eligible = self._baf_eligible_vendors()
         if not eligible:
-            empty_result['reason'] = _(
-                "No vendor in the system has '%(brand)s' in their Brands Supplied list."
-            ) % {'brand': self.brand.name if self.brand else ''}
-            return empty_result
-
-        is_motorcycle = self.product_tmpl_id.baf_mod == MOD_MOTORCYCLE
-        if is_motorcycle:
-            sup3 = eligible.filtered(lambda v: v.baf_supplier_code == 'SUP3')
-            if not sup3:
+            if is_motorcycle:
                 empty_result['reason'] = _(
                     "Motorcycle product — only Supplier 3 vendors are eligible, "
                     "but none supply '%(brand)s'."
                 ) % {'brand': self.brand.name if self.brand else ''}
-                return empty_result
-            eligible = sup3
+            else:
+                empty_result['reason'] = _(
+                    "No non-moto vendor has '%(brand)s' in their Brands Supplied list."
+                ) % {'brand': self.brand.name if self.brand else ''}
+            return empty_result
 
         candidates = []
         for vendor in eligible:
