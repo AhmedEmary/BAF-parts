@@ -79,17 +79,26 @@ class BafSalesGroup(models.Model):
         string='Customers in this group',
     )
 
-    @api.constrains('partner_ids', 'brand_family')
+    def _is_moto_group(self):
+        """A group is the 'moto tier' of its brand family when its column
+        suffix is MOTO (e.g. BMW_MINI_MOTO). Detected from the existing
+        suffix convention so no extra field is needed."""
+        self.ensure_one()
+        return (self.group_column_suffix or '').strip().upper() == 'MOTO'
+
+    @api.constrains('partner_ids', 'brand_family', 'group_column_suffix')
     def _check_partner_ids_unique_family(self):
         family_labels = dict(self._fields['brand_family'].selection)
         for group in self:
+            tier = group._is_moto_group()
             conflicting_partners = []
             for partner in group.partner_ids:
-                same_family_groups = partner.sales_group_ids.filtered(
-                    lambda sales_group: sales_group.brand_family == group.brand_family
+                same_tier_groups = partner.sales_group_ids.filtered(
+                    lambda g: g.brand_family == group.brand_family
+                              and g._is_moto_group() == tier
                 )
-                if len(same_family_groups) > 1:
-                    conflicting_partners.append((partner, same_family_groups))
+                if len(same_tier_groups) > 1:
+                    conflicting_partners.append((partner, same_tier_groups))
 
             if conflicting_partners:
                 detail_tpl = _("%(partner)s -> %(groups)s")
@@ -100,10 +109,12 @@ class BafSalesGroup(models.Model):
                     }
                     for partner, groups in conflicting_partners
                 )
+                tier_label = _("motorcycle") if tier else _("car")
                 raise ValidationError(_(
-                    "Customers can only belong to one sales pricing group in the %(family)s family. "
+                    "A customer can only belong to one %(tier)s pricing group in the %(family)s family. "
                     "Conflicts found: %(details)s"
                 ) % {
+                    'tier': tier_label,
                     'family': family_labels.get(group.brand_family, group.brand_family),
                     'details': details,
                 })
