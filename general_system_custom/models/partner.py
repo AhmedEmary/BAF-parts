@@ -102,10 +102,13 @@ class ResPartner(models.Model):
                 if len(groups) > 1
             }
             if duplicates:
+                tier_label_moto = _("motorcycle")
+                tier_label_car = _("car")
+                detail_tpl = _("%(family)s (%(tier)s): %(groups)s")
                 details = '; '.join(
-                    _("%(family)s (%(tier)s): %(groups)s") % {
+                    detail_tpl % {
                         'family': family_labels.get(family, family),
-                        'tier': _("motorcycle") if is_moto else _("car"),
+                        'tier': tier_label_moto if is_moto else tier_label_car,
                         'groups': ', '.join(groups.mapped('name')),
                     }
                     for (family, is_moto), groups in duplicates.items()
