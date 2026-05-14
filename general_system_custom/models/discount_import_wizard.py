@@ -28,7 +28,9 @@ class BafDiscountImportWizard(models.TransientModel):
     # ─── BMW / MINI sheet column layout ─────────────────────────────────
     # Row 0 : section header (PURCHAGES BMW-MINI | Purchages Motocycle |
     #                         SALE PRICE GR1 | GR2 | GR3 | GR4 | GR_MOTORCYCLE)
-    # Row 1 : BMW TA1-2 | BMW TA 3-9 | MINI TA 1-2 | MINI TA 3-9 (per section)
+    # Row 1 : BMW T12 | BMW T39 | MINI T12 | MINI T39 (per section).
+    #         T12 column = product type codes 1, 2, 4, 6, 8.
+    #         T39 column = product type codes 3, 5, 7, 9.
     # Row 2 : DC | Supplier1 | Supplier2 | ...   (purchase side only)
     # Row 3+: data rows, col 0 = discount code, then values
     _BMW_MINI_PURCHASE_COLS = [
