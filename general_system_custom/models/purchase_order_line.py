@@ -54,17 +54,10 @@ class PurchaseOrderLine(models.Model):
             supplier_code=self._get_supplier_code()
         )
 
-        sale_price_found = False
-        if self.order_id.sale_order_id:
-            so_line = self.order_id.sale_order_id.order_line.filtered(
-                lambda l: l.product_id == self.product_id
-            )
-            if so_line:
-                self.retail_price = so_line[0].price_unit
-                sale_price_found = True
-
-        if not sale_price_found:
-            self.retail_price = self.product_id.list_price
+        # Retail is always the product's list price — never the sale order
+        # price_unit, since the SO line may carry a customer-specific discount
+        # that must not flow into the purchase cost calculation.
+        self.retail_price = self.product_id.list_price
 
         if details:
             self.price_unit = details['price']

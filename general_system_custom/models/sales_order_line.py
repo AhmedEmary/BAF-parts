@@ -7,6 +7,22 @@ _logger = logging.getLogger(__name__)
 class SaleOrderLine(models.Model):
     _inherit = 'sale.order.line'
 
+    sku_lookup = fields.Char(
+        string='SKU',
+        compute='_compute_sku_brand_lookup',
+        store=True,
+        readonly=False,
+        help="Type the exact SKU to find and set the product",
+    )
+    brand_lookup = fields.Many2one(
+        'product.brand',
+        string='Search Brand',
+        compute='_compute_sku_brand_lookup',
+        store=True,
+        readonly=False,
+        help="Select brand first to filter SKU search (required when same SKU exists in multiple brands)",
+    )
+
     stock_quantity = fields.Float(string='Stock Available', compute='_compute_stock_quantity', store=True)
     reserve_qty = fields.Boolean(string='Occupy Stock', default=False, copy=False)
     reserved_qty = fields.Float(string='Reserved Qty', default=0.0, store=True, copy=False)
@@ -16,6 +32,53 @@ class SaleOrderLine(models.Model):
     brand_id = fields.Many2one('product.brand', related='product_id.brand', store=True, string="Brand", readonly=True)
     purchased_qty = fields.Float(string='Purchased Qty', compute='_compute_purchased_qty', store=True)
     unshipped_qty = fields.Float(string='Unshipped Qty', compute='_compute_unshipped_qty', store=True)
+
+    @api.onchange('sku_lookup', 'brand_lookup')
+    def _onchange_sku_lookup(self):
+        """When user types an exact SKU, find and set the product (filtered by brand if set)."""
+        if not self.sku_lookup:
+            return
+        sku = self.sku_lookup.strip()
+        domain = [('sku', '=', sku)]
+        if self.brand_lookup:
+            domain.append(('brand', '=', self.brand_lookup.id))
+        products = self.env['product.product'].search(domain)
+        if len(products) == 1:
+            self.product_id = products
+            self.product_template_id = products.product_tmpl_id
+            self.brand_lookup = products.brand
+        elif len(products) > 1:
+            if not self.brand_lookup:
+                brand_ids = products.mapped('brand').ids
+                return {
+                    'domain': {'brand_lookup': [('id', 'in', brand_ids)]},
+                    'warning': {
+                        'title': 'Multiple Brands Found',
+                        'message': f'SKU "{sku}" exists in multiple brands. '
+                                   f'Please select a Brand to choose the correct product.',
+                    },
+                }
+            else:
+                self.product_id = products[0]
+                self.product_template_id = products[0].product_tmpl_id
+        else:
+            return {
+                'warning': {
+                    'title': 'SKU Not Found',
+                    'message': f'No product found with exact SKU "{sku}".',
+                },
+            }
+
+    @api.depends('product_id')
+    def _compute_sku_brand_lookup(self):
+        """Auto-fill SKU and Brand from the selected product."""
+        for line in self:
+            if line.product_id:
+                line.sku_lookup = line.product_id.sku or ''
+                line.brand_lookup = line.product_id.brand
+            else:
+                line.sku_lookup = ''
+                line.brand_lookup = False
 
     @api.depends('product_uom_qty', 'qty_invoiced')
     def _compute_unshipped_qty(self):
@@ -140,7 +203,7 @@ class SaleOrderLine(models.Model):
                     'name': line.name,
                     'product_qty': line.qty_to_purchase,
                     'product_uom_id': line.product_uom_id.id,
-                    'retail_price': line.price_unit,
+                    'retail_price': line.product_id.list_price,
                     'price_unit': final_cost,
                     'surcharge': line.product_id.surcharge or 0.0,
                     'baf_discount_code': line.product_id.baf_discount_code or False,

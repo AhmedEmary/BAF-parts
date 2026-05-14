@@ -12,8 +12,9 @@
                 <div class="text-muted">
                     <p>Upload an Excel file with the following header columns:</p>
                     <ul>
-                        <li><b>SKU</b>: Product Internal Reference</li>
+                        <li><b>sku</b>: Product SKU</li>
                         <li><b>qty</b>: Quantity to order</li>
+                        <li><b>brand</b> (optional): Brand name — required only when the same SKU exists for multiple brands</li>
                         <li><b>price</b> (optional): Overwrite Sale Price</li>
                     </ul>
                 </div>
