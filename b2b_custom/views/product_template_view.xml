@@ -49,6 +49,21 @@
                 <strong>Brand:</strong> <span t-field="product.brand.name"/>
             </div>
 
+            <div t-if="product.replaced_by_id" class="mb-3 py-2 ps-3"
+                 style="border-left: 3px solid #6c757d; font-size: 1.05rem;">
+                <div class="text-uppercase text-muted small fw-semibold" style="letter-spacing: 0.05em;">
+                    <i class="fa fa-exchange me-1"/> New part number
+                </div>
+                <a t-att-href="product.replaced_by_id.website_url"
+                   class="text-dark text-decoration-none fw-semibold"
+                   style="border-bottom: 1px dotted #6c757d;">
+                    <t t-out="product.replaced_by_id.name"/>
+                    <t t-if="product.replaced_by_id.sku">
+                        <span class="text-muted fw-normal ms-1">(<t t-out="product.replaced_by_id.sku"/>)</span>
+                    </t>
+                </a>
+            </div>
+
             <div class="mb-3" style="font-size: 1.1rem;">
                 <t t-set="is_in_stock" t-value="product.sudo().qty_available &gt; 0"/>
 
