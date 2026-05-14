@@ -3,6 +3,7 @@ access_discount_code_all,discount.code,model_discount_code,base.group_user,1,1,1
 access_discount_code_value_all,discount.code.value,model_discount_code_value,base.group_user,1,1,1,1
 access_product_brand_all,product.brand,model_product_brand,base.group_user,1,1,1,1
 access_import_so_lines,import.so.lines,model_import_so_lines,base.group_user,1,1,1,1
+access_import_so_lines_conflict,import.so.lines.conflict,model_import_so_lines_conflict,base.group_user,1,1,1,1
 access_delivery_list_import,delivery.list.import,model_delivery_list_import,base.group_user,1,1,1,1
 access_delivery_list_line,delivery.list.line,model_delivery_list_line,base.group_user,1,1,1,1
 access_warehouse_checking_session,warehouse.checking.session,model_warehouse_checking_session,base.group_user,1,1,1,1

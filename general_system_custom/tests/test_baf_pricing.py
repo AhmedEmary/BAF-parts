@@ -112,6 +112,23 @@ class TestBafPricing(TransactionCase):
         self.assertEqual(resolve_baf_brand_info('Mercedes-Benz', 0, 'car'), ('MERCEDES', 'mercedes'))
         self.assertEqual(resolve_baf_brand_info('Bosal', 0, 'car'), ('BOSAL', 'other'))
 
+    def test_01b_bmw_mini_type_code_split(self):
+        """T12 covers codes 1, 2, 4, 6, 8; T39 covers 3, 5, 7, 9."""
+        for tc in (1, 2, 4, 6, 8):
+            self.assertEqual(
+                resolve_baf_brand_info('BMW', tc, 'car'),
+                ('BMW_T12', 'bmw_mini'),
+                msg=f"type code {tc} should resolve to BMW_T12",
+            )
+        for tc in (3, 5, 7, 9):
+            self.assertEqual(
+                resolve_baf_brand_info('MINI', tc, 'car'),
+                ('MINI_T39', 'bmw_mini'),
+                msg=f"type code {tc} should resolve to MINI_T39",
+            )
+        # 0 / missing falls back to T12
+        self.assertEqual(resolve_baf_brand_info('BMW', 0, 'car'), ('BMW_T12', 'bmw_mini'))
+
     def test_02_discount_lookup_returns_match_or_zero(self):
         self.assertEqual(
             self.DiscountLine.get_discount_pct('purchase', 'SUP1_BMW_T12', '10'),

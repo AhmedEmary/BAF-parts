@@ -18,6 +18,13 @@ from odoo import _, models, fields, api
 
 MOD_MOTORCYCLE = 'motorcycle'
 
+# BMW/MINI type-code split:
+#   T12 column → 1, 2, 4, 6, 8
+#   T39 column → 3, 5, 7, 9
+# A missing/zero type code falls back to T12.
+BAF_T39_TYPE_CODES = frozenset({3, 5, 7, 9})
+BAF_T12_TYPE_CODES = frozenset({1, 2, 4, 6, 8})
+
 _BRAND_PATTERNS = (
     # (regex, base_column_key, brand_family)
     (re.compile(r'\bBMW\b'),                                                'BMW',      'bmw_mini'),
@@ -43,6 +50,11 @@ def resolve_baf_brand_info(brand_name, type_code=0, mod='car'):
     'bmw_mini', 'jlr', 'mercedes', 'other'. column_key is '' for blank brand,
     `<BRAND>_T12` / `<BRAND>_T39` for BMW/MINI (per type_code), the family
     name for JLR/MERCEDES, or the cleaned brand name for unknowns.
+
+    BMW/MINI type-code split:
+        T12 → 1, 2, 4, 6, 8
+        T39 → 3, 5, 7, 9
+    A missing/zero type code falls back to T12.
     """
     norm = _normalize_brand(brand_name)
     if not norm:
@@ -52,12 +64,7 @@ def resolve_baf_brand_info(brand_name, type_code=0, mod='car'):
         if pattern.search(norm):
             if family == 'bmw_mini':
                 tc = type_code or 0
-                if tc in (1, 2):
-                    bucket = 'T12'
-                elif tc >= 3:
-                    bucket = 'T39'
-                else:
-                    bucket = 'T12'
+                bucket = 'T39' if tc in BAF_T39_TYPE_CODES else 'T12'
                 return (f'{base_key}_{bucket}', 'bmw_mini')
             return (base_key, family)
 
@@ -92,7 +99,9 @@ class ProductTemplateBafPricing(models.Model):
     # ── Type code (1–9) ───────────────────────────────────────────────────────
     baf_type_code = fields.Integer(
         string='Type Code (1–9)',
-        help="BMW/MINI type code. 1–2 → T12 column, 3–9 → T39 column. "
+        help="BMW/MINI type code. "
+             "T12 column → 1, 2, 4, 6, 8. "
+             "T39 column → 3, 5, 7, 9. "
              "Leave 0 for brands without a type split.",
     )
 

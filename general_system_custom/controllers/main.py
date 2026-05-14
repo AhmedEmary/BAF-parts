@@ -68,11 +68,15 @@ class BafDiscountTemplateDownload(http.Controller):
                            ('AA1', 'GR_MOTORCYCLE')):
             self._bold_header(ws, col, label)
 
-        # Row 2: type sub-headers (BMW T1-2 / T3-9 / MINI T1-2 / T3-9)
-        bmw_mini_subs = ['BMW T1-2', 'BMW T3-9', 'MINI T1-2', 'MINI T3-9']
+        # Row 2: type sub-headers
+        # T12 column covers type codes 1, 2, 4, 6, 8; T39 covers 3, 5, 7, 9.
+        bmw_mini_subs = ['BMW T12 (1,2,4,6,8)', 'BMW T39 (3,5,7,9)',
+                         'MINI T12 (1,2,4,6,8)', 'MINI T39 (3,5,7,9)']
         # Purchase: SUP1/SUP2 pairs per type (8 cols starting at B), then SUP3 moto at J
-        purchase_row2 = ['BMW T1-2', 'BMW T1-2', 'BMW T3-9', 'BMW T3-9',
-                         'MINI T1-2', 'MINI T1-2', 'MINI T3-9', 'MINI T3-9', 'MOTO']
+        purchase_row2 = ['BMW T12 (1,2,4,6,8)', 'BMW T12 (1,2,4,6,8)',
+                         'BMW T39 (3,5,7,9)',  'BMW T39 (3,5,7,9)',
+                         'MINI T12 (1,2,4,6,8)', 'MINI T12 (1,2,4,6,8)',
+                         'MINI T39 (3,5,7,9)', 'MINI T39 (3,5,7,9)', 'MOTO']
         for offset, val in enumerate(purchase_row2):
             ws.cell(row=2, column=2 + offset, value=val).font = Font(bold=True)
         # Sales sections: 4 sub-cols each, base cols 11, 15, 19, 23, 27 (1-indexed)

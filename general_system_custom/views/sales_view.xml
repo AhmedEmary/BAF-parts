@@ -31,11 +31,17 @@
             </xpath>
             <xpath expr="//field[@name='order_line']" position="before">
                 <div class="mb-2">
-                    <button name="%(action_import_so_lines)d" 
-                            string="Import Lines from Excel" 
-                            type="action" 
+                    <button name="%(action_import_so_lines)d"
+                            string="Import Lines from Excel"
+                            type="action"
                             class="btn btn-secondary"
                             icon="fa-upload"/>
+                    <button name="%(action_open_all_sale_order_lines)d"
+                            string="Open Lines in List"
+                            type="action"
+                            class="btn btn-secondary ms-3"
+                            icon="fa-external-link"
+                            help="Open all lines in a full list view to multi-select and run bulk actions."/>
                 </div>
             </xpath>
 
