@@ -42,11 +42,20 @@
 
     <template id="product_custom_sku" inherit_id="website_sale.product_title">
         <xpath expr="//h1[@t-field='product.name']" position="after">
-            <div t-if="product.sku" class="mt-2 mb-2 text-muted" style="font-size: 1.1rem;">
+            <t t-set="is_nla" t-value="product.sku and product.sku.strip().upper() == 'NLA'"/>
+
+            <div t-if="product.sku and not is_nla" class="mt-2 mb-2 text-muted" style="font-size: 1.1rem;">
                 <strong>SKU:</strong> <span t-field="product.sku"/>
             </div>
             <div t-if="product.brand" class="mb-2 text-muted">
                 <strong>Brand:</strong> <span t-field="product.brand.name"/>
+            </div>
+
+            <div t-if="is_nla" class="mb-3 py-2 px-3"
+                 style="background-color: #fbeaea; border-left: 3px solid #c0392b; font-size: 1.05rem;">
+                <span class="fw-bold text-uppercase" style="color: #c0392b; letter-spacing: 0.03em;">
+                    <i class="fa fa-ban me-1"/> No Longer Available
+                </span>
             </div>
 
             <div t-if="product.replaced_by_id" class="mb-3 py-2 ps-3"
@@ -64,31 +73,80 @@
                 </a>
             </div>
 
-            <div class="mb-3" style="font-size: 1.1rem;">
+            <div t-if="not is_nla" class="mb-3" style="font-size: 1.1rem;">
                 <t t-set="is_in_stock" t-value="product.sudo().qty_available &gt; 0"/>
 
                 <span t-if="is_in_stock" class="text-success fw-bold">
                     <i class="fa fa-check-circle"/> IN STOCK
                 </span>
-                <span t-else="" class="fw-bold" style="color: #fd7e14;">
+                <span t-elif="not product.replaced_by_id" class="fw-bold" style="color: #fd7e14;">
                     <i class="fa fa-clock-o"/> TO ORDER
                 </span>
             </div>
+
+            <table class="table table-sm mb-3" style="max-width: 380px; font-size: 1rem;">
+                <tbody>
+                    <tr>
+                        <td class="text-muted py-1 border-0">List Price</td>
+                        <td class="fw-semibold py-1 border-0 text-end">
+                            <span t-field="product.list_price"
+                                  t-options="{'widget': 'monetary', 'display_currency': website.currency_id}"/>
+                        </td>
+                    </tr>
+                    <tr t-if="product.weight">
+                        <td class="text-muted py-1 border-0">Weight</td>
+                        <td class="fw-semibold py-1 border-0 text-end">
+                            <t t-out="product.weight"/> kg
+                        </td>
+                    </tr>
+                    <tr t-if="product.height">
+                        <td class="text-muted py-1 border-0">Height</td>
+                        <td class="fw-semibold py-1 border-0 text-end">
+                            <t t-out="product.height"/> cm
+                        </td>
+                    </tr>
+                    <tr t-if="product.width">
+                        <td class="text-muted py-1 border-0">Width</td>
+                        <td class="fw-semibold py-1 border-0 text-end">
+                            <t t-out="product.width"/> cm
+                        </td>
+                    </tr>
+                    <tr t-if="product.length">
+                        <td class="text-muted py-1 border-0">Length</td>
+                        <td class="fw-semibold py-1 border-0 text-end">
+                            <t t-out="product.length"/> cm
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="text-muted py-1 border-0">Shipment Type</td>
+                        <td class="fw-semibold py-1 border-0 text-end">
+                            <span t-if="product.is_bulky_goods">Bulky Goods</span>
+                            <span t-else="">Standard</span>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
         </xpath>
     </template>
 
     <template id="products_item_custom_sku" inherit_id="website_sale.products_item">
         <xpath expr="//h2[hasclass('o_wsale_products_item_title')]" position="after">
-            <div t-if="product.sku or product.brand" class="mb-1 text-muted small">
+            <t t-set="is_nla" t-value="product.sku and product.sku.strip().upper() == 'NLA'"/>
+
+            <div t-if="product.brand or (product.sku and not is_nla)" class="mb-1 text-muted small">
                 <span t-if="product.brand"><strong t-out="product.brand.name"/> - </span>
-                <span t-if="product.sku">SKU: <t t-out="product.sku"/></span>
+                <span t-if="product.sku and not is_nla">SKU: <t t-out="product.sku"/></span>
             </div>
 
             <div class="mb-2 small">
-                <t t-set="is_in_stock" t-value="product.sudo().qty_available &gt; 0"/>
-
-                <span t-if="is_in_stock" class="text-success fw-bold">IN STOCK</span>
-                <span t-else="" class="fw-bold" style="color: #fd7e14;">TO ORDER</span>
+                <span t-if="is_nla" class="fw-bold" style="color: #c0392b;">
+                    <i class="fa fa-ban me-1"/> No Longer Available
+                </span>
+                <t t-else="">
+                    <t t-set="is_in_stock" t-value="product.sudo().qty_available &gt; 0"/>
+                    <span t-if="is_in_stock" class="text-success fw-bold">IN STOCK</span>
+                    <span t-else="" class="fw-bold" style="color: #fd7e14;">TO ORDER</span>
+                </t>
             </div>
         </xpath>
     </template>
