@@ -12,13 +12,14 @@
                     <field name="file_name" invisible="1"/>
                 </group>
                 <div class="text-muted" invisible="state != 'upload'">
-                    <p>Upload an Excel file with the following header columns:</p>
+                    <p>Upload an Excel file. The importer detects columns automatically:</p>
                     <ul>
-                        <li><b>sku</b>: Product SKU</li>
-                        <li><b>qty</b>: Quantity to order</li>
-                        <li><b>brand</b> (optional): Brand name — required only when the same SKU exists for multiple brands</li>
-                        <li><b>price</b> (optional): Overwrite Sale Price</li>
+                        <li><b>SKU</b> — found by header (SKU, Code, Article, Reference…) or by content. Matches the product SKU or Internal Reference; a brand prefix like <i>BMW_12345</i> is recognised too.</li>
+                        <li><b>Quantity</b> — found by header (Qty, Quantity, Menge…) or as a numeric column. Empty/missing quantity defaults to <b>1</b>.</li>
+                        <li><b>Brand</b> (optional) — found by header or auto-detected from brand names in the data. Disambiguates SKUs shared by multiple brands.</li>
+                        <li><b>Price</b> (optional) — header column (Price, Preis…); overrides the sale price.</li>
                     </ul>
+                    <p>A file with no header row works too — the first column is taken as SKU and the second as quantity.</p>
                 </div>
 
                 <div class="alert alert-warning" role="alert" invisible="state != 'conflicts'">
