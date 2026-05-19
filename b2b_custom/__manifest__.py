@@ -7,13 +7,16 @@
     'installable': True,
     'data': [
         'security/ir.model.access.csv',
+        'data/product_mass_update_data.xml',
         'views/product_template_view.xml',
         'views/website_list_to_part_template.xml',
         'views/website_sale_cart_view.xml',
         'views/website_backorders_template.xml',
         'views/checkout_template.xml',
         'views/sale_order.xml',
-        'views/mass_product_import_view.xml'
+        'views/mass_product_import_view.xml',
+        'views/mass_vendor_price_import_view.xml',
+        'views/product_mass_update_view.xml',
     ],
     'author': 'Ahmed Elamery',
     'license': 'LGPL-3',

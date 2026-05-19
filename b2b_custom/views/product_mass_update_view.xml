@@ -1,0 +1,325 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- ============================================================ -->
+    <!--  FORM                                                          -->
+    <!-- ============================================================ -->
+    <record id="view_product_mass_update_form" model="ir.ui.view">
+        <field name="name">product.mass.update.form</field>
+        <field name="model">product.mass.update</field>
+        <field name="arch" type="xml">
+            <form string="Mass Product Update">
+                <header>
+                    <button name="action_dry_run" type="object"
+                            string="Dry Run" icon="fa-eye"
+                            invisible="state not in ('draft','failed','cancelled')"/>
+                    <button name="action_launch" type="object"
+                            string="Launch Job" class="btn-primary" icon="fa-play"
+                            invisible="state not in ('draft','failed','cancelled')"
+                            confirm="This will update the matched products in the background. Continue?"/>
+                    <button name="action_cancel" type="object"
+                            string="Cancel Job" icon="fa-stop"
+                            invisible="state not in ('pending','processing')"
+                            confirm="Cancel this job? Already-processed products will keep their new values."/>
+                    <field name="state" widget="statusbar"
+                           statusbar_visible="draft,pending,processing,done"/>
+                </header>
+                <sheet>
+                    <div class="oe_button_box" name="button_box">
+                        <button name="action_open_products" type="object"
+                                class="oe_stat_button" icon="fa-cubes"
+                                invisible="not domain_json">
+                            <div class="o_stat_info">
+                                <field name="total_count" class="o_stat_value"/>
+                                <span class="o_stat_text">Targeted</span>
+                            </div>
+                        </button>
+                        <button class="oe_stat_button" icon="fa-check-circle"
+                                invisible="state == 'draft'">
+                            <div class="o_stat_info">
+                                <field name="processed_count" class="o_stat_value"/>
+                                <span class="o_stat_text">Updated</span>
+                            </div>
+                        </button>
+                    </div>
+
+                    <div class="oe_title">
+                        <label for="name" class="o_form_label"/>
+                        <h1>
+                            <field name="name" placeholder="e.g. Update VAT for Brand X"/>
+                        </h1>
+                    </div>
+
+                    <!-- Live progress, prominent while job is running -->
+                    <div class="alert alert-info" role="alert"
+                         invisible="state not in ('pending','processing')">
+                        <div class="d-flex align-items-center">
+                            <i class="fa fa-spinner fa-spin fa-2x me-3" title="Running"/>
+                            <div class="flex-grow-1">
+                                <b>Running in background.</b> You can close this tab —
+                                you'll get an email when it finishes.
+                                <field name="progress" widget="progressbar"
+                                       options="{'current_value': 'processed_count', 'max_value': 'total_count'}"/>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="alert alert-success" role="alert" invisible="state != 'done'">
+                        <i class="fa fa-check-circle me-2" title="Success"/>
+                        <b>Job finished successfully.</b>
+                        Updated <field name="processed_count" readonly="1" class="oe_inline"/>
+                        of <field name="total_count" readonly="1" class="oe_inline"/> products.
+                    </div>
+                    <div class="alert alert-danger" role="alert" invisible="state != 'failed'">
+                        <i class="fa fa-exclamation-triangle me-2" title="Failed"/>
+                        <b>Job failed</b> — see the Errors tab below.
+                    </div>
+                    <div class="alert alert-warning" role="alert" invisible="state != 'cancelled'">
+                        <i class="fa fa-stop-circle me-2" title="Cancelled"/>
+                        <b>Job was cancelled.</b>
+                        Updated <field name="processed_count" readonly="1" class="oe_inline"/>
+                        of <field name="total_count" readonly="1" class="oe_inline"/> products before stopping.
+                    </div>
+
+                    <!-- TARGETING SECTION -->
+                    <group string="Targeting" name="targeting">
+                        <group>
+                            <field name="company_id" groups="base.group_multi_company"/>
+                            <field name="brand_ids" widget="many2many_tags"
+                                   options="{'no_create': True}"
+                                   readonly="state != 'draft'"
+                                   invisible="product_tmpl_ids"
+                                   placeholder="All brands"/>
+                            <field name="extra_domain"
+                                   placeholder="e.g. [('list_price','&gt;',100)]"
+                                   readonly="state != 'draft'"
+                                   invisible="product_tmpl_ids"/>
+                        </group>
+                        <group>
+                            <field name="product_tmpl_ids" widget="many2many_tags"
+                                   options="{'no_create': True}"
+                                   readonly="state != 'draft'"
+                                   placeholder="Optional — overrides brand/domain"/>
+                            <field name="start_time" invisible="state == 'draft'"/>
+                            <field name="end_time" invisible="state == 'draft'"/>
+                        </group>
+                    </group>
+
+                    <notebook>
+                        <page string="Fields to Update" name="page_fields">
+                            <div class="alert alert-light border" role="alert">
+                                <i class="fa fa-info-circle me-2 text-info" title="Info"/>
+                                Tick the checkbox next to a field to include it in the update.
+                                Unticked fields are <b>left untouched</b> on every product.
+                            </div>
+                            <group>
+                                <group string="📦 Stock" name="g_stock">
+                                    <label for="is_storable" string="Track Inventory"/>
+                                    <div class="o_row">
+                                        <field name="apply_is_storable" nolabel="1" readonly="state != 'draft'"/>
+                                        <field name="is_storable" nolabel="1"
+                                               readonly="not apply_is_storable or state != 'draft'"/>
+                                    </div>
+                                </group>
+                                <group string="🌐 Sales / Web" name="g_web">
+                                    <label for="categ_id" string="Internal Category"/>
+                                    <div class="o_row">
+                                        <field name="apply_categ_id" nolabel="1" readonly="state != 'draft'"/>
+                                        <field name="categ_id" nolabel="1"
+                                               readonly="not apply_categ_id or state != 'draft'"
+                                               required="apply_categ_id"/>
+                                    </div>
+                                    <label for="website_id" string="Website"/>
+                                    <div class="o_row">
+                                        <field name="apply_website_id" nolabel="1" readonly="state != 'draft'"/>
+                                        <field name="website_id" nolabel="1"
+                                               readonly="not apply_website_id or state != 'draft'"/>
+                                    </div>
+                                    <label for="is_published" string="Is Published"/>
+                                    <div class="o_row">
+                                        <field name="apply_is_published" nolabel="1" readonly="state != 'draft'"/>
+                                        <field name="is_published" nolabel="1"
+                                               readonly="not apply_is_published or state != 'draft'"/>
+                                    </div>
+                                </group>
+                                <group string="🧾 Taxes" name="g_taxes">
+                                    <label for="taxes_id" string="Sales Taxes"/>
+                                    <div class="o_row">
+                                        <field name="apply_taxes_id" nolabel="1" readonly="state != 'draft'"/>
+                                        <field name="taxes_id" nolabel="1" widget="many2many_tags"
+                                               options="{'no_create': True}"
+                                               readonly="not apply_taxes_id or state != 'draft'"/>
+                                    </div>
+                                    <label for="supplier_taxes_id" string="Purchase Taxes"/>
+                                    <div class="o_row">
+                                        <field name="apply_supplier_taxes_id" nolabel="1" readonly="state != 'draft'"/>
+                                        <field name="supplier_taxes_id" nolabel="1" widget="many2many_tags"
+                                               options="{'no_create': True}"
+                                               readonly="not apply_supplier_taxes_id or state != 'draft'"/>
+                                    </div>
+                                </group>
+                                <group string="💼 Accounting" name="g_acc">
+                                    <label for="property_account_income_id" string="Income Account"/>
+                                    <div class="o_row">
+                                        <field name="apply_property_account_income_id" nolabel="1" readonly="state != 'draft'"/>
+                                        <field name="property_account_income_id" nolabel="1"
+                                               readonly="not apply_property_account_income_id or state != 'draft'"
+                                               required="apply_property_account_income_id"/>
+                                    </div>
+                                    <label for="property_account_expense_id" string="Expense Account"/>
+                                    <div class="o_row">
+                                        <field name="apply_property_account_expense_id" nolabel="1" readonly="state != 'draft'"/>
+                                        <field name="property_account_expense_id" nolabel="1"
+                                               readonly="not apply_property_account_expense_id or state != 'draft'"
+                                               required="apply_property_account_expense_id"/>
+                                    </div>
+                                </group>
+                            </group>
+                        </page>
+
+                        <page string="Custom Field" name="page_custom">
+                            <div class="alert alert-light border" role="alert">
+                                <i class="fa fa-magic me-2 text-warning" title="Custom field"/>
+                                Mass-set <b>any field</b> on Product (template). Pick a field, the
+                                matching value editor will appear below.
+                            </div>
+                            <group>
+                                <group>
+                                    <field name="apply_custom_field" readonly="state != 'draft'"/>
+                                    <field name="custom_field_id"
+                                           readonly="not apply_custom_field or state != 'draft'"
+                                           required="apply_custom_field"
+                                           options="{'no_create': True}"/>
+                                    <field name="custom_field_ttype" readonly="1"
+                                           invisible="not apply_custom_field"/>
+                                </group>
+                                <group>
+                                    <field name="custom_value_char"
+                                           invisible="not apply_custom_field or custom_field_ttype not in ('char','text')"
+                                           readonly="state != 'draft'"/>
+                                    <field name="custom_value_boolean"
+                                           invisible="not apply_custom_field or custom_field_ttype != 'boolean'"
+                                           readonly="state != 'draft'"/>
+                                    <field name="custom_value_integer"
+                                           invisible="not apply_custom_field or custom_field_ttype != 'integer'"
+                                           readonly="state != 'draft'"/>
+                                    <field name="custom_value_float"
+                                           invisible="not apply_custom_field or custom_field_ttype != 'float'"
+                                           readonly="state != 'draft'"/>
+                                    <field name="custom_value_date"
+                                           invisible="not apply_custom_field or custom_field_ttype != 'date'"
+                                           readonly="state != 'draft'"/>
+                                    <field name="custom_value_datetime"
+                                           invisible="not apply_custom_field or custom_field_ttype != 'datetime'"
+                                           readonly="state != 'draft'"/>
+                                    <field name="custom_value_selection_key"
+                                           invisible="not apply_custom_field or custom_field_ttype != 'selection'"
+                                           readonly="state != 'draft'"/>
+                                    <field name="custom_value_reference"
+                                           invisible="not apply_custom_field or custom_field_ttype != 'many2one'"
+                                           readonly="state != 'draft'"/>
+                                </group>
+                            </group>
+                        </page>
+
+                        <page string="Dry Run Preview" name="page_dry"
+                              invisible="not dry_run_done">
+                            <div class="alert alert-info" role="alert">
+                                <i class="fa fa-eye me-2" title="Preview"/>
+                                <b><field name="dry_run_count" readonly="1" class="oe_inline"/></b>
+                                products would be updated. Click <b>Launch Job</b> to apply,
+                                or change any setting to invalidate this preview.
+                            </div>
+                            <field name="dry_run_summary" readonly="1" nolabel="1"/>
+                            <separator string="Sample products"/>
+                            <field name="dry_run_sample_ids" readonly="1" nolabel="1">
+                                <list>
+                                    <field name="display_name"/>
+                                    <field name="default_code"/>
+                                    <field name="categ_id"/>
+                                </list>
+                            </field>
+                        </page>
+
+                        <page string="Errors" name="page_errors" invisible="not error_log">
+                            <field name="error_log" readonly="1" widget="text"/>
+                        </page>
+                    </notebook>
+                </sheet>
+                <chatter/>
+            </form>
+        </field>
+    </record>
+
+    <!-- ============================================================ -->
+    <!--  LIST                                                          -->
+    <!-- ============================================================ -->
+    <record id="view_product_mass_update_list" model="ir.ui.view">
+        <field name="name">product.mass.update.list</field>
+        <field name="model">product.mass.update</field>
+        <field name="arch" type="xml">
+            <list string="Mass Update Jobs"
+                  decoration-success="state == 'done'"
+                  decoration-danger="state == 'failed'"
+                  decoration-info="state in ('pending','processing')"
+                  decoration-muted="state == 'cancelled'">
+                <field name="name"/>
+                <field name="create_uid" widget="many2one_avatar_user"/>
+                <field name="create_date"/>
+                <field name="total_count"/>
+                <field name="processed_count"/>
+                <field name="progress" widget="progressbar"
+                       options="{'current_value': 'processed_count', 'max_value': 'total_count'}"/>
+                <field name="state" widget="badge"
+                       decoration-success="state == 'done'"
+                       decoration-danger="state == 'failed'"
+                       decoration-info="state in ('pending','processing')"
+                       decoration-muted="state == 'cancelled'"/>
+            </list>
+        </field>
+    </record>
+
+    <!-- ============================================================ -->
+    <!--  ACTION                                                        -->
+    <!-- ============================================================ -->
+    <record id="action_product_mass_update" model="ir.actions.act_window">
+        <field name="name">Mass Product Update</field>
+        <field name="res_model">product.mass.update</field>
+        <field name="view_mode">list,form</field>
+        <field name="context">{}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">Create a new mass update job</p>
+            <p>Update many products in one go (taxes, category, accounts, inventory tracking, …).
+               The job runs in the background; you receive an email when it finishes.</p>
+        </field>
+    </record>
+
+    <!-- ============================================================ -->
+    <!--  MENUS                                                         -->
+    <!-- ============================================================ -->
+    <!-- Sales > Configuration (alongside the existing imports) -->
+    <menuitem id="menu_product_mass_update_sale_config"
+              name="Mass Product Update"
+              parent="sale.prod_config_main"
+              action="action_product_mass_update"
+              sequence="101"/>
+
+    <!-- Inventory > Products -->
+    <menuitem id="menu_product_mass_update"
+              name="Mass Product Update"
+              parent="stock.menu_stock_inventory_control"
+              action="action_product_mass_update"
+              sequence="200"/>
+
+    <!-- ============================================================ -->
+    <!--  SERVER ACTION (from product list)                             -->
+    <!-- ============================================================ -->
+    <record id="action_server_product_mass_update" model="ir.actions.server">
+        <field name="name">Mass Modify…</field>
+        <field name="model_id" ref="product.model_product_template"/>
+        <field name="binding_model_id" ref="product.model_product_template"/>
+        <field name="binding_view_types">list</field>
+        <field name="state">code</field>
+        <field name="code">action = records.action_open_mass_update_wizard()</field>
+    </record>
+
+</odoo>
