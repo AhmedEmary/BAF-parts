@@ -25,12 +25,26 @@
                     </div>
 
                     <group>
-                        <field name="file_data"
-                               filename="file_name"
-                               widget="binary"
-                               options="{'accepted_file_extensions': '.csv,.xlsx'}"
-                               required="state == 'upload'"/>
-                        <field name="file_name" invisible="1"/>
+                        <group string="File">
+                            <field name="file_data"
+                                   filename="file_name"
+                                   widget="binary"
+                                   options="{'accepted_file_extensions': '.csv,.xlsx'}"
+                                   required="state == 'upload'"/>
+                            <field name="file_name" invisible="1"/>
+                        </group>
+                        <group string="Import Options">
+                            <field name="brand_source" widget="radio"/>
+                            <field name="manual_brand_id"
+                                   invisible="brand_source != 'manual'"
+                                   required="brand_source == 'manual'"/>
+                            <field name="storable_source" widget="radio"/>
+                            <field name="manual_is_storable"
+                                   invisible="storable_source != 'manual'"/>
+                            <field name="published_source" widget="radio"/>
+                            <field name="manual_published"
+                                   invisible="published_source != 'manual'"/>
+                        </group>
                     </group>
                 </div>
 

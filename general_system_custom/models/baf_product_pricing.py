@@ -218,7 +218,7 @@ class ProductTemplateBafPricing(models.Model):
             purchase_price = purchase_price * (1.0 - sb_surcharge / 100.0)
 
         return {
-            'price': purchase_price,
+            'price': round(purchase_price, 2),
             'column_key': full_column_key,
             'discount_pct': discount_pct,
             'sb_surcharge': sb_surcharge,

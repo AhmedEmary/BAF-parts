@@ -14,11 +14,14 @@ class TestMassProductImport(TransactionCase):
         csv_content = "sku,brand,product name,price\nSKU123,BOSCH,Drill Machine,150.00"
         self.csv_base64 = base64.b64encode(csv_content.encode('utf-8'))
 
-    def _run_import(self, csv_content, file_name='test_import.csv'):
-        wizard = self.env['mass.product.import'].create({
+    def _run_import(self, csv_content, file_name='test_import.csv', extra_vals=None):
+        vals = {
             'file_data': base64.b64encode(csv_content.encode('utf-8')),
             'file_name': file_name,
-        })
+        }
+        if extra_vals:
+            vals.update(extra_vals)
+        wizard = self.env['mass.product.import'].create(vals)
         wizard.action_read_headers()
         wizard.action_import_direct()
         return wizard
@@ -237,4 +240,127 @@ class TestMassProductImport(TransactionCase):
         self.assertTrue(replacement.exists())
         self.assertEqual(replacement.brand.name, 'JAGUAR')
         self.assertEqual(old_product.replaced_by_id, replacement)
+
+    # ── Manual Brand source ──────────────────────────────────────────────────
+
+    def test_12_manual_brand_applies_to_all_rows(self):
+        """brand_source='manual' applies the chosen brand to every row, even
+        when the file has no Brand column."""
+        brand = self.env['product.brand'].create({'name': 'BOSCH'})
+        self._run_import(
+            "sku,product name,price\n"
+            "MAN001,Manual Brand Part,99",
+            file_name='manual_brand.csv',
+            extra_vals={'brand_source': 'manual', 'manual_brand_id': brand.id},
+        )
+
+        product = self.env['product.template'].search([('default_code', '=', 'BOS_MAN001')], limit=1)
+        self.assertTrue(product.exists(), "Product should be created with the manual brand")
+        self.assertEqual(product.brand, brand)
+        self.assertEqual(product.list_price, 99.0)
+
+    def test_13_manual_brand_requires_selection(self):
+        """Reading headers in manual brand mode without a brand must raise."""
+        wizard = self.env['mass.product.import'].create({
+            'file_data': self.csv_base64,
+            'file_name': 'manual_no_brand.csv',
+            'brand_source': 'manual',
+        })
+        with self.assertRaises(UserError):
+            wizard.action_read_headers()
+
+    def test_14_excel_brand_requires_mapped_column(self):
+        """In excel brand mode, importing without a mapped Brand column must raise."""
+        wizard = self.env['mass.product.import'].create({
+            'file_data': base64.b64encode(b"sku,product name,price\nX1,No Brand Column,10"),
+            'file_name': 'no_brand_col.csv',
+        })
+        wizard.action_read_headers()
+        with self.assertRaises(UserError):
+            wizard.action_import_direct()
+
+    # ── Manual Track Inventory source ────────────────────────────────────────
+
+    def test_15_manual_track_inventory_toggle(self):
+        """storable_source='manual' controls whether imported products are storable."""
+        self._run_import(
+            "sku,brand,product name\nSTO001,BOSCH,Consumable Part",
+            file_name='storable_off.csv',
+            extra_vals={'storable_source': 'manual', 'manual_is_storable': False},
+        )
+        consu = self.env['product.template'].search([('default_code', '=', 'BOS_STO001')], limit=1)
+        self.assertTrue(consu.exists())
+        self.assertFalse(consu.is_storable, "Product should be consumable")
+
+        self._run_import(
+            "sku,brand,product name\nSTO002,BOSCH,Storable Part",
+            file_name='storable_on.csv',
+            extra_vals={'storable_source': 'manual', 'manual_is_storable': True},
+        )
+        storable = self.env['product.template'].search([('default_code', '=', 'BOS_STO002')], limit=1)
+        self.assertTrue(storable.is_storable, "Product should be storable")
+
+    def test_16_track_inventory_read_from_file(self):
+        """storable_source='excel' reads the is_storable column per row."""
+        self._run_import(
+            "sku,brand,product name,track inventory\n"
+            "STO010,BOSCH,Tracked,yes\n"
+            "STO011,BOSCH,Untracked,no",
+            file_name='storable_excel.csv',
+            extra_vals={'storable_source': 'excel'},
+        )
+        tracked = self.env['product.template'].search([('default_code', '=', 'BOS_STO010')], limit=1)
+        untracked = self.env['product.template'].search([('default_code', '=', 'BOS_STO011')], limit=1)
+        self.assertTrue(tracked.is_storable)
+        self.assertFalse(untracked.is_storable)
+
+    # ── Manual Published source ──────────────────────────────────────────────
+
+    def test_17_manual_published_toggle(self):
+        """published_source='manual' controls the website published flag."""
+        self._run_import(
+            "sku,brand,product name\nPUB001,BOSCH,Published Part",
+            file_name='published_on.csv',
+            extra_vals={'published_source': 'manual', 'manual_published': True},
+        )
+        published = self.env['product.template'].search([('default_code', '=', 'BOS_PUB001')], limit=1)
+        self.assertTrue(published.is_published)
+
+        self._run_import(
+            "sku,brand,product name\nPUB002,BOSCH,Unpublished Part",
+            file_name='published_off.csv',
+            extra_vals={'published_source': 'manual', 'manual_published': False},
+        )
+        unpublished = self.env['product.template'].search([('default_code', '=', 'BOS_PUB002')], limit=1)
+        self.assertFalse(unpublished.is_published)
+
+    def test_18_published_read_from_file(self):
+        """published_source='excel' reads the is_published column per row."""
+        self._run_import(
+            "sku,brand,product name,published\n"
+            "PUB010,BOSCH,Live,yes\n"
+            "PUB011,BOSCH,Draft,no",
+            file_name='published_excel.csv',
+            extra_vals={'published_source': 'excel'},
+        )
+        live = self.env['product.template'].search([('default_code', '=', 'BOS_PUB010')], limit=1)
+        draft = self.env['product.template'].search([('default_code', '=', 'BOS_PUB011')], limit=1)
+        self.assertTrue(live.is_published)
+        self.assertFalse(draft.is_published)
+
+    def test_19_manual_track_inventory_upsert_refreshes_flag(self):
+        """Re-importing the same product flips is_storable to the new manual value."""
+        self._run_import(
+            "sku,brand,product name\nSTO020,BOSCH,Storable First",
+            file_name='storable_upsert_first.csv',
+            extra_vals={'storable_source': 'manual', 'manual_is_storable': True},
+        )
+        self._run_import(
+            "sku,brand,product name\nSTO020,BOSCH,Consumable Second",
+            file_name='storable_upsert_second.csv',
+            extra_vals={'storable_source': 'manual', 'manual_is_storable': False},
+        )
+        products = self.env['product.template'].search([('default_code', '=', 'BOS_STO020')])
+        self.assertEqual(len(products), 1)
+        self.assertFalse(products.is_storable, "Upsert must refresh is_storable")
 

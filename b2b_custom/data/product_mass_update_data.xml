@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="1">
+
+        <!-- Cron: process pending/running mass-update jobs every minute -->
+        <record id="ir_cron_product_mass_update" model="ir.cron">
+            <field name="name">Product Mass Update: process jobs</field>
+            <field name="model_id" ref="model_product_mass_update"/>
+            <field name="state">code</field>
+            <field name="code">model._cron_process_jobs()</field>
+            <field name="interval_number">1</field>
+            <field name="interval_type">minutes</field>
+            <field name="active" eval="True"/>
+        </record>
+
+        <!-- Email sent to the user who launched the job, once it finishes -->
+        <record id="mail_template_product_mass_update_done" model="mail.template">
+            <field name="name">Product Mass Update: completion notice</field>
+            <field name="model_id" ref="model_product_mass_update"/>
+            <field name="subject">Mass product update {{ object.state == 'done' and 'completed' or object.state == 'failed' and 'FAILED' or 'finished' }}: {{ object.name }}</field>
+            <field name="email_from">{{ (object.create_uid.email_formatted or user.email_formatted) }}</field>
+            <field name="email_to">{{ object.create_uid.email or '' }}</field>
+            <field name="auto_delete" eval="True"/>
+            <field name="body_html" type="html">
+<div style="font-family: Arial, sans-serif; font-size: 14px; color: #2f3a44;">
+    <p>Hi <t t-out="object.create_uid.name or ''"/>,</p>
+
+    <p>Your mass product update <b t-out="object.name or ''"/> has just finished.</p>
+
+    <table style="border-collapse: collapse; margin: 12px 0;">
+        <tr>
+            <td style="padding: 4px 12px 4px 0;"><b>Status:</b></td>
+            <td style="padding: 4px 0;"><t t-out="dict(object._fields['state'].selection).get(object.state, object.state)"/></td>
+        </tr>
+        <tr>
+            <td style="padding: 4px 12px 4px 0;"><b>Total products targeted:</b></td>
+            <td style="padding: 4px 0;"><t t-out="object.total_count or 0"/></td>
+        </tr>
+        <tr>
+            <td style="padding: 4px 12px 4px 0;"><b>Successfully updated:</b></td>
+            <td style="padding: 4px 0;"><t t-out="object.processed_count or 0"/></td>
+        </tr>
+        <tr>
+            <td style="padding: 4px 12px 4px 0;"><b>Started:</b></td>
+            <td style="padding: 4px 0;"><t t-out="object.start_time or ''"/></td>
+        </tr>
+        <tr>
+            <td style="padding: 4px 12px 4px 0;"><b>Finished:</b></td>
+            <td style="padding: 4px 0;"><t t-out="object.end_time or ''"/></td>
+        </tr>
+    </table>
+
+    <p t-if="object.state == 'failed'" style="color:#c0392b;">
+        <b>Error:</b><br/>
+        <span t-out="object.error_log or ''" style="white-space: pre-wrap;"/>
+    </p>
+
+    <p style="color:#7a8590; font-size: 12px; margin-top: 24px;">
+        You are receiving this email because you launched a mass update job in Odoo.
+    </p>
+</div>
+            </field>
+        </record>
+
+    </data>
+</odoo>
