@@ -8,7 +8,6 @@ class ResPartner(models.Model):
     contact_number = fields.Char(
         string="Contact Number",
         copy=False,
-        readonly=True,
         index=True,
         help="Unique sequential number assigned automatically when the contact "
              "is created. Address records (delivery/invoice/other) are skipped.",
