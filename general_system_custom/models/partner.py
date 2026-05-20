@@ -5,6 +5,20 @@ from odoo.exceptions import ValidationError
 class ResPartner(models.Model):
     _inherit = 'res.partner'
 
+    contact_number = fields.Char(
+        string="Contact Number",
+        copy=False,
+        readonly=True,
+        index=True,
+        help="Unique sequential number assigned automatically when the contact "
+             "is created. Address records (delivery/invoice/other) are skipped.",
+    )
+
+    _contact_number_uniq = models.Constraint(
+        'unique(contact_number)',
+        "The Contact Number must be unique.",
+    )
+
     is_trusted_vendor = fields.Boolean(
         string="Trusted Vendor",
         help="If checked, the Customer Name column will be included in the PO Excel export sent to this vendor."
@@ -73,6 +87,19 @@ class ResPartner(models.Model):
              "in an EU member state. These customers receive a −5 %% discount on "
              "JLR products unless a specific JLR pricing group is assigned.",
     )
+
+    @api.model_create_multi
+    def create(self, vals_list):
+        partners = super().create(vals_list)
+        Sequence = self.env['ir.sequence']
+        for partner in partners:
+            # Only number real contacts/companies — skip delivery/invoice/other
+            # address records, and never overwrite a number set explicitly.
+            if partner.type == 'contact' and not partner.contact_number:
+                number = Sequence.next_by_code('res.partner.contact.number')
+                if number:
+                    partner.contact_number = number
+        return partners
 
     @api.depends('vat', 'country_id')
     def _compute_is_b2b_eu_vat(self):

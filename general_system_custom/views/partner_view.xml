@@ -6,6 +6,10 @@
         <field name="inherit_id" ref="base.view_partner_form"/>
         <field name="arch" type="xml">
 
+            <xpath expr="//field[@name='category_id']" position="after">
+                <field name="contact_number" invisible="not contact_number"/>
+            </xpath>
+
             <xpath expr="//field[@name='property_supplier_payment_term_id']" position="after">
                 <field name="is_trusted_vendor"/>
                 <field name="baf_supplier_code"/>
