@@ -32,14 +32,5 @@
             <field name="padding">4</field>
             <field name="company_id" eval="False"/>
         </record>
-
-        <record id="seq_res_partner_contact_number" model="ir.sequence">
-            <field name="name">Contact Number</field>
-            <field name="code">res.partner.contact.number</field>
-            <field name="padding">0</field>
-            <field name="number_next">10000</field>
-            <field name="number_increment">1</field>
-            <field name="company_id" eval="False"/>
-        </record>
     </data>
 </odoo>
