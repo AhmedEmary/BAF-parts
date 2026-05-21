@@ -90,14 +90,25 @@ class ResPartner(models.Model):
     @api.model_create_multi
     def create(self, vals_list):
         partners = super().create(vals_list)
-        Sequence = self.env['ir.sequence']
-        for partner in partners:
-            # Only number real contacts/companies — skip delivery/invoice/other
-            # address records, and never overwrite a number set explicitly.
-            if partner.type == 'contact' and not partner.contact_number:
-                number = Sequence.next_by_code('res.partner.contact.number')
-                if number:
-                    partner.contact_number = number
+        # Only number real contacts/companies — skip delivery/invoice/other
+        # address records, and never overwrite a number set explicitly.
+        new_contacts = partners.filtered(
+            lambda p: p.type == 'contact' and not p.contact_number
+        )
+        if new_contacts:
+            # Derive the next number from the current MAX in the table, same
+            # pattern Odoo uses for website_sequence / pos_sequence. Deleted
+            # numbers are reused and manually inserted ones are respected.
+            self.env.cr.execute("""
+                SELECT MAX(contact_number::bigint)
+                FROM res_partner
+                WHERE contact_number ~ '^[0-9]+$'
+            """)
+            max_number = self.env.cr.fetchone()[0]
+            next_number = (max_number or 9999) + 1
+            for partner in new_contacts:
+                partner.contact_number = str(next_number)
+                next_number += 1
         return partners
 
     @api.depends('vat', 'country_id')
