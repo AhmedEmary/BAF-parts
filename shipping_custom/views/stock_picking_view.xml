@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_picking_form_shipping_inherit" model="ir.ui.view">
+        <field name="name">stock.picking.form.shipping.inherit</field>
+        <field name="model">stock.picking</field>
+        <field name="inherit_id" ref="stock.view_picking_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//div[hasclass('oe_button_box')]" position="inside">
+                <button name="action_view_delivery_orders" type="object"
+                        class="oe_stat_button" icon="fa-truck"
+                        invisible="delivery_order_count == 0">
+                    <field name="delivery_order_count" widget="statinfo" string="Shipments"/>
+                </button>
+            </xpath>
+            <xpath expr="//notebook" position="inside">
+                <page string="Shipping Selection" name="shipping_selection">
+                    <header>
+                        <button name="action_fetch_picking_shipping_rates" type="object"
+                                string="Fetch Shipping Rates" class="btn-primary"
+                                invisible="state == 'done'"/>
+                        <button name="action_cancel_shipment" type="object"
+                                string="Void Label" class="btn-secondary"
+                                invisible="not tracking_number"
+                                confirm="Are you sure you want to void this label with the carrier?"/>
+                    </header>
+
+                    <group>
+                        <group>
+                            <field name="shipping_currency_id" invisible="1"/>
+                            <field name="customs_value"/>
+                        </group>
+                    </group>
+
+                    <group string="Pallets / Packages">
+                        <field name="shipping_package_ids" nolabel="1">
+                            <list editable="bottom">
+                                <field name="package_type_id"/>
+                                <field name="name"/>
+                                <field name="length" string="L (cm)"/>
+                                <field name="width" string="W (cm)"/>
+                                <field name="height" string="H (cm)"/>
+                                <field name="weight"/>
+                                <field name="tracking_number"/>
+                            </list>
+                        </field>
+                    </group>
+
+                    <group string="Tracking" invisible="not tracking_number">
+                        <field name="provider_account_id" string="Provider Account"/>
+                        <field name="selected_shipping_service"/>
+                        <field name="tracking_number"/>
+                    </group>
+
+                    <group string="Available Rates" invisible="tracking_number != False">
+                        <field name="shipping_option_ids" nolabel="1">
+                            <list create="0" delete="0">
+                                <field name="provider_account_id" string="Account"/>
+                                <field name="service_name"/>
+                                <field name="delivery_time"/>
+                                <field name="cost"/>
+                                <field name="currency_id" column_invisible="1"/>
+                                <button name="action_select_rate" type="object"
+                                        string="Select Rate" class="btn-success"/>
+                            </list>
+                        </field>
+                    </group>
+                </page>
+            </xpath>
+        </field>
+    </record>
+</odoo>

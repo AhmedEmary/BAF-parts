@@ -1,0 +1,8 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_picking_shipping_option,picking.shipping.option,model_picking_shipping_option,base.group_user,1,1,1,1
+access_shipping_picking_package,shipping.picking.package,model_shipping_picking_package,base.group_user,1,1,1,1
+access_shipping_provider_account,shipping.provider.account,model_shipping_provider_account,base.group_user,1,1,1,1
+access_shipping_delivery_order,shipping.delivery.order,model_shipping_delivery_order,base.group_user,1,1,1,1
+access_shipping_delivery_order_package,shipping.delivery.order.package,model_shipping_delivery_order_package,base.group_user,1,1,1,1
+access_shipping_delivery_order_api_log,shipping.delivery.order.api.log,model_shipping_delivery_order_api_log,base.group_user,1,1,1,0
+access_shipping_delivery_order_preview_wizard,shipping.delivery.order.preview.wizard,model_shipping_delivery_order_preview_wizard,base.group_user,1,1,1,1

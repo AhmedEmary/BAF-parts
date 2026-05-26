@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="res_config_settings_view_form_shipping" model="ir.ui.view">
+        <field name="name">res.config.settings.view.form.inherit.shipping</field>
+        <field name="model">res.config.settings</field>
+        <field name="inherit_id" ref="base.res_config_settings_view_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//form" position="inside">
+                <block title="Shipping Integrations" name="shipping_settings_container">
+                    <setting id="shipping_integration_settings" string="Carrier Accounts"
+                             help="Configure multiple carrier accounts (FedEx, DHL, etc.)">
+                        <field name="shipping_account_ids" class="w-100">
+                            <list>
+                                <field name="name"/>
+                                <field name="provider"/>
+                                <field name="account_number"/>
+                                <field name="prod_environment" string="Production?"/>
+                                <button name="action_test_connection" type="object"
+                                        string="Test Connection" icon="fa-plug"/>
+                            </list>
+                            <form>
+                                <group>
+                                    <group>
+                                        <field name="name"/>
+                                        <field name="provider"/>
+                                        <field name="account_number"/>
+                                        <field name="prod_environment"/>
+                                    </group>
+                                    <group string="FedEx Credentials" invisible="provider != 'fedex'">
+                                        <field name="fedex_client_id" required="provider == 'fedex'"/>
+                                        <field name="fedex_client_secret" required="provider == 'fedex'"/>
+                                        <field name="fedex_label_stock_type" required="provider == 'fedex'"/>
+                                    </group>
+                                    <group string="DHL Credentials" invisible="provider != 'dhl'">
+                                        <field name="dhl_api_key" required="provider == 'dhl'"/>
+                                        <field name="dhl_api_secret" required="provider == 'dhl'"/>
+                                        <field name="dhl_label_format" required="provider == 'dhl'"/>
+                                    </group>
+                                </group>
+                            </form>
+                        </field>
+                    </setting>
+                </block>
+            </xpath>
+        </field>
+    </record>
+</odoo>

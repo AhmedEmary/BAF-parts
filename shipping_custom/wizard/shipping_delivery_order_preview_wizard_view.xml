@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="view_shipping_delivery_order_preview_wizard_form" model="ir.ui.view">
+        <field name="name">shipping.delivery.order.preview.wizard.form</field>
+        <field name="model">shipping.delivery.order.preview.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Payload Preview">
+                <sheet>
+                    <div class="alert alert-info" role="alert">
+                        Review the exact JSON that will be sent to the carrier API.
+                        To change anything, close this dialog and edit the order, then preview again.
+                    </div>
+                    <group>
+                        <field name="order_id" readonly="1"/>
+                        <field name="endpoint" readonly="1"/>
+                    </group>
+                    <separator string="Request Payload"/>
+                    <field name="payload_json" widget="text" readonly="1"/>
+                </sheet>
+                <footer>
+                    <button name="action_confirm_send" type="object"
+                            string="Confirm &amp; Send" class="btn-primary"
+                            confirm="Submit this shipment to the carrier?"/>
+                    <button string="Close" class="btn-secondary" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+</odoo>
