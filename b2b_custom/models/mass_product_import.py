@@ -8,6 +8,7 @@ from psycopg2.extras import execute_values
 from odoo import models, fields, api, _
 from odoo.exceptions import UserError
 from odoo.tools import config
+from odoo.tools.sql import column_exists
 from odoo.addons.general_system_custom.models.baf_product_pricing import resolve_baf_brand_info
 
 try:
@@ -47,6 +48,8 @@ FUZZY_MAP = {
     'width':         ['width', 'breite', 'w cm', 'width cm'],
     'length':        ['length', 'laenge', 'länge', 'l cm', 'length cm', 'depth', 'tiefe'],
     'replaced_by':   ['replaced by', 'replaced_by', 'replacement', 'superseded by', 'nachfolger', 'ersetzt durch'],
+    'is_storable':   ['storable', 'is_storable', 'track inventory', 'inventory tracking'],
+    'is_published':  ['published', 'is_published', 'website published', 'publish'],
 }
 
 
@@ -63,6 +66,39 @@ class MassProductImport(models.TransientModel):
     file_name = fields.Char('File Name')
     mapping_ids = fields.One2many('mass.product.import.mapping', 'import_id', string='Column Mappings')
 
+    brand_source = fields.Selection([
+        ('excel', 'Read Brand from File'),
+        ('manual', 'Select Brand Manually (applies to all rows)'),
+    ], string='Brand Source', default='excel', required=True)
+
+    manual_brand_id = fields.Many2one(
+        'product.brand',
+        string='Brand',
+        help="This brand will be applied to every product in the file.",
+    )
+
+    storable_source = fields.Selection([
+        ('excel', 'Read from File'),
+        ('manual', 'Set Manually (applies to all rows)'),
+    ], string='Track Inventory Source', default='manual', required=True)
+
+    manual_is_storable = fields.Boolean(
+        string='Track Inventory',
+        default=True,
+        help="When set, products are storable (inventory tracked). When unset, products are consumable.",
+    )
+
+    published_source = fields.Selection([
+        ('excel', 'Read from File'),
+        ('manual', 'Set Manually (applies to all rows)'),
+    ], string='Published Status Source', default='manual', required=True)
+
+    manual_published = fields.Boolean(
+        string='Is Published',
+        default=False,
+        help="When set, products will be published on the website.",
+    )
+
     def _guess_mapped_field(self, header):
         clean_header = str(header).lower().strip()
         for field_key, fuzzy_list in FUZZY_MAP.items():
@@ -73,10 +109,19 @@ class MassProductImport(models.TransientModel):
     def _build_mapping_lines(self, headers):
         mapping_lines = []
         for index, header in enumerate(headers):
+            guessed_field = self._guess_mapped_field(header)
+            # In manual mode, don't auto-map the column that is being
+            # overridden by a single manually-chosen value.
+            if guessed_field == 'brand' and self.brand_source == 'manual':
+                guessed_field = False
+            if guessed_field == 'is_storable' and self.storable_source == 'manual':
+                guessed_field = False
+            if guessed_field == 'is_published' and self.published_source == 'manual':
+                guessed_field = False
             mapping_lines.append((0, 0, {
                 'column_index': index,
                 'file_column_name': str(header),
-                'field_name': self._guess_mapped_field(header),
+                'field_name': guessed_field,
             }))
 
         return mapping_lines
@@ -132,12 +177,19 @@ class MassProductImport(models.TransientModel):
             if c.code
         }
         replacement_cache = {}
+
+        # is_published physically belongs to product_template (website_sale).
+        has_is_published = column_exists(self.env.cr, 'product_template', 'is_published')
+
         return {
             'uom_id': uom_id,
             'categ_id': categ_id,
             'brand_cache': brand_cache,
             'country_cache': country_cache,
             'replacement_cache': replacement_cache,
+            'has_is_published': has_is_published,
+            'manual_brand_id': self.manual_brand_id.id if self.brand_source == 'manual' else None,
+            'manual_brand_name': self.manual_brand_id.name if self.brand_source == 'manual' else None,
         }
 
     def _get_column_map(self):
@@ -162,6 +214,8 @@ class MassProductImport(models.TransientModel):
             'width_idx': col_map.get('width'),
             'length_idx': col_map.get('length'),
             'replaced_by_idx': col_map.get('replaced_by'),
+            'is_storable_idx': col_map.get('is_storable'),
+            'is_published_idx': col_map.get('is_published'),
         }
 
     def _get_cell_value(self, row_data, idx, default=''):
@@ -184,6 +238,18 @@ class MassProductImport(models.TransientModel):
             return int(float(str(value).replace(',', '')))
         except ValueError:
             return None
+
+    def _normalize_bool(self, value):
+        if value is None:
+            return None
+        if isinstance(value, bool):
+            return value
+        v = str(value).strip().lower()
+        if v in ('1', 'true', 'yes', 'y', 'oui', 'si'):
+            return True
+        if v in ('0', 'false', 'no', 'n', 'non'):
+            return False
+        return None
 
     def _normalize_baf_mod(self, baf_mod):
         baf_mod = str(baf_mod or 'car').lower()
@@ -217,19 +283,24 @@ class MassProductImport(models.TransientModel):
             return target_country.id
         return None
 
-    def _extract_row_core_values(self, row, indices):
-        sku = self._get_cell_value(row, indices['sku_idx'])
-        brand_name = self._get_cell_value(row, indices['brand_idx'])
-        return sku, brand_name
-
     def _build_row_payload(self, row, indices, ctx):
-        sku, brand_name = self._extract_row_core_values(row, indices)
-        if not sku or not brand_name:
+        sku = self._get_cell_value(row, indices['sku_idx'])
+        if not sku:
             return None
-        if _is_sentinel(brand_name) or _is_sentinel(sku):
+        if _is_sentinel(sku):
             return 'sentinel'
 
-        brand_id = self._resolve_brand_id(brand_name, ctx['brand_cache'])
+        # Brand comes either from the file or from a single manually-chosen brand.
+        if self.brand_source == 'manual':
+            brand_id = ctx['manual_brand_id']
+            brand_name = ctx['manual_brand_name']
+        else:
+            brand_name = self._get_cell_value(row, indices['brand_idx'])
+            if not brand_name:
+                return None
+            if _is_sentinel(brand_name):
+                return 'sentinel'
+            brand_id = self._resolve_brand_id(brand_name, ctx['brand_cache'])
         origin_id = self._resolve_origin_id(
             self._get_cell_value(row, indices['origin_idx']),
             ctx['country_cache'],
@@ -275,6 +346,26 @@ class MassProductImport(models.TransientModel):
         default_code = self._compute_default_code(brand_name, sku)
         computed_col_key, computed_family = resolve_baf_brand_info(brand_name, baf_type, baf_mod)
 
+        # Track Inventory: from a manual override or read from the file.
+        if self.storable_source == 'manual':
+            is_storable = self.manual_is_storable
+        else:
+            is_storable = self._normalize_bool(
+                self._get_cell_value(row, indices['is_storable_idx'], None)
+            )
+            if is_storable is None:
+                is_storable = True
+
+        # Published status: from a manual override or read from the file.
+        if self.published_source == 'manual':
+            is_published = self.manual_published
+        else:
+            is_published = self._normalize_bool(
+                self._get_cell_value(row, indices['is_published_idx'], None)
+            )
+            if is_published is None:
+                is_published = False
+
         return {
             'name_json': json.dumps({"en_US": raw_name}),
             'default_code': default_code,
@@ -300,17 +391,19 @@ class MassProductImport(models.TransientModel):
             'route': route,
             'computed_col_key': computed_col_key,
             'computed_family': computed_family,
+            'is_storable': is_storable,
+            'is_published': is_published,
         }
 
     def _build_template_upsert_tuple(self, payload, ctx):
-        return (
+        template_tuple = (
             payload['name_json'],      # 1. name
             payload['default_code'],   # 2. default_code
             payload['sku'],            # 3. sku
             payload['brand_id'],       # 4. brand
             payload['price'],          # 5. list_price
             'consu',                   # 6. type
-            True,                      # 7. is_storable
+            payload['is_storable'],    # 7. is_storable
             ctx['uom_id'],             # 8. uom_id
             ctx['categ_id'],           # 9. categ_id
             True,                      # 10. active
@@ -337,9 +430,17 @@ class MassProductImport(models.TransientModel):
             'order',                   # 31. invoice_policy
             fields.Datetime.now(),     # 32. publish_date
         )
+        if ctx['has_is_published']:
+            template_tuple += (payload['is_published'],)  # 33. is_published
+        return template_tuple
 
-    def _get_product_template_upsert_query(self):
-        return """
+    def _get_product_template_upsert_query(self, has_is_published=False):
+        opt_insert = ', is_published' if has_is_published else ''
+        opt_update = (
+            ',\n                        is_published     = EXCLUDED.is_published'
+            if has_is_published else ''
+        )
+        return f"""
                     INSERT INTO product_template (
                         name, default_code, sku, brand, list_price,
                         type, is_storable, uom_id, categ_id, active, service_tracking,
@@ -350,13 +451,14 @@ class MassProductImport(models.TransientModel):
                         origin, hs_code, surcharge, weight,
                         height, width, length, volume,
                         replaced_by_id,
-                        invoice_policy, publish_date
+                        invoice_policy, publish_date{opt_insert}
                     ) VALUES %s
                     ON CONFLICT (default_code) DO UPDATE SET
                         name             = EXCLUDED.name,
                         list_price       = EXCLUDED.list_price,
                         sku              = EXCLUDED.sku,
                         brand            = EXCLUDED.brand,
+                        is_storable      = EXCLUDED.is_storable,
                         baf_discount_code= EXCLUDED.baf_discount_code,
                         baf_type_code    = EXCLUDED.baf_type_code,
                         baf_mod          = EXCLUDED.baf_mod,
@@ -373,7 +475,7 @@ class MassProductImport(models.TransientModel):
                         volume           = EXCLUDED.volume,
                         replaced_by_id   = COALESCE(EXCLUDED.replaced_by_id, product_template.replaced_by_id),
                         invoice_policy   = EXCLUDED.invoice_policy,
-                        publish_date     = EXCLUDED.publish_date
+                        publish_date     = EXCLUDED.publish_date{opt_update}
                     RETURNING id, default_code;
                 """
 
@@ -381,6 +483,9 @@ class MassProductImport(models.TransientModel):
         self.ensure_one()
         if not self.file_name or not self.file_name.lower().endswith(('.xlsx', '.csv')):
             raise UserError(_("Unsupported file format. Please upload a .csv or .xlsx file."))
+
+        if self.brand_source == 'manual' and not self.manual_brand_id:
+            raise UserError(_("Please select a brand before reading the file."))
 
         headers = self._get_file_headers()
         mapping_lines = self._build_mapping_lines(headers)
@@ -410,8 +515,16 @@ class MassProductImport(models.TransientModel):
     def action_import_direct(self):
         self.ensure_one()
         mapped_fields = [line.field_name for line in self.mapping_ids if line.field_name]
-        if 'sku' not in mapped_fields or 'brand' not in mapped_fields:
-            raise UserError(_("You must map both 'SKU' and 'Brand' columns to proceed!"))
+        if 'sku' not in mapped_fields:
+            raise UserError(_("You must map the 'SKU' column to proceed!"))
+        if self.brand_source == 'excel':
+            if 'brand' not in mapped_fields:
+                raise UserError(_(
+                    "You must map a 'Brand' column when using 'Read Brand from File'.\n"
+                    "Alternatively, switch to 'Select Brand Manually' on the previous step."
+                ))
+        elif self.brand_source == 'manual' and not self.manual_brand_id:
+            raise UserError(_("Please select a Brand (go back and choose one)."))
 
         attachment = self.env['ir.attachment'].create({
             'name': self.file_name,
@@ -589,7 +702,7 @@ class MassProductImport(models.TransientModel):
         _headers, rows, total_rows = self._read_import_source(attachment.datas, self.file_name)
         col_map = self._get_column_map()
         indices = self._get_column_indices(col_map)
-        upsert_query = self._get_product_template_upsert_query()
+        upsert_query = self._get_product_template_upsert_query(ctx['has_is_published'])
 
         batch_size = 50000
         data_batch_dict = {}
@@ -719,4 +832,6 @@ class MassProductImportMapping(models.TransientModel):
         ('supplier_route','Supplier Route (de_table / eu_direct)'),
         ('origin',        'Origin (Country Code)'),
         ('replaced_by',   'Replaced By (SKU of replacement product)'),
+        ('is_storable',   'Track Inventory'),
+        ('is_published',  'Is Published'),
     ], string="Odoo Field")

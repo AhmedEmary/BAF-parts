@@ -5,6 +5,19 @@ from odoo.exceptions import ValidationError
 class ResPartner(models.Model):
     _inherit = 'res.partner'
 
+    contact_number = fields.Char(
+        string="Contact Number",
+        copy=False,
+        index=True,
+        help="Unique sequential number assigned automatically when the contact "
+             "is created. Address records (delivery/invoice/other) are skipped.",
+    )
+
+    _contact_number_uniq = models.Constraint(
+        'unique(contact_number)',
+        "The Contact Number must be unique.",
+    )
+
     is_trusted_vendor = fields.Boolean(
         string="Trusted Vendor",
         help="If checked, the Customer Name column will be included in the PO Excel export sent to this vendor."
@@ -73,6 +86,30 @@ class ResPartner(models.Model):
              "in an EU member state. These customers receive a −5 %% discount on "
              "JLR products unless a specific JLR pricing group is assigned.",
     )
+
+    @api.model_create_multi
+    def create(self, vals_list):
+        partners = super().create(vals_list)
+        # Only number real contacts/companies — skip delivery/invoice/other
+        # address records, and never overwrite a number set explicitly.
+        new_contacts = partners.filtered(
+            lambda p: p.type == 'contact' and not p.contact_number
+        )
+        if new_contacts:
+            # Derive the next number from the current MAX in the table, same
+            # pattern Odoo uses for website_sequence / pos_sequence. Deleted
+            # numbers are reused and manually inserted ones are respected.
+            self.env.cr.execute("""
+                SELECT MAX(contact_number::bigint)
+                FROM res_partner
+                WHERE contact_number ~ '^[0-9]+$'
+            """)
+            max_number = self.env.cr.fetchone()[0]
+            next_number = (max_number or 9999) + 1
+            for partner in new_contacts:
+                partner.contact_number = str(next_number)
+                next_number += 1
+        return partners
 
     @api.depends('vat', 'country_id')
     def _compute_is_b2b_eu_vat(self):
