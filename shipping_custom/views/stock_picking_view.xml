@@ -31,19 +31,18 @@
                         </group>
                     </group>
 
-                    <group string="Pallets / Packages">
-                        <field name="shipping_package_ids" nolabel="1">
-                            <list editable="bottom">
-                                <field name="package_type_id"/>
-                                <field name="name"/>
-                                <field name="length" string="L (cm)"/>
-                                <field name="width" string="W (cm)"/>
-                                <field name="height" string="H (cm)"/>
-                                <field name="weight"/>
-                                <field name="tracking_number"/>
-                            </list>
-                        </field>
-                    </group>
+                    <separator string="Pallets / Packages"/>
+                    <field name="shipping_package_ids" nolabel="1">
+                        <list editable="bottom">
+                            <field name="package_type_id"/>
+                            <field name="name"/>
+                            <field name="length" string="L (cm)"/>
+                            <field name="width" string="W (cm)"/>
+                            <field name="height" string="H (cm)"/>
+                            <field name="weight"/>
+                            <field name="tracking_number"/>
+                        </list>
+                    </field>
 
                     <group string="Tracking" invisible="not tracking_number">
                         <field name="provider_account_id" string="Provider Account"/>
@@ -51,19 +50,18 @@
                         <field name="tracking_number"/>
                     </group>
 
-                    <group string="Available Rates" invisible="tracking_number != False">
-                        <field name="shipping_option_ids" nolabel="1">
-                            <list create="0" delete="0">
-                                <field name="provider_account_id" string="Account"/>
-                                <field name="service_name"/>
-                                <field name="delivery_time"/>
-                                <field name="cost"/>
-                                <field name="currency_id" column_invisible="1"/>
-                                <button name="action_select_rate" type="object"
-                                        string="Select Rate" class="btn-success"/>
-                            </list>
-                        </field>
-                    </group>
+                    <separator string="Available Rates" invisible="tracking_number != False"/>
+                    <field name="shipping_option_ids" nolabel="1" invisible="tracking_number != False">
+                        <list create="0" delete="0">
+                            <field name="provider_account_id" string="Account"/>
+                            <field name="service_name"/>
+                            <field name="delivery_time"/>
+                            <field name="cost"/>
+                            <field name="currency_id" column_invisible="1"/>
+                            <button name="action_select_rate" type="object"
+                                    string="Select Rate" class="btn-success"/>
+                        </list>
+                    </field>
                 </page>
             </xpath>
         </field>

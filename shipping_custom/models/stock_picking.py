@@ -1,6 +1,6 @@
 import logging
 
-from odoo import models, fields, api, _
+from odoo import models, fields, api, Command, _
 from odoo.exceptions import UserError
 
 _logger = logging.getLogger(__name__)
@@ -116,6 +116,8 @@ class StockPicking(models.Model):
     shipping_package_ids = fields.One2many(
         'shipping.picking.package', 'picking_id',
         string="Shipping Pallets", copy=False,
+        compute='_compute_shipping_package_ids',
+        store=True, readonly=False,
     )
     shipping_option_ids = fields.One2many(
         'picking.shipping.option', 'picking_id',
@@ -151,6 +153,29 @@ class StockPicking(models.Model):
     def _compute_delivery_order_count(self):
         for picking in self:
             picking.delivery_order_count = len(picking.delivery_order_ids)
+
+    @api.depends('move_line_ids.result_package_id')
+    def _compute_shipping_package_ids(self):
+        for picking in self:
+            if picking.shipping_package_ids:
+                continue
+            packages = picking.move_line_ids.result_package_id.filtered(
+                'package_type_id'
+            )
+            if not packages:
+                continue
+            commands = []
+            for pkg in packages:
+                pt = pkg.package_type_id
+                commands.append(Command.create({
+                    'package_type_id': pt.id,
+                    'name': pkg.name,
+                    'length': pt.packaging_length or 1.0,
+                    'width': pt.width or 1.0,
+                    'height': pt.height or 1.0,
+                    'weight': pkg.shipping_weight or pt.base_weight or 1.0,
+                }))
+            picking.shipping_package_ids = commands
 
     @api.depends('sale_id', 'company_id')
     def _compute_shipping_currency_id(self):
