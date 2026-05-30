@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="1">
+
+        <record id="cron_cleanup_archived" model="ir.cron">
+            <field name="name">Cleanup archived products</field>
+            <field name="model_id" ref="product.model_product_template"/>
+            <field name="state">code</field>
+            <field name="code">model._cron_cleanup_archived()</field>
+            <field name="interval_number">1</field>
+            <field name="interval_type">days</field>
+            <field name="active" eval="False"/>
+        </record>
+
+    </data>
+</odoo>
