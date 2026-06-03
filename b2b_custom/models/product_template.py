@@ -1,5 +1,6 @@
 from odoo import models, fields, api
 from odoo.fields import Domain
+from odoo.http import request
 
 
 class ProductTemplate(models.Model):
@@ -65,9 +66,33 @@ class ProductTemplate(models.Model):
         """
         Central helper for _get_combination_info and _get_sales_prices.
         Delegates entirely to baf_get_sales_price on the product.
-        Returns float: the final price the customer should see.
+        Returns float: the tax-EXCLUDED final price the customer should see.
+        The caller is responsible for applying the website's tax display.
         """
         return product_or_template.baf_get_sales_price(partner=partner)
+
+    def _baf_apply_website_tax(self, template, price, website=None, fiscal_position=None):
+        """Apply the website's tax_included/excluded display to a raw BAF price."""
+        website = website or self.env['website'].get_current_website()
+        currency = website.currency_id
+
+        if fiscal_position is None:
+            # Standard website_sale resolves fiscal position via request; fall back
+            # to the website's session helper when called outside a request (cron,
+            # tests, batch).
+            if request and hasattr(request, 'fiscal_position'):
+                fiscal_position = request.fiscal_position
+            else:
+                fiscal_position = website.sudo()._get_and_cache_current_fiscal_position() \
+                    if request else self.env['account.fiscal.position'].sudo()
+
+        product_taxes = template.sudo().taxes_id._filter_taxes_by_company(self.env.company)
+        if not product_taxes:
+            return price
+        taxes = fiscal_position.map_tax(product_taxes) if fiscal_position else product_taxes
+        return self._apply_taxes_to_price(
+            price, currency, product_taxes, taxes, template, website=website,
+        )
 
     # ── Product page (single product) ────────────────────────────────────────
 
@@ -92,6 +117,7 @@ class ProductTemplate(models.Model):
         )
 
         final_price = self._baf_final_price_for_partner(product, partner)
+        final_price = self._baf_apply_website_tax(self, final_price)
 
         res['price'] = final_price
         res['list_price'] = final_price
@@ -111,6 +137,7 @@ class ProductTemplate(models.Model):
 
         for template in self:
             final_price = self._baf_final_price_for_partner(template, partner)
+            final_price = self._baf_apply_website_tax(template, final_price)
             if template.id in prices:
                 prices[template.id]['price_reduce'] = final_price
                 prices[template.id]['list_price'] = final_price
