@@ -16,7 +16,7 @@
                     <button name="action_launch" type="object"
                             string="Launch Job" class="btn-primary" icon="fa-play"
                             invisible="state not in ('draft','failed','cancelled')"
-                            confirm="MASS UPDATE WARNING: This runs immediately and may take minutes for large catalogues. The screen will freeze until it finishes. DO NOT refresh the page. Continue?"/>
+                            confirm="This will update the matched products in the background. Continue?"/>
                     <button name="action_process_now" type="object"
                             string="Run Now" icon="fa-bolt" class="btn-primary"
                             invisible="state not in ('pending','processing')"
@@ -131,12 +131,6 @@
                                         <field name="apply_is_storable" nolabel="1" readonly="state != 'draft'"/>
                                         <field name="is_storable" nolabel="1"
                                                readonly="not apply_is_storable or state != 'draft'"/>
-                                    </div>
-                                    <label for="allow_out_of_stock_order" string="Sell when Out-of-Stock"/>
-                                    <div class="o_row">
-                                        <field name="apply_allow_out_of_stock_order" nolabel="1" readonly="state != 'draft'"/>
-                                        <field name="allow_out_of_stock_order" nolabel="1"
-                                               readonly="not apply_allow_out_of_stock_order or state != 'draft'"/>
                                     </div>
                                 </group>
                                 <group string="🌐 Sales / Web" name="g_web">
