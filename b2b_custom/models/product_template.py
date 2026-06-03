@@ -1,7 +1,6 @@
 from odoo import models, fields, api
 from odoo.fields import Domain
 from odoo.http import request
-from odoo.tools.sql import column_exists
 
 
 class ProductTemplate(models.Model):
@@ -16,61 +15,6 @@ class ProductTemplate(models.Model):
         string='Unit of Sales',
         help="Minimum number of units for a product to be sold",
     )
-
-    # ── Orderability ──────────────────────────────────────────────────────────
-
-    NLA_SKU = 'NLA'
-
-    def _baf_is_nla(self):
-        """Return True when this template — or any product reached by walking
-        the `replaced_by_id` chain — has SKU 'NLA'.
-
-        A part is NLA both when:
-          * its own SKU is 'NLA'; or
-          * its replacement (or the replacement's replacement, …) is NLA.
-        """
-        self.ensure_one()
-        seen = set()
-        current = self
-        while current and current.id not in seen:
-            seen.add(current.id)
-            sku = (current.sku or '').strip().upper()
-            if sku == self.NLA_SKU:
-                return True
-            current = current.replaced_by_id
-        return False
-
-    def _baf_is_order_blocked(self):
-        """Return True when this template must not be ordered.
-
-        Two cases are blocked:
-          * the part is NLA (own SKU or any successor in the chain); or
-          * the part has been superseded — `replaced_by_id` is set, the
-            customer must order the replacement instead.
-        """
-        self.ensure_one()
-        if self._baf_is_nla():
-            return True
-        return bool(self.replaced_by_id)
-
-    def _is_add_to_cart_possible(self, parent_combination=None):
-        if self._baf_is_order_blocked():
-            return False
-        return super()._is_add_to_cart_possible(parent_combination=parent_combination)
-
-    @api.model
-    def _baf_enable_oos_orders(self):
-        """One-shot SQL: allow buying every existing product when out-of-stock.
-
-        Called from data XML on every module update. Idempotent.
-        """
-        if not column_exists(self.env.cr, 'product_template', 'allow_out_of_stock_order'):
-            return
-        self.env.cr.execute("""
-            UPDATE product_template
-               SET allow_out_of_stock_order = TRUE
-             WHERE allow_out_of_stock_order IS DISTINCT FROM TRUE;
-        """)
 
     default_code = fields.Char(
         compute='_compute_internal_reference',
@@ -101,9 +45,7 @@ class ProductTemplate(models.Model):
         """
         Strict exact SKU lookup — optimised for large catalogues via B-Tree index.
         """
-        # `base_domain` is a list of domains (one per shop filter), not a
-        # single domain. Combine them before searching.
-        base_domain = Domain.AND(search_detail.get('base_domain', []))
+        base_domain = search_detail.get('base_domain', [])
 
         if not search:
             results = self.search(base_domain, limit=limit, order=order)
@@ -128,17 +70,6 @@ class ProductTemplate(models.Model):
         The caller is responsible for applying the website's tax display.
         """
         return product_or_template.baf_get_sales_price(partner=partner)
-
-    def baf_website_display_price(self):
-        """Price to show on the website product page, already adjusted for the
-        website's tax_included/excluded radio and the current partner's fiscal
-        position. Used by the custom QWeb template instead of
-        t-field='product.list_price' (which reads the raw column and ignores
-        the tax-display setting)."""
-        self.ensure_one()
-        partner = self.env.user.partner_id
-        price = self._baf_final_price_for_partner(self, partner)
-        return self._baf_apply_website_tax(self, price)
 
     def _baf_apply_website_tax(self, template, price, website=None, fiscal_position=None):
         """Apply the website's tax_included/excluded display to a raw BAF price."""
