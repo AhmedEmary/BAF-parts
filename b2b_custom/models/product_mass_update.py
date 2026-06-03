@@ -9,8 +9,14 @@ from odoo.tools.safe_eval import safe_eval
 
 _logger = logging.getLogger(__name__)
 
-BATCH_SIZE = 2000
-CRON_TIME_BUDGET_SECONDS = 270
+BATCH_SIZE = 500
+# Stay under Odoo's default --limit-time-real-cron (120s). Cron processes a few
+# batches per tick; the job resumes on the next tick. Larger budgets risk the
+# worker getting SIGTERM'd mid-write, leaving the job stuck in 'processing'.
+CRON_TIME_BUDGET_SECONDS = 55
+# Stop the manual "Run Now" button ~20s before the default HTTP timeout (120s)
+# so the response can flush. Resumes on the next click via last_processed_id.
+MANUAL_RUN_BUDGET_SECONDS = 100
 
 # Curated quick-pick fields shown on the "Fields to Update" page. Any other
 # stored, writable field can still be set through the "Custom Field" page.
@@ -21,6 +27,7 @@ SUPPORTED_FIELDS = [
     'categ_id',
     'website_id',
     'is_published',
+    'image_1920',
     'property_account_income_id',
     'property_account_expense_id',
 ]
@@ -62,6 +69,7 @@ class ProductMassUpdate(models.Model):
     apply_categ_id = fields.Boolean()
     apply_website_id = fields.Boolean()
     apply_is_published = fields.Boolean()
+    apply_image_1920 = fields.Boolean()
     apply_property_account_income_id = fields.Boolean()
     apply_property_account_expense_id = fields.Boolean()
 
@@ -77,6 +85,9 @@ class ProductMassUpdate(models.Model):
     categ_id = fields.Many2one('product.category', string='Internal Category')
     website_id = fields.Many2one('website', string='Website')
     is_published = fields.Boolean(string='Is Published')
+    image_1920 = fields.Image(string='Main Image',
+        help="Set this image as the main picture (image_1920) on every selected product. "
+             "Shown on the e-commerce product page and the shop listing.")
     property_account_income_id = fields.Many2one(
         'account.account', string='Income Account',
         domain="[('account_type','in',('income','income_other'))]")
@@ -167,6 +178,13 @@ class ProductMassUpdate(models.Model):
                 vals[fname] = value.id or False
             elif f.type == 'many2many':
                 vals[fname] = [(6, 0, value.ids)]
+            elif f.type in ('binary', 'image'):
+                # vals_json stores everything as JSON; bytes aren't JSON-serializable.
+                # Image fields hold base64 bytes — decode to str for storage, write()
+                # accepts either form when the batch runs.
+                if not value:
+                    raise ValidationError(_("Upload an image before launching, or untick 'Main Image'."))
+                vals[fname] = value.decode('ascii') if isinstance(value, bytes) else value
             else:
                 vals[fname] = value
 
@@ -354,6 +372,8 @@ class ProductMassUpdate(models.Model):
             return sel.get(value, value)
         if field.type == 'boolean':
             return _('Yes') if value else _('No')
+        if field.type in ('binary', 'image'):
+            return _('(image set)') if value else _('(no image)')
         return str(value)
 
     @api.onchange(
@@ -363,6 +383,7 @@ class ProductMassUpdate(models.Model):
         'apply_categ_id', 'categ_id',
         'apply_website_id', 'website_id',
         'apply_is_published', 'is_published',
+        'apply_image_1920', 'image_1920',
         'apply_property_account_income_id', 'property_account_income_id',
         'apply_property_account_expense_id', 'property_account_expense_id',
         'apply_custom_field', 'custom_field_id',
@@ -385,6 +406,65 @@ class ProductMassUpdate(models.Model):
             rec.state = 'cancelled'
             rec.end_time = fields.Datetime.now()
 
+    def action_process_now(self):
+        """Run the job synchronously, batch after batch, until it finishes or
+        we approach the HTTP timeout. Safe to click again to resume — the
+        cursor (last_processed_id) means we never reprocess the same rows.
+        Posts one chatter entry per click summarising what happened."""
+        self.ensure_one()
+        if self.state not in ('pending', 'processing'):
+            raise UserError(_(
+                "Job must be Pending or Processing to run now. Current state: %s"
+            ) % self.state)
+
+        in_test = modules.module.current_test
+        started = time.monotonic()
+        deadline = started + MANUAL_RUN_BUDGET_SECONDS
+        batches = 0
+        more = True
+
+        while more and time.monotonic() < deadline:
+            try:
+                more = self._process_one_batch()
+            except Exception as e:
+                _logger.exception("Mass update job %s failed (manual run)", self.id)
+                if not in_test:
+                    self.env.cr.rollback()
+                fresh = self.browse(self.id)
+                fresh.write({
+                    'state': 'failed',
+                    'end_time': fields.Datetime.now(),
+                    'error_log': str(e),
+                })
+                fresh.message_post(body=_(
+                    "Manual run failed after %(n)d batch(es): %(e)s",
+                    n=batches, e=e,
+                ))
+                fresh._send_completion_email()
+                if not in_test:
+                    self.env.cr.commit()
+                return {'type': 'ir.actions.client', 'tag': 'soft_reload'}
+
+            batches += 1
+            # Commit each batch so progress survives a timeout/cancel.
+            if not in_test:
+                self.env.cr.commit()
+
+        total_elapsed = time.monotonic() - started
+        if more:
+            self.message_post(body=_(
+                "Manual run paused at %(p)d / %(total)d products after %(b)d batch(es) "
+                "in %(t).0fs (time budget reached). Click <b>Run Now</b> again to continue, "
+                "or wait for the cron.",
+                p=self.processed_count, total=self.total_count, b=batches, t=total_elapsed,
+            ))
+        else:
+            self.message_post(body=_(
+                "Manual run finished — %(p)d / %(total)d products in %(b)d batch(es), %(t).1fs total.",
+                p=self.processed_count, total=self.total_count, b=batches, t=total_elapsed,
+            ))
+        return {'type': 'ir.actions.client', 'tag': 'soft_reload'}
+
     def action_open_products(self):
         self.ensure_one()
         domain = json.loads(self.domain_json) if self.domain_json else self._build_domain()
@@ -402,19 +482,31 @@ class ProductMassUpdate(models.Model):
     @api.model
     def _cron_process_jobs(self):
         """Cron entry point. Picks up pending/processing jobs and runs them
-        within a time budget so the worker can be released for other crons."""
+        within a time budget so the worker can be released for other crons.
+        Posts one chatter entry per processed job per tick (or on failure)."""
         in_test = modules.module.current_test
-        deadline = time.monotonic() + CRON_TIME_BUDGET_SECONDS
+        tick_start = time.monotonic()
+        deadline = tick_start + CRON_TIME_BUDGET_SECONDS
+
+        # Per-job accumulators so we post a single summary at the end of the tick.
+        # Keyed by job.id → {'batches': int, 'finished': bool, 'started_processed': int}
+        job_stats = {}
+
         while time.monotonic() < deadline:
             job = self.search([('state', 'in', ('pending', 'processing'))],
                               order='create_date asc', limit=1)
             if not job:
-                return
+                break
+
+            stats = job_stats.setdefault(job.id, {
+                'batches': 0,
+                'finished': False,
+                'started_processed': job.processed_count,
+            })
             try:
                 more = job._process_one_batch()
             except Exception as e:
                 _logger.exception("Mass update job %s failed", job.id)
-                # Roll back this batch, write the failure, commit it.
                 if not in_test:
                     self.env.cr.rollback()
                 job_fresh = self.browse(job.id)
@@ -423,15 +515,41 @@ class ProductMassUpdate(models.Model):
                     'end_time': fields.Datetime.now(),
                     'error_log': str(e),
                 })
+                job_fresh.message_post(body=_(
+                    "Cron run failed after %(n)d batch(es): %(e)s",
+                    n=stats['batches'], e=e,
+                ))
                 job_fresh._send_completion_email()
                 if not in_test:
                     self.env.cr.commit()
+                # Drop this job's pending summary — failure message replaces it.
+                job_stats.pop(job.id, None)
                 continue
+
+            stats['batches'] += 1
+            if not more:
+                stats['finished'] = True
             if not in_test:
                 self.env.cr.commit()
-            if not more:
-                # Job completed in this iteration; loop to pick up the next one.
+
+        # End-of-tick summary, one chatter entry per job touched this tick.
+        for job_id, stats in job_stats.items():
+            job = self.browse(job_id)
+            if not job.exists():
                 continue
+            written = job.processed_count - stats['started_processed']
+            if stats['finished']:
+                job.message_post(body=_(
+                    "Cron processed %(n)d batch(es) (%(w)d products) — job finished.",
+                    n=stats['batches'], w=written,
+                ))
+            else:
+                job.message_post(body=_(
+                    "Cron processed %(n)d batch(es) (%(w)d products); resumes next tick. "
+                    "Progress: %(p)d / %(total)d.",
+                    n=stats['batches'], w=written,
+                    p=job.processed_count, total=job.total_count,
+                ))
 
     def _process_one_batch(self):
         """Process a single batch. Returns True if more batches remain, False if done."""
