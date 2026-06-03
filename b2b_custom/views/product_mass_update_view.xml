@@ -17,6 +17,10 @@
                             string="Launch Job" class="btn-primary" icon="fa-play"
                             invisible="state not in ('draft','failed','cancelled')"
                             confirm="This will update the matched products in the background. Continue?"/>
+                    <button name="action_process_now" type="object"
+                            string="Run Now" icon="fa-bolt" class="btn-primary"
+                            invisible="state not in ('pending','processing')"
+                            help="Process the whole job synchronously in this request. Stops automatically near the HTTP timeout; click again to resume on the remaining products."/>
                     <button name="action_cancel" type="object"
                             string="Cancel Job" icon="fa-stop"
                             invisible="state not in ('pending','processing')"
@@ -50,14 +54,23 @@
                         </h1>
                     </div>
 
-                    <!-- Live progress, prominent while job is running -->
+                    <!-- Pending: cron hasn't picked the job up yet -->
+                    <div class="alert alert-warning" role="alert"
+                         invisible="state != 'pending'">
+                        <i class="fa fa-clock-o me-2" title="Pending"/>
+                        <b>Queued.</b> The background cron runs every minute and will pick this job up
+                        on the next tick. If you don't want to wait (or the cron isn't running on this
+                        instance), click <b>Run Now</b> in the header to process the whole job in this
+                        request. Long jobs may need more than one click to finish.
+                    </div>
+                    <!-- Processing: at least one batch has run -->
                     <div class="alert alert-info" role="alert"
-                         invisible="state not in ('pending','processing')">
+                         invisible="state != 'processing'">
                         <div class="d-flex align-items-center">
-                            <i class="fa fa-spinner fa-spin fa-2x me-3" title="Running"/>
+                            <i class="fa fa-cog fa-spin fa-2x me-3" title="Processing"/>
                             <div class="flex-grow-1">
-                                <b>Running in background.</b> You can close this tab —
-                                you'll get an email when it finishes.
+                                <b>Processing.</b> You can close this tab — you'll get an email
+                                when it finishes. Cron progress is logged in the chatter below.
                                 <field name="progress" widget="progressbar"
                                        options="{'current_value': 'processed_count', 'max_value': 'total_count'}"/>
                             </div>
@@ -155,6 +168,22 @@
                                         <field name="supplier_taxes_id" nolabel="1" widget="many2many_tags"
                                                options="{'no_create': True}"
                                                readonly="not apply_supplier_taxes_id or state != 'draft'"/>
+                                    </div>
+                                </group>
+                                <group string="🖼 Media" name="g_media">
+                                    <label for="image_1920" string="Main Image"/>
+                                    <div class="o_row">
+                                        <field name="apply_image_1920" nolabel="1" readonly="state != 'draft'"/>
+                                        <field name="image_1920" widget="image" nolabel="1"
+                                               class="oe_avatar"
+                                               readonly="not apply_image_1920 or state != 'draft'"
+                                               options="{'size': [180, 180]}"/>
+                                    </div>
+                                    <div class="text-muted" colspan="2"
+                                         invisible="not apply_image_1920">
+                                        This single image will replace the main picture
+                                        (<code>image_1920</code>) on every targeted product, and
+                                        will be the photo shown on the e-commerce shop and product page.
                                     </div>
                                 </group>
                                 <group string="💼 Accounting" name="g_acc">

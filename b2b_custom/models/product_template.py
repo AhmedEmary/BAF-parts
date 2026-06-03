@@ -71,6 +71,17 @@ class ProductTemplate(models.Model):
         """
         return product_or_template.baf_get_sales_price(partner=partner)
 
+    def baf_website_display_price(self):
+        """Price to show on the website product page, already adjusted for the
+        website's tax_included/excluded radio and the current partner's fiscal
+        position. Used by the custom QWeb template instead of
+        t-field='product.list_price' (which reads the raw column and ignores
+        the tax-display setting)."""
+        self.ensure_one()
+        partner = self.env.user.partner_id
+        price = self._baf_final_price_for_partner(self, partner)
+        return self._baf_apply_website_tax(self, price)
+
     def _baf_apply_website_tax(self, template, price, website=None, fiscal_position=None):
         """Apply the website's tax_included/excluded display to a raw BAF price."""
         website = website or self.env['website'].get_current_website()

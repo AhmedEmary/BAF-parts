@@ -89,7 +89,7 @@
                     <tr>
                         <td class="text-muted py-1 border-0">List Price</td>
                         <td class="fw-semibold py-1 border-0 text-end">
-                            <span t-field="product.list_price"
+                            <span t-esc="product.baf_website_display_price()"
                                   t-options="{'widget': 'monetary', 'display_currency': website.currency_id}"/>
                         </td>
                     </tr>
