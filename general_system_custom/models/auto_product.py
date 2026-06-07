@@ -1,4 +1,5 @@
 from odoo import models, fields, api
+from odoo.tools.image import is_image_size_above
 
 
 class ProductBrand(models.Model):
@@ -13,6 +14,21 @@ class ProductBrand(models.Model):
         default=False,
         help="If checked, this brand is visible to all users (including guests) in the e-commerce."
     )
+    # Required by website_sale.shop_product_image when the brand record is
+    # used as an image holder fallback for products that have no image.
+    can_image_1024_be_zoomed = fields.Boolean(
+        string="Can Image 1024 be zoomed",
+        compute='_compute_can_image_1024_be_zoomed',
+        store=True,
+    )
+
+    @api.depends('image_1920', 'image_1024')
+    def _compute_can_image_1024_be_zoomed(self):
+        for brand in self:
+            brand.can_image_1024_be_zoomed = bool(
+                brand.image_1920
+                and is_image_size_above(brand.image_1920, brand.image_1024)
+            )
 
 
 class ProductTemplate(models.Model):
