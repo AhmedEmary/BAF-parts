@@ -6,12 +6,16 @@
         <field name="arch" type="xml">
             <form>
                 <sheet>
+                    <field name="image_1920" widget="image" class="oe_avatar"
+                           options="{'preview_image': 'image_128'}"/>
                     <group>
-                        <field name="name"/>
-                        <field name="is_public"/>
-                    </group>
-                    <group>
-                        <field name="description"/>
+                        <group>
+                            <field name="name"/>
+                            <field name="is_public"/>
+                        </group>
+                        <group>
+                            <field name="description"/>
+                        </group>
                     </group>
                 </sheet>
             </form>
@@ -23,6 +27,7 @@
         <field name="model">product.brand</field>
         <field name="arch" type="xml">
             <list editable="bottom">
+                <field name="image_128" widget="image" options="{'size': [40, 40]}" string="Image"/>
                 <field name="name"/>
                 <field name="is_public" widget="boolean_toggle"/>
                 <field name="description"/>
