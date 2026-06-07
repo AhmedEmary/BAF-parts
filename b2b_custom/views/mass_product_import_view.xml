@@ -44,6 +44,10 @@
                             <field name="published_source" widget="radio"/>
                             <field name="manual_published"
                                    invisible="published_source != 'manual'"/>
+                            <field name="manual_tax_ids"
+                                   widget="many2many_tags"
+                                   options="{'no_create': True}"
+                                   placeholder="Leave empty to keep existing taxes"/>
                         </group>
                     </group>
                 </div>
