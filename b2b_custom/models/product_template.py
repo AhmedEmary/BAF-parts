@@ -45,7 +45,9 @@ class ProductTemplate(models.Model):
         """
         Strict exact SKU lookup — optimised for large catalogues via B-Tree index.
         """
-        base_domain = search_detail.get('base_domain', [])
+        # `base_domain` is a list of domains (one per shop filter), not a
+        # single domain. Combine them before searching.
+        base_domain = Domain.AND(search_detail.get('base_domain', []))
 
         if not search:
             results = self.search(base_domain, limit=limit, order=order)
