@@ -3,6 +3,7 @@ from odoo import models, fields, api
 
 class ProductBrand(models.Model):
     _name = 'product.brand'
+    _inherit = ['image.mixin']
     _description = 'Product Brand'
 
     name = fields.Char(string='Brand Name', required=True)
@@ -135,9 +136,46 @@ class ProductTemplate(models.Model):
             'template': '/general_system_custom/static/xls/intelliwise_products_template_excel.xlsx'
         }]
 
+    def _get_image_holder(self):
+        # Fall back to the brand image when neither the template nor its
+        # first variant has one. Only kicks in if a brand image exists.
+        holder = super()._get_image_holder()
+        if (
+            holder == self
+            and not self.image_128
+            and self.brand
+            and self.brand.image_128
+        ):
+            return self.brand
+        return holder
+
+    def _get_images(self):
+        images = super()._get_images()
+        if (
+            not self.image_1920
+            and not self.product_template_image_ids
+            and self.brand
+            and self.brand.image_1920
+        ):
+            return [self.brand]
+        return images
+
 
 class ProductProduct(models.Model):
     _inherit = 'product.product'
+
+    def _get_images(self):
+        images = super()._get_images()
+        if (
+            not self.image_variant_1920
+            and not self.product_tmpl_id.image_1920
+            and not self.product_variant_image_ids
+            and not self.product_tmpl_id.product_template_image_ids
+            and self.product_tmpl_id.brand
+            and self.product_tmpl_id.brand.image_1920
+        ):
+            return [self.product_tmpl_id.brand]
+        return images
 
     @api.model
     def name_search(self, name='', domain=None, operator='ilike', limit=100, order=None):
