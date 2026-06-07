@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+        <!-- Run on every module update: allow buying every product when out
+             of stock. Idempotent, only touches rows that aren't already TRUE. -->
+        <function model="product.template" name="_baf_enable_oos_orders"/>
+    </data>
+</odoo>

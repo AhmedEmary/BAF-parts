@@ -73,17 +73,6 @@
                 </a>
             </div>
 
-            <div t-if="not is_nla" class="mb-3" style="font-size: 1.1rem;">
-                <t t-set="is_in_stock" t-value="product.sudo().qty_available &gt; 0"/>
-
-                <span t-if="is_in_stock" class="text-success fw-bold">
-                    <i class="fa fa-check-circle"/> IN STOCK
-                </span>
-                <span t-elif="not product.replaced_by_id" class="fw-bold" style="color: #fd7e14;">
-                    <i class="fa fa-clock-o"/> TO ORDER
-                </span>
-            </div>
-
             <table class="table table-sm mb-3" style="max-width: 380px; font-size: 1rem;">
                 <tbody>
                     <tr>
@@ -131,7 +120,7 @@
 
     <template id="products_item_custom_sku" inherit_id="website_sale.products_item">
         <xpath expr="//h2[hasclass('o_wsale_products_item_title')]" position="after">
-            <t t-set="is_nla" t-value="product.sku and product.sku.strip().upper() == 'NLA'"/>
+            <t t-set="is_nla" t-value="product.replaced_by_id.sku and product.replaced_by_id.sku.strip().upper() == 'NLA'"/>
 
             <div t-if="product.brand or (product.sku and not is_nla)" class="mb-1 text-muted small">
                 <span t-if="product.brand"><strong t-out="product.brand.name"/> - </span>

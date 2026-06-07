@@ -8,6 +8,7 @@
     'data': [
         'security/ir.model.access.csv',
         'data/product_mass_update_data.xml',
+        'data/enable_oos_orders.xml',
         'views/product_template_view.xml',
         'views/website_list_to_part_template.xml',
         'views/website_sale_cart_view.xml',

@@ -191,6 +191,10 @@ class MassProductImport(models.TransientModel):
 
         # is_published physically belongs to product_template (website_sale).
         has_is_published = column_exists(self.env.cr, 'product_template', 'is_published')
+        # allow_out_of_stock_order is provided by website_sale_stock (auto-installed).
+        has_allow_out_of_stock = column_exists(
+            self.env.cr, 'product_template', 'allow_out_of_stock_order',
+        )
 
         return {
             'uom_id': uom_id,
@@ -199,6 +203,7 @@ class MassProductImport(models.TransientModel):
             'country_cache': country_cache,
             'replacement_cache': replacement_cache,
             'has_is_published': has_is_published,
+            'has_allow_out_of_stock': has_allow_out_of_stock,
             'manual_brand_id': self.manual_brand_id.id if self.brand_source == 'manual' else None,
             'manual_brand_name': self.manual_brand_id.name if self.brand_source == 'manual' else None,
             'manual_tax_ids': self.manual_tax_ids.ids,
@@ -444,14 +449,21 @@ class MassProductImport(models.TransientModel):
         )
         if ctx['has_is_published']:
             template_tuple += (payload['is_published'],)  # 33. is_published
+        if ctx['has_allow_out_of_stock']:
+            template_tuple += (True,)  # allow_out_of_stock_order
         return template_tuple
 
-    def _get_product_template_upsert_query(self, has_is_published=False):
+    def _get_product_template_upsert_query(self, has_is_published=False, has_allow_out_of_stock=False):
         opt_insert = ', is_published' if has_is_published else ''
         opt_update = (
             ',\n                        is_published     = EXCLUDED.is_published'
             if has_is_published else ''
         )
+        if has_allow_out_of_stock:
+            opt_insert += ', allow_out_of_stock_order'
+            opt_update += (
+                ',\n                        allow_out_of_stock_order = EXCLUDED.allow_out_of_stock_order'
+            )
         return f"""
                     INSERT INTO product_template (
                         name, default_code, sku, brand, list_price,
@@ -714,7 +726,9 @@ class MassProductImport(models.TransientModel):
         _headers, rows, total_rows = self._read_import_source(attachment.datas, self.file_name)
         col_map = self._get_column_map()
         indices = self._get_column_indices(col_map)
-        upsert_query = self._get_product_template_upsert_query(ctx['has_is_published'])
+        upsert_query = self._get_product_template_upsert_query(
+            ctx['has_is_published'], ctx['has_allow_out_of_stock'],
+        )
 
         batch_size = 50000
         data_batch_dict = {}
