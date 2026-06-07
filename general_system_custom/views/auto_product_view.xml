@@ -26,7 +26,7 @@
         <field name="name">product.brand.tree</field>
         <field name="model">product.brand</field>
         <field name="arch" type="xml">
-            <list>
+            <list editable="bottom">
                 <field name="image_128" widget="image" options="{'size': [40, 40]}" string="Image"/>
                 <field name="name"/>
                 <field name="is_public" widget="boolean_toggle"/>

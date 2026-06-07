@@ -1,5 +1,4 @@
 from odoo import models, fields, api
-from odoo.tools.image import is_image_size_above
 
 
 class ProductBrand(models.Model):
@@ -14,21 +13,6 @@ class ProductBrand(models.Model):
         default=False,
         help="If checked, this brand is visible to all users (including guests) in the e-commerce."
     )
-    # Required by website_sale.shop_product_image when the brand record is
-    # used as an image holder fallback for products that have no image.
-    can_image_1024_be_zoomed = fields.Boolean(
-        string="Can Image 1024 be zoomed",
-        compute='_compute_can_image_1024_be_zoomed',
-        store=True,
-    )
-
-    @api.depends('image_1920', 'image_1024')
-    def _compute_can_image_1024_be_zoomed(self):
-        for brand in self:
-            brand.can_image_1024_be_zoomed = bool(
-                brand.image_1920
-                and is_image_size_above(brand.image_1920, brand.image_1024)
-            )
 
 
 class ProductTemplate(models.Model):
@@ -179,36 +163,6 @@ class ProductTemplate(models.Model):
 
 class ProductProduct(models.Model):
     _inherit = 'product.product'
-
-    def _compute_image_1920(self):
-        super()._compute_image_1920()
-        for record in self:
-            if not record.image_1920 and record.product_tmpl_id.brand.image_1920:
-                record.image_1920 = record.product_tmpl_id.brand.image_1920
-
-    def _compute_image_1024(self):
-        super()._compute_image_1024()
-        for record in self:
-            if not record.image_1024 and record.product_tmpl_id.brand.image_1024:
-                record.image_1024 = record.product_tmpl_id.brand.image_1024
-
-    def _compute_image_512(self):
-        super()._compute_image_512()
-        for record in self:
-            if not record.image_512 and record.product_tmpl_id.brand.image_512:
-                record.image_512 = record.product_tmpl_id.brand.image_512
-
-    def _compute_image_256(self):
-        super()._compute_image_256()
-        for record in self:
-            if not record.image_256 and record.product_tmpl_id.brand.image_256:
-                record.image_256 = record.product_tmpl_id.brand.image_256
-
-    def _compute_image_128(self):
-        super()._compute_image_128()
-        for record in self:
-            if not record.image_128 and record.product_tmpl_id.brand.image_128:
-                record.image_128 = record.product_tmpl_id.brand.image_128
 
     def _get_images(self):
         images = super()._get_images()
