@@ -22,6 +22,7 @@ MANUAL_RUN_BUDGET_SECONDS = 100
 # stored, writable field can still be set through the "Custom Field" page.
 SUPPORTED_FIELDS = [
     'is_storable',
+    'allow_out_of_stock_order',
     'taxes_id',
     'supplier_taxes_id',
     'categ_id',
@@ -64,6 +65,7 @@ class ProductMassUpdate(models.Model):
 
     # ---- Field "apply" toggles -------------------------------------------
     apply_is_storable = fields.Boolean()
+    apply_allow_out_of_stock_order = fields.Boolean()
     apply_taxes_id = fields.Boolean()
     apply_supplier_taxes_id = fields.Boolean()
     apply_categ_id = fields.Boolean()
@@ -76,6 +78,10 @@ class ProductMassUpdate(models.Model):
     # ---- Field values ----------------------------------------------------
     is_storable = fields.Boolean(string='Track Inventory',
         help="When ticked, the products will be marked as Storable (track inventory).")
+    allow_out_of_stock_order = fields.Boolean(string='Sell when Out-of-Stock',
+        default=True,
+        help="When ticked, customers can buy these products on the e-commerce "
+             "even when stock is zero. Untick to block out-of-stock purchases.")
     taxes_id = fields.Many2many(
         'account.tax', 'product_mass_update_taxes_rel', 'wizard_id', 'tax_id',
         string='Sales Taxes', domain="[('type_tax_use','=','sale')]")
@@ -253,30 +259,125 @@ class ProductMassUpdate(models.Model):
             domain += extra
         return domain
 
+    def _push_progress(self, processed, total, started_at):
+        """Push a progress toast over the user's bus channel.
+
+        Bus messages flush on commit, so calling this just before cr.commit()
+        delivers the toast immediately — same pattern as the mass import.
+        """
+        elapsed = time.time() - started_at
+        if total and total > 0:
+            pct = min(100.0, (processed / total) * 100.0)
+            eta_s = int((elapsed / processed) * (total - processed)) if processed else 0
+            message = _(
+                "Updated %(d)s / %(t)s products (%(p).1f%%). ETA ~%(em)dm %(es)ds"
+            ) % {
+                'd': f'{processed:,}', 't': f'{total:,}',
+                'p': pct, 'em': eta_s // 60, 'es': eta_s % 60,
+            }
+        else:
+            message = _("Updated %(d)s products so far (%(e).0fs elapsed)") % {
+                'd': f'{processed:,}', 'e': elapsed,
+            }
+        self.env['bus.bus']._sendone(
+            self.env.user.partner_id,
+            'simple_notification',
+            {
+                'title': _("Mass Product Update"),
+                'message': message,
+                'type': 'info',
+                'sticky': False,
+            },
+        )
+
     def action_launch(self):
+        """Run the whole job synchronously, batch by batch, until done.
+
+        Mirrors the mass-import behaviour: blocks the request, commits per
+        batch, and pushes a progress toast every 5% (kick-off + final too).
+        """
         self.ensure_one()
         if self.state not in ('draft', 'failed', 'cancelled'):
             raise UserError(_("Job is already %s.") % self.state)
         vals = self._collect_vals()
         domain = self._build_domain()
-        # Snapshot domain + vals so view changes after launch don't affect the run.
+        total = self.env['product.template'].with_context(active_test=False).search_count(domain)
+
+        # Snapshot domain + vals so view changes during the run don't affect it.
         self.write({
-            'state': 'pending',
+            'state': 'processing',
             'vals_json': json.dumps(vals),
             'domain_json': json.dumps(domain),
             'processed_count': 0,
             'last_processed_id': 0,
             'error_log': False,
-            'start_time': False,
+            'start_time': fields.Datetime.now(),
             'end_time': False,
-            'total_count': 0,
+            'total_count': total,
         })
+
+        if total == 0:
+            self.write({'state': 'done', 'end_time': fields.Datetime.now()})
+            return {
+                'type': 'ir.actions.client',
+                'tag': 'display_notification',
+                'params': {
+                    'title': _("Mass Product Update"),
+                    'message': _("No products matched the filter — nothing to update."),
+                    'type': 'warning',
+                    'sticky': False,
+                },
+            }
+
+        in_test = modules.module.current_test
+        started_at = time.time()
+        last_pct_pushed = 0.0
+
+        # Kick-off toast so the user sees something within seconds.
+        self._push_progress(0, total, started_at)
+        if not in_test:
+            self.env.cr.commit()
+
+        try:
+            more = True
+            while more:
+                more = self._process_one_batch()
+                if not in_test:
+                    self.env.cr.commit()
+                # Throttle: one toast per 5% threshold crossed.
+                pct_now = (self.processed_count / total) * 100.0 if total else 0.0
+                if pct_now - last_pct_pushed >= 5.0:
+                    self._push_progress(self.processed_count, total, started_at)
+                    last_pct_pushed = pct_now
+                    if not in_test:
+                        self.env.cr.commit()
+        except Exception as e:
+            _logger.exception("Mass update job %s failed during sync run", self.id)
+            if not in_test:
+                self.env.cr.rollback()
+            fresh = self.browse(self.id)
+            fresh.write({
+                'state': 'failed',
+                'end_time': fields.Datetime.now(),
+                'error_log': str(e),
+            })
+            fresh._send_completion_email()
+            if not in_test:
+                self.env.cr.commit()
+            raise UserError(_("Mass update failed after %(p)d/%(t)d products: %(e)s") % {
+                'p': fresh.processed_count, 't': total, 'e': e,
+            })
+
+        # Final 100% toast.
+        self._push_progress(self.processed_count, total, started_at)
         return {
             'type': 'ir.actions.client',
             'tag': 'display_notification',
             'params': {
-                'title': _("Mass update queued"),
-                'message': _("The job will start within a minute. You will receive an email when it finishes."),
+                'title': _("Mass Update Completed"),
+                'message': _("%(p)d products updated in %(t).1fs.") % {
+                    'p': self.processed_count, 't': time.time() - started_at,
+                },
                 'type': 'success',
                 'sticky': False,
                 'next': {'type': 'ir.actions.act_window_close'},
@@ -378,6 +479,7 @@ class ProductMassUpdate(models.Model):
 
     @api.onchange(
         'apply_is_storable', 'is_storable',
+        'apply_allow_out_of_stock_order', 'allow_out_of_stock_order',
         'apply_taxes_id', 'taxes_id',
         'apply_supplier_taxes_id', 'supplier_taxes_id',
         'apply_categ_id', 'categ_id',

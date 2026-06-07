@@ -1,6 +1,7 @@
 from odoo import models, fields, api
 from odoo.fields import Domain
 from odoo.http import request
+from odoo.tools.sql import column_exists
 
 
 class ProductTemplate(models.Model):
@@ -15,6 +16,20 @@ class ProductTemplate(models.Model):
         string='Unit of Sales',
         help="Minimum number of units for a product to be sold",
     )
+
+    @api.model
+    def _baf_enable_oos_orders(self):
+        """One-shot SQL: allow buying every existing product when out-of-stock.
+
+        Called from data XML on every module update. Idempotent.
+        """
+        if not column_exists(self.env.cr, 'product_template', 'allow_out_of_stock_order'):
+            return
+        self.env.cr.execute("""
+            UPDATE product_template
+               SET allow_out_of_stock_order = TRUE
+             WHERE allow_out_of_stock_order IS DISTINCT FROM TRUE;
+        """)
 
     default_code = fields.Char(
         compute='_compute_internal_reference',
