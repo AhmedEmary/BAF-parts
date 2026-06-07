@@ -180,6 +180,36 @@ class ProductTemplate(models.Model):
 class ProductProduct(models.Model):
     _inherit = 'product.product'
 
+    def _compute_image_1920(self):
+        super()._compute_image_1920()
+        for record in self:
+            if not record.image_1920 and record.product_tmpl_id.brand.image_1920:
+                record.image_1920 = record.product_tmpl_id.brand.image_1920
+
+    def _compute_image_1024(self):
+        super()._compute_image_1024()
+        for record in self:
+            if not record.image_1024 and record.product_tmpl_id.brand.image_1024:
+                record.image_1024 = record.product_tmpl_id.brand.image_1024
+
+    def _compute_image_512(self):
+        super()._compute_image_512()
+        for record in self:
+            if not record.image_512 and record.product_tmpl_id.brand.image_512:
+                record.image_512 = record.product_tmpl_id.brand.image_512
+
+    def _compute_image_256(self):
+        super()._compute_image_256()
+        for record in self:
+            if not record.image_256 and record.product_tmpl_id.brand.image_256:
+                record.image_256 = record.product_tmpl_id.brand.image_256
+
+    def _compute_image_128(self):
+        super()._compute_image_128()
+        for record in self:
+            if not record.image_128 and record.product_tmpl_id.brand.image_128:
+                record.image_128 = record.product_tmpl_id.brand.image_128
+
     def _get_images(self):
         images = super()._get_images()
         if (
