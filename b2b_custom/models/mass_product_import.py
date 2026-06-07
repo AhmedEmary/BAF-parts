@@ -99,6 +99,17 @@ class MassProductImport(models.TransientModel):
         help="When set, products will be published on the website.",
     )
 
+    manual_tax_ids = fields.Many2many(
+        'account.tax',
+        'mass_product_import_tax_rel',
+        'import_id',
+        'tax_id',
+        string='Customer Taxes',
+        domain="[('type_tax_use', '=', 'sale')]",
+        help="When set, these taxes are applied to every product imported "
+             "(existing customer taxes on matched products are replaced).",
+    )
+
     def _guess_mapped_field(self, header):
         clean_header = str(header).lower().strip()
         for field_key, fuzzy_list in FUZZY_MAP.items():
@@ -190,6 +201,7 @@ class MassProductImport(models.TransientModel):
             'has_is_published': has_is_published,
             'manual_brand_id': self.manual_brand_id.id if self.brand_source == 'manual' else None,
             'manual_brand_name': self.manual_brand_id.name if self.brand_source == 'manual' else None,
+            'manual_tax_ids': self.manual_tax_ids.ids,
         }
 
     def _get_column_map(self):
@@ -737,7 +749,7 @@ class MassProductImport(models.TransientModel):
             if len(data_batch_dict) >= batch_size:
                 batch_counter += 1
                 rows_committed += len(data_batch_dict)
-                self._execute_sql_batch(upsert_query, list(data_batch_dict.values()), batch_counter)
+                self._execute_sql_batch(upsert_query, list(data_batch_dict.values()), batch_counter, ctx['manual_tax_ids'])
                 data_batch_dict.clear()
                 # Throttle: push a toast only when progress crosses each 5%
                 # threshold (or every 10 batches if total is unknown).
@@ -765,7 +777,7 @@ class MassProductImport(models.TransientModel):
             rows_committed, skipped_sentinel, replacement_links_set, replacement_placeholders_created,
         )
 
-    def _execute_sql_batch(self, query, data_batch, batch_counter):
+    def _execute_sql_batch(self, query, data_batch, batch_counter, tax_ids=None):
         self.env.flush_all()
         cr = self.env.cr
         batch_start = time.time()
@@ -793,6 +805,19 @@ class MassProductImport(models.TransientModel):
                     FROM (VALUES %s) AS v(barcode, default_code)
                     WHERE pp.default_code = v.default_code;
                 """, barcode_batch)
+
+            if tax_ids:
+                # Replace existing customer taxes for every upserted template
+                # with the user-selected set, in a single round-trip.
+                cr.execute(
+                    "DELETE FROM product_taxes_rel WHERE prod_id IN %s;",
+                    (template_ids,),
+                )
+                execute_values(cr._obj, """
+                    INSERT INTO product_taxes_rel (prod_id, tax_id)
+                    VALUES %s
+                    ON CONFLICT DO NOTHING;
+                """, [(tid, tax_id) for tid in template_ids for tax_id in tax_ids])
 
         # Commit per batch so locks (ir_attachment, product_template) are
         # released, the auto-vacuum cron can run, and a partial import
