@@ -1,0 +1,667 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <template id="baf_b2b_page" name="BAF B2B Schnellbestellung">
+        <t t-call="website.layout">
+            <div id="wrap" class="baf-order-page">
+
+                <section class="baf-order-header o_colored_level">
+                    <div class="container">
+                        <div class="baf-order-header-inner">
+                            <div>
+                                <span class="baf-kicker">BAF Parts B2B</span>
+                                <h1>Schnellbestellung</h1>
+                                <p>Teilenummer eingeben, Menge wählen und direkt in den Warenkorb legen.</p>
+                            </div>
+                            <div class="baf-order-actions">
+                                <a href="/shop/cart" class="baf-btn baf-btn-dark">Warenkorb öffnen</a>
+                                <a href="/my/orders" class="baf-btn baf-btn-outline">Bestellungen</a>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="baf-order-tool o_colored_level">
+                    <div class="container">
+                        <div class="baf-order-grid">
+
+                            <div class="baf-search-panel" id="baf-search">
+                                <div class="baf-panel-header">
+                                    <div>
+                                        <span>Schnellbestellung</span>
+                                        <strong>Part Finder</strong>
+                                    </div>
+                                    <small>Nur für B2B-Kunden</small>
+                                </div>
+
+                                <div class="baf-tabs" role="tablist">
+                                    <button class="baf-tab is-active" data-tab="single" type="button">Einzelsuche</button>
+                                    <button class="baf-tab" data-tab="multi" type="button">Mehrfachsuche</button>
+                                    <button class="baf-tab" data-tab="upload" type="button">Upload</button>
+                                </div>
+
+                                <div class="baf-tab-panel is-active" id="single">
+                                    <label for="singlePart">Teilenummer</label>
+                                    <div class="baf-search-line">
+                                        <input id="singlePart" type="text" placeholder="z. B. LR123456" autocomplete="off"/>
+                                        <button id="singleSearchBtn" type="button">Suchen</button>
+                                    </div>
+                                </div>
+
+                                <div class="baf-tab-panel" id="multi">
+                                    <label for="multiParts">Mehrere Teilenummern</label>
+                                    <textarea id="multiParts" rows="7" placeholder="Eine Teilenummer pro Zeile oder getrennt mit Komma/Semikolon"/>
+                                    <button id="multiSearchBtn" type="button">Liste suchen</button>
+                                </div>
+
+                                <div class="baf-tab-panel" id="upload">
+                                    <label for="partsFile">Excel- oder CSV-Liste hochladen</label>
+                                    <div class="baf-upload-box">
+                                        <input id="partsFile" type="file" accept=".xlsx,.xls,.csv"/>
+                                        <p><strong>Datei auswählen</strong><br/>XLSX, XLS oder CSV</p>
+                                    </div>
+                                    <button id="uploadBtn" type="button">Liste prüfen</button>
+                                </div>
+
+                                <div id="bafStatus" class="baf-status" aria-live="polite"></div>
+                            </div>
+
+                            <aside class="baf-side-panel">
+                                <div class="baf-side-card dark">
+                                    <span>Bestellprozess</span>
+                                    <strong>1. Suchen<br/>2. Menge wählen<br/>3. Warenkorb</strong>
+                                </div>
+                                <div class="baf-side-card">
+                                    <h3>Teil nicht gefunden?</h3>
+                                    <p>Senden Sie uns die Teilenummern und Mengen. Wir prüfen Alternativen und Verfügbarkeit.</p>
+                                    <a href="/contactus">Anfrage senden</a>
+                                </div>
+                            </aside>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="baf-results-section o_colored_level">
+                    <div class="container">
+                        <div class="baf-results-head">
+                            <div>
+                                <span class="baf-kicker">Ergebnisse</span>
+                                <h2>Artikel auswählen</h2>
+                            </div>
+                            <button id="addSelectedBtn" class="baf-secondary-btn" type="button" disabled="disabled">Ausgewählte in den Warenkorb</button>
+                        </div>
+
+                        <div id="bafAmbiguous" class="baf-ambiguous-wrap" hidden="hidden"></div>
+                        <div id="bafNotFound" class="baf-not-found-wrap" hidden="hidden"></div>
+
+                        <div id="resultsEmpty" class="baf-empty">
+                            <strong>Keine Suche gestartet.</strong><br/>
+                            Geben Sie eine Teilenummer ein oder laden Sie eine Liste hoch.
+                        </div>
+
+                        <div id="resultsTableWrap" class="baf-table-wrap" hidden="hidden">
+                            <table class="baf-table">
+                                <thead>
+                                    <tr>
+                                        <th><input id="selectAll" type="checkbox"/></th>
+                                        <th>Teilenummer</th>
+                                        <th>Artikel</th>
+                                        <th>Marke</th>
+                                        <th>Verfügbarkeit</th>
+                                        <th>Lieferzeit</th>
+                                        <th>B2B Preis</th>
+                                        <th>Menge</th>
+                                        <th/>
+                                    </tr>
+                                </thead>
+                                <tbody id="resultsBody"/>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+
+                <div class="baf-sticky-cart">
+                    <div class="container">
+                        <div class="baf-sticky-inner">
+                            <span id="bafCartInfo">Warenkorb</span>
+                            <a href="/shop/cart">Zum Warenkorb</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <style>
+                :root {
+                    --baf-black: #000000;
+                    --baf-white: #ffffff;
+                    --baf-gray-50: #f7f7f7;
+                    --baf-gray-100: #eeeeee;
+                    --baf-gray-200: #d8d8d8;
+                    --baf-gray-500: #777777;
+                    --baf-gray-700: #333333;
+                    --baf-radius: 24px;
+                    --baf-shadow: 0 22px 60px rgba(0,0,0,0.12);
+                }
+                .baf-order-page { background: var(--baf-white); color: var(--baf-black); font-family: Inter, Arial, sans-serif; padding-bottom: 78px; }
+                .baf-order-header { padding: 54px 0 28px; background: linear-gradient(135deg, #ffffff 0%, #f4f4f4 100%); border-bottom: 1px solid var(--baf-gray-200); }
+                .baf-order-header-inner { display: grid; grid-template-columns: 1fr auto; gap: 24px; align-items: end; }
+                .baf-kicker { display: inline-flex; margin-bottom: 10px; color: var(--baf-gray-700); font-size: 12px; font-weight: 950; letter-spacing: 0.16em; text-transform: uppercase; }
+                .baf-order-header h1, .baf-results-head h2 { margin: 0; color: var(--baf-black); font-weight: 950; letter-spacing: -0.065em; line-height: 0.96; }
+                .baf-order-header h1 { font-size: clamp(42px, 5vw, 72px); }
+                .baf-order-header p { max-width: 720px; margin: 16px 0 0; color: var(--baf-gray-700); font-size: 18px; line-height: 1.55; }
+                .baf-order-actions { display: flex; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
+                .baf-btn, .baf-search-panel button, .baf-secondary-btn, .baf-add-btn, .baf-side-card a, .baf-sticky-cart a {
+                    display: inline-flex; align-items: center; justify-content: center; min-height: 46px;
+                    border-radius: 999px; border: 1px solid var(--baf-black); padding: 12px 20px;
+                    font-weight: 950; text-decoration: none !important; cursor: pointer; transition: 0.18s ease;
+                }
+                .baf-btn-dark, .baf-search-panel button, .baf-secondary-btn, .baf-add-btn, .baf-side-card a { background: var(--baf-black); color: var(--baf-white) !important; }
+                .baf-btn-outline { background: var(--baf-white); color: var(--baf-black) !important; }
+                .baf-btn:hover, .baf-search-panel button:hover, .baf-secondary-btn:hover, .baf-add-btn:hover, .baf-side-card a:hover { opacity: 0.82; }
+                .baf-order-tool { padding: 34px 0 24px; background: var(--baf-white); }
+                .baf-order-grid { display: grid; grid-template-columns: 1fr 330px; gap: 22px; align-items: start; }
+                .baf-search-panel, .baf-side-card, .baf-empty, .baf-table-wrap, .baf-ambiguous-wrap, .baf-not-found-wrap {
+                    background: var(--baf-white); border: 1px solid var(--baf-gray-200); border-radius: var(--baf-radius); box-shadow: var(--baf-shadow);
+                }
+                .baf-search-panel { padding: 24px; }
+                .baf-panel-header { display: flex; justify-content: space-between; gap: 18px; align-items: start; margin-bottom: 18px; }
+                .baf-panel-header span, .baf-side-card span { display: block; color: var(--baf-gray-500); font-size: 12px; font-weight: 950; letter-spacing: 0.12em; text-transform: uppercase; }
+                .baf-panel-header strong { display: block; margin-top: 4px; font-size: 28px; font-weight: 950; letter-spacing: -0.05em; }
+                .baf-panel-header small { color: var(--baf-gray-500); white-space: nowrap; }
+                .baf-tabs { display: grid; grid-template-columns: repeat(3, 1fr); background: var(--baf-gray-100); border-radius: 999px; padding: 5px; gap: 5px; margin-bottom: 18px; }
+                .baf-tab { min-height: 42px !important; border: 0 !important; background: transparent !important; color: var(--baf-gray-500) !important; padding: 10px 12px !important; font-size: 13px; }
+                .baf-tab.is-active { background: var(--baf-white) !important; color: var(--baf-black) !important; box-shadow: 0 8px 22px rgba(0,0,0,0.08); }
+                .baf-tab-panel { display: none; }
+                .baf-tab-panel.is-active { display: block; }
+                .baf-tab-panel label { display: block; margin-bottom: 8px; font-size: 14px; font-weight: 950; }
+                .baf-search-line { display: grid; grid-template-columns: 1fr auto; gap: 10px; }
+                .baf-search-panel input[type="text"], .baf-search-panel textarea {
+                    width: 100%; border: 1px solid var(--baf-gray-200); border-radius: 16px; padding: 16px;
+                    font-size: 15px; outline: none; box-sizing: border-box; background: var(--baf-white); color: var(--baf-black);
+                }
+                .baf-search-panel input:focus, .baf-search-panel textarea:focus { border-color: var(--baf-black); box-shadow: 0 0 0 5px rgba(0,0,0,0.08); }
+                .baf-status, .baf-tab-panel small { display: block; margin-top: 12px; color: var(--baf-gray-500); font-size: 13px; }
+                .baf-upload-box { border: 2px dashed var(--baf-gray-200); border-radius: 18px; padding: 24px; text-align: center; background: var(--baf-gray-50); margin-bottom: 12px; }
+                .baf-side-panel { display: grid; gap: 14px; }
+                .baf-side-card { padding: 24px; }
+                .baf-side-card.dark { background: var(--baf-black); color: var(--baf-white); }
+                .baf-side-card.dark span, .baf-side-card.dark p { color: #d0d0d0; }
+                .baf-side-card strong { display: block; margin-top: 18px; font-size: 28px; line-height: 1.05; font-weight: 950; letter-spacing: -0.05em; }
+                .baf-side-card h3 { margin: 0 0 10px; font-size: 24px; line-height: 1.05; font-weight: 950; letter-spacing: -0.04em; }
+                .baf-side-card p { color: var(--baf-gray-500); line-height: 1.6; }
+                .baf-results-section { padding: 30px 0 70px; background: var(--baf-white); }
+                .baf-results-head { display: flex; justify-content: space-between; align-items: end; gap: 18px; margin-bottom: 18px; }
+                .baf-results-head h2 { font-size: clamp(30px, 4vw, 48px); }
+                .baf-secondary-btn:disabled { opacity: 0.38; cursor: not-allowed; }
+                .baf-empty { padding: 30px; color: var(--baf-gray-500); text-align: center; }
+                .baf-empty strong { color: var(--baf-black); font-size: 18px; }
+                .baf-table-wrap { overflow-x: auto; }
+                .baf-table { width: 100%; min-width: 1040px; border-collapse: collapse; background: var(--baf-white); }
+                .baf-table th, .baf-table td { padding: 15px 14px; border-bottom: 1px solid var(--baf-gray-200); text-align: left; vertical-align: middle; font-size: 14px; }
+                .baf-table th { background: var(--baf-gray-50); color: var(--baf-gray-500); font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; }
+                .baf-part-number { color: var(--baf-black); font-weight: 950; }
+                .baf-product-name { color: var(--baf-gray-700); }
+                .baf-badge { display: inline-flex; border-radius: 999px; padding: 7px 11px; background: var(--baf-gray-100); color: var(--baf-black); font-size: 12px; font-weight: 950; white-space: nowrap; }
+                .baf-badge.ok { background: #e6f5e6; }
+                .baf-badge.low { background: #fff4d6; }
+                .baf-badge.no { background: #fbe1e1; }
+                .baf-qty { width: 82px; border: 1px solid var(--baf-gray-200); border-radius: 14px; padding: 10px; font-weight: 950; }
+                .baf-ambiguous-wrap, .baf-not-found-wrap { padding: 20px 24px; margin-bottom: 18px; }
+                .baf-ambiguous-wrap h3, .baf-not-found-wrap h3 { margin: 0 0 6px; font-size: 18px; font-weight: 950; }
+                .baf-ambiguous-wrap p { color: var(--baf-gray-500); margin: 0 0 14px; }
+                .baf-ambiguous-toolbar { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 10px 14px; background: var(--baf-gray-50); border-radius: 14px; margin-bottom: 12px; flex-wrap: wrap; }
+                .baf-ambiguous-toolbar label { display: inline-flex; align-items: center; gap: 8px; font-weight: 950; cursor: pointer; }
+                .baf-ambiguous-toolbar .baf-bulk-brand { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+                .baf-ambiguous-toolbar .baf-bulk-brand select { min-width: 200px; border: 1px solid var(--baf-gray-200); border-radius: 12px; padding: 8px 12px; font-weight: 700; background: var(--baf-white); }
+                .baf-ambiguous-toolbar button { min-height: 38px; padding: 8px 18px; border-radius: 999px; border: 1px solid var(--baf-black); background: var(--baf-black); color: var(--baf-white); font-weight: 950; cursor: pointer; }
+                .baf-ambiguous-toolbar button.baf-secondary { background: var(--baf-white); color: var(--baf-black); }
+                .baf-ambiguous-toolbar button:disabled { opacity: 0.38; cursor: not-allowed; }
+                .baf-ambiguous-wrap .baf-table { min-width: 0; }
+                .baf-ambiguous-wrap .baf-table td { padding: 12px 14px; vertical-align: middle; }
+                .baf-ambiguous-wrap select { width: 100%; border: 1px solid var(--baf-gray-200); border-radius: 12px; padding: 9px 12px; font-weight: 700; background: var(--baf-white); }
+                .baf-ambiguous-wrap select:focus { border-color: var(--baf-black); outline: none; box-shadow: 0 0 0 4px rgba(0,0,0,0.06); }
+                .baf-ambiguous-wrap input[type="checkbox"] { transform: scale(1.15); cursor: pointer; }
+                .baf-table tr.is-updated { animation: bafFlash 1.2s ease-out; }
+                @keyframes bafFlash { from { background: #fffbe6; } to { background: transparent; } }
+                .baf-sticky-cart { position: fixed; left: 0; right: 0; bottom: 0; z-index: 50; background: rgba(0,0,0,0.92); color: var(--baf-white); border-top: 1px solid rgba(255,255,255,0.12); backdrop-filter: blur(12px); }
+                .baf-sticky-inner { min-height: 64px; display: flex; justify-content: space-between; align-items: center; gap: 18px; }
+                .baf-sticky-inner span { font-weight: 950; }
+                .baf-sticky-cart a { background: var(--baf-white); color: var(--baf-black) !important; border-color: var(--baf-white); }
+                @media (max-width: 992px) { .baf-order-header-inner, .baf-order-grid { grid-template-columns: 1fr; } .baf-order-actions { justify-content: flex-start; } }
+                @media (max-width: 640px) {
+                    .baf-order-page { padding-bottom: 112px; }
+                    .baf-order-header { padding: 38px 0 24px; }
+                    .baf-order-header h1 { font-size: 42px; }
+                    .baf-order-header p { font-size: 16px; }
+                    .baf-search-panel, .baf-side-card { padding: 18px; }
+                    .baf-panel-header { display: block; }
+                    .baf-panel-header small { display: block; margin-top: 8px; white-space: normal; }
+                    .baf-search-line, .baf-tabs { grid-template-columns: 1fr; }
+                    .baf-results-head, .baf-sticky-inner { display: block; }
+                    .baf-secondary-btn, .baf-btn, .baf-search-panel button, .baf-side-card a, .baf-sticky-cart a { width: 100%; margin-top: 14px; }
+                    .baf-sticky-inner { padding: 12px 0; }
+                }
+            </style>
+
+            <script>
+                (function () {
+                    const BAF_API = {
+                        search: '/b2b/part-search',
+                        addToCart: '/b2b/cart/add',
+                        upload: '/b2b/upload-parts-list',
+                    };
+
+                    function jsonrpc(url, params) {
+                        return fetch(url, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                jsonrpc: '2.0',
+                                method: 'call',
+                                params: params || {},
+                                id: Math.floor(Math.random() * 1e9),
+                            }),
+                            credentials: 'same-origin',
+                        }).then(function (res) {
+                            if (!res.ok) throw new Error('HTTP ' + res.status);
+                            return res.json();
+                        }).then(function (body) {
+                            if (body.error) throw new Error(body.error.data ? body.error.data.message : body.error.message);
+                            return body.result;
+                        });
+                    }
+
+                    function escapeHtml(value) {
+                        return String(value == null ? '' : value)
+                            .replace(/&amp;/g, '&amp;amp;')
+                            .replace(/&lt;/g, '&amp;lt;')
+                            .replace(/&gt;/g, '&amp;gt;')
+                            .replace(/"/g, '&amp;quot;')
+                            .replace(/'/g, '&amp;#039;');
+                    }
+
+                    function normalizePartNumbers(input) {
+                        return String(input || '')
+                            .split(/[\n\r,;\t]/)
+                            .map(function (part) { return part.trim(); })
+                            .filter(Boolean);
+                    }
+
+                    document.addEventListener('DOMContentLoaded', function () {
+                        const tabs = document.querySelectorAll('.baf-tab');
+                        const panels = document.querySelectorAll('.baf-tab-panel');
+                        const statusBox = document.getElementById('bafStatus');
+                        const resultsBody = document.getElementById('resultsBody');
+                        const resultsEmpty = document.getElementById('resultsEmpty');
+                        const resultsTableWrap = document.getElementById('resultsTableWrap');
+                        const ambiguousBox = document.getElementById('bafAmbiguous');
+                        const notFoundBox = document.getElementById('bafNotFound');
+                        const addSelectedBtn = document.getElementById('addSelectedBtn');
+                        const selectAll = document.getElementById('selectAll');
+                        const cartInfo = document.getElementById('bafCartInfo');
+
+                        tabs.forEach(function (tab) {
+                            tab.addEventListener('click', function () {
+                                tabs.forEach(function (item) { item.classList.remove('is-active'); });
+                                panels.forEach(function (panel) { panel.classList.remove('is-active'); });
+                                tab.classList.add('is-active');
+                                document.getElementById(tab.dataset.tab).classList.add('is-active');
+                            });
+                        });
+
+                        document.getElementById('singleSearchBtn').addEventListener('click', function () {
+                            searchParts(normalizePartNumbers(document.getElementById('singlePart').value));
+                        });
+                        document.getElementById('singlePart').addEventListener('keydown', function (event) {
+                            if (event.key === 'Enter') {
+                                event.preventDefault();
+                                searchParts(normalizePartNumbers(document.getElementById('singlePart').value));
+                            }
+                        });
+                        document.getElementById('multiSearchBtn').addEventListener('click', function () {
+                            searchParts(normalizePartNumbers(document.getElementById('multiParts').value));
+                        });
+                        document.getElementById('uploadBtn').addEventListener('click', uploadPartsList);
+
+                        selectAll.addEventListener('change', function () {
+                            document.querySelectorAll('.baf-row-select').forEach(function (cb) { cb.checked = selectAll.checked; });
+                            updateSelectedButton();
+                        });
+                        addSelectedBtn.addEventListener('click', function () {
+                            const selected = getSelectedItems();
+                            if (selected.length) addItemsToCart(selected);
+                        });
+
+                        async function searchParts(partNumbers, brandChoices) {
+                            if (!partNumbers || !partNumbers.length) {
+                                setStatus('Bitte mindestens eine Teilenummer eingeben.');
+                                return;
+                            }
+                            setStatus('Teilenummern werden geprüft...');
+                            try {
+                                const result = await jsonrpc(BAF_API.search, {
+                                    part_numbers: partNumbers,
+                                    brand_choices: brandChoices || {},
+                                });
+                                renderResults(result);
+                            } catch (error) {
+                                console.error(error);
+                                setStatus('Die Suche konnte nicht ausgeführt werden. Bitte erneut versuchen.');
+                            }
+                        }
+
+                        async function resolveAmbiguous(choices) {
+                            const skus = Object.keys(choices);
+                            if (!skus.length) {
+                                setStatus('Bitte mindestens eine Marke auswählen.');
+                                return;
+                            }
+                            setStatus('Auswahl wird übernommen...');
+                            try {
+                                const result = await jsonrpc(BAF_API.search, {
+                                    part_numbers: skus,
+                                    brand_choices: choices,
+                                });
+                                mergeResolvedResults(result, skus);
+                            } catch (error) {
+                                console.error(error);
+                                setStatus('Die Auswahl konnte nicht übernommen werden.');
+                            }
+                        }
+
+                        async function uploadPartsList() {
+                            const file = document.getElementById('partsFile').files[0];
+                            if (!file) {
+                                setStatus('Bitte zuerst eine Excel- oder CSV-Datei auswählen.');
+                                return;
+                            }
+                            setStatus('Liste wird geprüft...');
+                            try {
+                                const formData = new FormData();
+                                formData.append('file', file);
+                                const response = await fetch(BAF_API.upload, {
+                                    method: 'POST',
+                                    body: formData,
+                                    credentials: 'same-origin',
+                                });
+                                if (!response.ok) throw new Error('HTTP ' + response.status);
+                                const data = await response.json();
+                                renderResults(data);
+                            } catch (error) {
+                                console.error(error);
+                                setStatus('Die Liste konnte nicht verarbeitet werden. Bitte Format prüfen.');
+                            }
+                        }
+
+                        function buildProductRow(product) {
+                            const row = document.createElement('tr');
+                            row.dataset.productId = product.id;
+                            row.dataset.partKey = (product.part_number || '').toUpperCase();
+                            row.innerHTML =
+                                '&lt;td&gt;&lt;input class="baf-row-select" type="checkbox"/&gt;&lt;/td&gt;' +
+                                '&lt;td&gt;&lt;span class="baf-part-number"&gt;' + escapeHtml(product.part_number) + '&lt;/span&gt;&lt;/td&gt;' +
+                                '&lt;td&gt;&lt;span class="baf-product-name"&gt;' + escapeHtml(product.name) + '&lt;/span&gt;&lt;/td&gt;' +
+                                '&lt;td&gt;' + escapeHtml(product.brand || '—') + '&lt;/td&gt;' +
+                                '&lt;td&gt;&lt;span class="baf-badge ' + escapeHtml(product.availability_type || '') + '"&gt;' + escapeHtml(product.availability || '') + '&lt;/span&gt;&lt;/td&gt;' +
+                                '&lt;td&gt;' + escapeHtml(product.delivery_time || '') + '&lt;/td&gt;' +
+                                '&lt;td&gt;&lt;strong&gt;' + escapeHtml(product.price || 'Preis nach Login') + '&lt;/strong&gt;&lt;/td&gt;' +
+                                '&lt;td&gt;&lt;input class="baf-qty" type="number" min="1" value="1"/&gt;&lt;/td&gt;' +
+                                '&lt;td&gt;&lt;button class="baf-add-btn" type="button"&gt;In den Warenkorb&lt;/button&gt;&lt;/td&gt;';
+                            row.querySelector('.baf-row-select').addEventListener('change', updateSelectedButton);
+                            row.querySelector('.baf-add-btn').addEventListener('click', function () {
+                                const qty = Number(row.querySelector('.baf-qty').value || 1);
+                                addItemsToCart([{ product_id: product.id, quantity: qty }]);
+                            });
+                            return row;
+                        }
+
+                        function renderResults(data) {
+                            const products = (data &amp;&amp; data.products) || [];
+                            const ambiguous = (data &amp;&amp; data.ambiguous) || [];
+                            const notFound = (data &amp;&amp; data.not_found) || [];
+
+                            resultsBody.innerHTML = '';
+                            selectAll.checked = false;
+
+                            products.forEach(function (product) {
+                                resultsBody.appendChild(buildProductRow(product));
+                            });
+
+                            renderAmbiguous(ambiguous);
+                            renderNotFound(notFound);
+
+                            const hasRows = products.length > 0;
+                            resultsTableWrap.hidden = !hasRows;
+                            resultsEmpty.hidden = hasRows || ambiguous.length > 0 || notFound.length > 0;
+
+                            const parts = [];
+                            if (products.length) parts.push(products.length + ' Artikel gefunden.');
+                            if (ambiguous.length) parts.push(ambiguous.length + ' SKU(s) mehrdeutig — bitte Marke wählen.');
+                            if (notFound.length) parts.push(notFound.length + ' nicht gefunden.');
+                            setStatus(parts.join(' ') || 'Keine Treffer.');
+                            updateSelectedButton();
+                        }
+
+                        function mergeResolvedResults(data, resolvedSkus) {
+                            const products = (data &amp;&amp; data.products) || [];
+                            const notFound = (data &amp;&amp; data.not_found) || [];
+
+                            // 1. Insert / replace product rows
+                            products.forEach(function (product) {
+                                const key = (product.part_number || '').toUpperCase();
+                                const existing = resultsBody.querySelector('tr[data-part-key="' + key + '"]');
+                                const newRow = buildProductRow(product);
+                                newRow.classList.add('is-updated');
+                                if (existing) {
+                                    resultsBody.replaceChild(newRow, existing);
+                                } else {
+                                    resultsBody.appendChild(newRow);
+                                }
+                            });
+
+                            // 2. Remove resolved rows from the ambiguous block (only those actually returned)
+                            const resolvedKeys = new Set(products.map(function (p) { return (p.part_number || '').toUpperCase(); }));
+                            resolvedSkus.forEach(function (sku) {
+                                const key = sku.toUpperCase();
+                                if (!resolvedKeys.has(key)) return;
+                                const row = ambiguousBox.querySelector('tr.baf-ambiguous-row[data-sku-key="' + key + '"]');
+                                if (row) row.remove();
+                            });
+
+                            // 3. Hide ambiguous block if empty; show table if it now has rows
+                            const remaining = ambiguousBox.querySelectorAll('tr.baf-ambiguous-row').length;
+                            if (!remaining) {
+                                ambiguousBox.hidden = true;
+                                ambiguousBox.innerHTML = '';
+                            } else {
+                                updateAmbiguousToolbar();
+                            }
+
+                            const hasRows = resultsBody.querySelectorAll('tr').length > 0;
+                            resultsTableWrap.hidden = !hasRows;
+                            if (hasRows) resultsEmpty.hidden = true;
+
+                            const msgParts = [];
+                            if (products.length) msgParts.push(products.length + ' Artikel übernommen.');
+                            if (notFound.length) msgParts.push(notFound.length + ' nicht gefunden.');
+                            if (remaining) msgParts.push(remaining + ' weiterhin offen.');
+                            setStatus(msgParts.join(' ') || 'Keine Änderung.');
+                            updateSelectedButton();
+                        }
+
+                        function renderAmbiguous(ambiguous) {
+                            if (!ambiguous.length) { ambiguousBox.hidden = true; ambiguousBox.innerHTML = ''; return; }
+                            let rows = '';
+                            ambiguous.forEach(function (entry) {
+                                const opts = entry.matches.map(function (m) {
+                                    return '&lt;option value="' + escapeHtml(m.brand_id) + '"&gt;' + escapeHtml(m.brand) + ' — ' + escapeHtml(m.name) + '&lt;/option&gt;';
+                                }).join('');
+                                const skuKey = (entry.part_number || '').toUpperCase();
+                                rows += '&lt;tr class="baf-ambiguous-row" data-sku="' + escapeHtml(entry.part_number) + '" data-sku-key="' + escapeHtml(skuKey) + '"&gt;' +
+                                        '&lt;td&gt;&lt;input type="checkbox" class="baf-amb-select"/&gt;&lt;/td&gt;' +
+                                        '&lt;td&gt;&lt;span class="baf-part-number"&gt;' + escapeHtml(entry.part_number) + '&lt;/span&gt;&lt;/td&gt;' +
+                                        '&lt;td&gt;&lt;select class="baf-brand-pick"&gt;&lt;option value=""&gt;Marke wählen…&lt;/option&gt;' + opts + '&lt;/select&gt;&lt;/td&gt;' +
+                                        '&lt;/tr&gt;';
+                            });
+                            // Build union of all brand options for the bulk-set dropdown
+                            const allBrands = new Map();
+                            ambiguous.forEach(function (entry) {
+                                entry.matches.forEach(function (m) {
+                                    if (m.brand_id &amp;&amp; !allBrands.has(m.brand_id)) {
+                                        allBrands.set(m.brand_id, m.brand);
+                                    }
+                                });
+                            });
+                            let bulkOpts = '&lt;option value=""&gt;Marke wählen…&lt;/option&gt;';
+                            allBrands.forEach(function (name, id) {
+                                bulkOpts += '&lt;option value="' + escapeHtml(id) + '"&gt;' + escapeHtml(name) + '&lt;/option&gt;';
+                            });
+
+                            ambiguousBox.innerHTML =
+                                '&lt;h3&gt;Mehrdeutige Teilenummern&lt;/h3&gt;' +
+                                '&lt;p&gt;Diese SKUs existieren bei mehreren Marken. Wählen Sie die Marke je SKU und klicken Sie „Ausgewählte übernehmen".&lt;/p&gt;' +
+                                '&lt;div class="baf-ambiguous-toolbar"&gt;' +
+                                  '&lt;label&gt;&lt;input type="checkbox" id="ambSelectAll"/&gt; Alle auswählen&lt;/label&gt;' +
+                                  '&lt;div class="baf-bulk-brand"&gt;' +
+                                    '&lt;span&gt;Marke für ausgewählte:&lt;/span&gt;' +
+                                    '&lt;select id="ambBulkBrand"&gt;' + bulkOpts + '&lt;/select&gt;' +
+                                    '&lt;button type="button" class="baf-secondary" id="ambBulkApplyBtn" disabled="disabled"&gt;Anwenden&lt;/button&gt;' +
+                                  '&lt;/div&gt;' +
+                                  '&lt;button type="button" id="ambResolveBtn" disabled="disabled"&gt;Ausgewählte übernehmen&lt;/button&gt;' +
+                                '&lt;/div&gt;' +
+                                '&lt;table class="baf-table"&gt;' +
+                                  '&lt;thead&gt;&lt;tr&gt;&lt;th style="width:36px"&gt;&lt;/th&gt;&lt;th&gt;Teilenummer&lt;/th&gt;&lt;th&gt;Marke&lt;/th&gt;&lt;/tr&gt;&lt;/thead&gt;' +
+                                  '&lt;tbody&gt;' + rows + '&lt;/tbody&gt;' +
+                                '&lt;/table&gt;';
+                            ambiguousBox.hidden = false;
+
+                            const selAll = ambiguousBox.querySelector('#ambSelectAll');
+                            const resolveBtn = ambiguousBox.querySelector('#ambResolveBtn');
+                            const bulkBrandSel = ambiguousBox.querySelector('#ambBulkBrand');
+                            const bulkApplyBtn = ambiguousBox.querySelector('#ambBulkApplyBtn');
+
+                            function refreshBulkApply() {
+                                const anyChecked = ambiguousBox.querySelectorAll('.baf-amb-select:checked').length > 0;
+                                bulkApplyBtn.disabled = !(anyChecked &amp;&amp; bulkBrandSel.value);
+                            }
+                            bulkBrandSel.addEventListener('change', refreshBulkApply);
+                            bulkApplyBtn.addEventListener('click', function () {
+                                const brandId = bulkBrandSel.value;
+                                if (!brandId) return;
+                                let applied = 0;
+                                let skipped = 0;
+                                ambiguousBox.querySelectorAll('tr.baf-ambiguous-row').forEach(function (row) {
+                                    const cb = row.querySelector('.baf-amb-select');
+                                    if (!cb.checked) return;
+                                    const sel = row.querySelector('.baf-brand-pick');
+                                    const opt = sel.querySelector('option[value="' + brandId + '"]');
+                                    if (opt) { sel.value = brandId; applied++; }
+                                    else { skipped++; }
+                                });
+                                updateAmbiguousToolbar();
+                                const msg = applied + ' Zeile(n) auf „' + bulkBrandSel.options[bulkBrandSel.selectedIndex].text + '" gesetzt.' +
+                                            (skipped ? ' ' + skipped + ' übersprungen (Marke nicht verfügbar).' : '');
+                                setStatus(msg);
+                            });
+
+                            selAll.addEventListener('change', function () {
+                                ambiguousBox.querySelectorAll('.baf-amb-select').forEach(function (cb) { cb.checked = selAll.checked; });
+                                updateAmbiguousToolbar();
+                                refreshBulkApply();
+                            });
+                            ambiguousBox.querySelectorAll('.baf-amb-select').forEach(function (cb) {
+                                cb.addEventListener('change', function () {
+                                    updateAmbiguousToolbar();
+                                    refreshBulkApply();
+                                });
+                            });
+                            ambiguousBox.querySelectorAll('.baf-brand-pick').forEach(function (sel) {
+                                sel.addEventListener('change', function () {
+                                    // Auto-tick the row when the user picks a brand
+                                    const row = sel.closest('tr.baf-ambiguous-row');
+                                    const cb = row.querySelector('.baf-amb-select');
+                                    if (sel.value &amp;&amp; !cb.checked) cb.checked = true;
+                                    updateAmbiguousToolbar();
+                                });
+                            });
+                            resolveBtn.addEventListener('click', function () {
+                                const choices = {};
+                                ambiguousBox.querySelectorAll('tr.baf-ambiguous-row').forEach(function (row) {
+                                    const cb = row.querySelector('.baf-amb-select');
+                                    const brandVal = row.querySelector('.baf-brand-pick').value;
+                                    if (cb.checked &amp;&amp; brandVal) {
+                                        choices[row.dataset.sku] = Number(brandVal);
+                                    }
+                                });
+                                resolveAmbiguous(choices);
+                            });
+
+                            updateAmbiguousToolbar();
+                        }
+
+                        function updateAmbiguousToolbar() {
+                            const rows = ambiguousBox.querySelectorAll('tr.baf-ambiguous-row');
+                            if (!rows.length) return;
+                            let ready = 0;
+                            rows.forEach(function (row) {
+                                const cb = row.querySelector('.baf-amb-select');
+                                const sel = row.querySelector('.baf-brand-pick');
+                                if (cb.checked &amp;&amp; sel.value) ready++;
+                            });
+                            const btn = ambiguousBox.querySelector('#ambResolveBtn');
+                            const selAll = ambiguousBox.querySelector('#ambSelectAll');
+                            if (btn) {
+                                btn.disabled = ready === 0;
+                                btn.textContent = ready ? ready + ' ausgewählte übernehmen' : 'Ausgewählte übernehmen';
+                            }
+                            if (selAll) {
+                                const checked = ambiguousBox.querySelectorAll('.baf-amb-select:checked').length;
+                                selAll.checked = checked > 0 &amp;&amp; checked === rows.length;
+                            }
+                        }
+
+                        function renderNotFound(notFound) {
+                            if (!notFound.length) { notFoundBox.hidden = true; notFoundBox.innerHTML = ''; return; }
+                            notFoundBox.innerHTML = '&lt;h3&gt;Nicht gefunden&lt;/h3&gt;&lt;p&gt;' +
+                                notFound.map(escapeHtml).join(', ') + '&lt;/p&gt;';
+                            notFoundBox.hidden = false;
+                        }
+
+                        function getSelectedItems() {
+                            return Array.from(document.querySelectorAll('#resultsBody tr'))
+                                .filter(function (row) { return row.querySelector('.baf-row-select').checked; })
+                                .map(function (row) {
+                                    return {
+                                        product_id: Number(row.dataset.productId),
+                                        quantity: Number(row.querySelector('.baf-qty').value || 1),
+                                    };
+                                });
+                        }
+
+                        async function addItemsToCart(items) {
+                            setStatus('Artikel werden in den Warenkorb gelegt...');
+                            try {
+                                const result = await jsonrpc(BAF_API.addToCart, { items: items });
+                                if (!result || !result.success) throw new Error('Warenkorb fehlgeschlagen');
+                                if (result.cart_quantity != null) {
+                                    cartInfo.textContent = result.cart_quantity + ' Artikel im Warenkorb';
+                                }
+                                setStatus(items.length + ' Position(en) wurden dem Warenkorb hinzugefügt.');
+                            } catch (error) {
+                                console.error(error);
+                                setStatus('Artikel konnten nicht hinzugefügt werden. Bitte erneut versuchen.');
+                            }
+                        }
+
+                        function updateSelectedButton() {
+                            const count = document.querySelectorAll('.baf-row-select:checked').length;
+                            addSelectedBtn.disabled = count === 0;
+                            addSelectedBtn.textContent = count ? count + ' ausgewählte in den Warenkorb' : 'Ausgewählte in den Warenkorb';
+                        }
+
+                        function setStatus(message) { statusBox.textContent = message; }
+                    });
+                })();
+            </script>
+        </t>
+    </template>
+</odoo>
