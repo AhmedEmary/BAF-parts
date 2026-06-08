@@ -11,6 +11,7 @@
         'data/enable_oos_orders.xml',
         'views/product_template_view.xml',
         'views/website_list_to_part_template.xml',
+        'views/website_baf_b2b_template.xml',
         'views/website_sale_cart_view.xml',
         'views/website_backorders_template.xml',
         'views/checkout_template.xml',

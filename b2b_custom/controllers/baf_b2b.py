@@ -25,73 +25,15 @@ def _format_price(template, partner):
         price = template.with_context(partner=partner).baf_website_display_price()
     except Exception:
         price = template.list_price or 0.0
-    return _format_amount(template, price)
-
-
-def _format_amount(template, amount):
     currency = template.currency_id or request.env.company.currency_id
     symbol = currency.symbol or '€'
-    return f"{amount or 0.0:,.2f} {symbol}".replace(',', 'X').replace('.', ',').replace('X', '.')
-
-
-def _visible_brand_domain(partner):
-    """Restrict product.product search to brands the partner may see.
-
-    Rules (mirrors `website.sale_product_domain`):
-    - Public brands and no-brand products are always visible.
-    - If the partner's commercial (company) partner has `visible_brand_ids`
-      set, those brands are visible on top.
-    `visible_brand_ids` is read off `commercial_partner_id` so a logged-in
-    employee inherits the company's brand access.
-    """
-    commercial = partner.commercial_partner_id if partner else partner
-    visible_ids = commercial.visible_brand_ids.ids if commercial else []
-    if visible_ids:
-        return [
-            '|', '|',
-            ('product_tmpl_id.brand.is_public', '=', True),
-            ('product_tmpl_id.brand', '=', False),
-            ('product_tmpl_id.brand', 'in', visible_ids),
-        ]
-    return [
-        '|',
-        ('product_tmpl_id.brand.is_public', '=', True),
-        ('product_tmpl_id.brand', '=', False),
-    ]
-
-
-def _mod_label(template):
-    value = template.baf_mod
-    if not value:
-        return ''
-    selection = dict(template._fields['baf_mod'].selection)
-    return selection.get(value, value)
-
-
-def _type_label(template):
-    code = template.baf_type_code or 0
-    return str(code) if code else ''
+    return f"{price:,.2f} {symbol}".replace(',', 'X').replace('.', ',').replace('X', '.')
 
 
 def _product_to_dict(product, partner):
     template = product.product_tmpl_id
-    is_nla = template._baf_is_nla()
-    blocked = template._baf_is_order_blocked()
     qty = product.free_qty if hasattr(product, 'free_qty') else product.qty_available
-
-    if is_nla:
-        availability = 'NLA'
-        availability_type = 'nla'
-        delivery_time = ''
-    elif blocked and template.replaced_by_id:
-        availability = 'Ersetzt – Nachfolger bestellen'
-        availability_type = 'replacement'
-        delivery_time = ''
-    elif blocked:
-        availability = 'Nicht mehr verfügbar'
-        availability_type = 'no'
-        delivery_time = ''
-    elif qty > 5:
+    if qty > 5:
         availability = 'Sofort verfügbar'
         availability_type = 'ok'
         delivery_time = '1-2 Werktage'
@@ -103,54 +45,29 @@ def _product_to_dict(product, partner):
         availability = ''
         availability_type = ''
         delivery_time = ''
-
-    moq = int(template.unit_of_sales or 0) or 1
-    surcharge_raw = getattr(product, 'surcharge', 0.0) or getattr(template, 'surcharge', 0.0) or 0.0
-    replacement = template.replaced_by_id
-
     return {
         'id': product.id,
         'part_number': template.sku or product.default_code or '',
         'name': template.name,
         'brand': template.brand.name if template.brand else '',
         'brand_id': template.brand.id if template.brand else 0,
-        'mod': _mod_label(template),
-        'type': _type_label(template),
         'price': _format_price(template, partner),
-        'moq': moq,
-        'surcharge': _format_amount(template, surcharge_raw) if surcharge_raw else '',
-        'surcharge_raw': surcharge_raw,
         'availability': availability,
         'availability_type': availability_type,
         'delivery_time': delivery_time,
-        'orderable': not blocked,
-        'is_nla': is_nla,
-        'replacement_url': (
-            replacement.website_url if blocked and replacement else ''
-        ),
-        'replacement_name': (
-            replacement.display_name if blocked and replacement else ''
-        ),
-        'replacement_part_number': (
-            replacement.sku or '' if blocked and replacement else ''
-        ),
-        'replacement_product_id': (
-            replacement.product_variant_id.id if blocked and replacement else 0
-        ),
     }
 
 
 class BafB2BController(http.Controller):
 
-    @http.route(['/bestellsystem'], type='http', auth='user', website=True, sitemap=False)
+    @http.route(['/b2b'], type='http', auth='user', website=True, sitemap=False)
     def baf_b2b_page(self, **kwargs):
         return request.render('b2b_custom.baf_b2b_page', {})
 
     @http.route(
-        '/bestellsystem/part-search', type='jsonrpc', auth='user', methods=['POST'], csrf=False, website=True,
+        '/b2b/part-search', type='jsonrpc', auth='user', methods=['POST'], csrf=False, website=True,
     )
-    def part_search(self, part_numbers=None, brand_choices=None, quantities=None,
-                    product_ids=None, **kwargs):
+    def part_search(self, part_numbers=None, brand_choices=None, **kwargs):
         """Search products by SKU.
 
         Returns:
@@ -158,29 +75,11 @@ class BafB2BController(http.Controller):
           ambiguous: list of {part_number, matches:[{product_id, brand, brand_id, name}, ...]}
           not_found: list of part numbers with no match
         """
-        part_numbers = list(part_numbers or [])
-        product_ids = [int(pid) for pid in (product_ids or []) if pid]
-        if not part_numbers and not product_ids:
+        if not part_numbers:
             return {'products': [], 'ambiguous': [], 'not_found': []}
 
         partner = request.env.user.partner_id
         Product = request.env['product.product'].sudo()
-
-        # Normalize quantity map for echo back to client
-        qty_map = {}
-        for key, value in (quantities or {}).items():
-            try:
-                qty_map[_normalize_sku(key)] = max(1, int(float(value)))
-            except (TypeError, ValueError):
-                continue
-
-        # Direct lookup by product id (used by "Nachfolger ansehen" flow)
-        direct_products = []
-        if product_ids:
-            for product in Product.browse(product_ids).exists():
-                if not product.product_tmpl_id.active or not product.product_tmpl_id.sale_ok:
-                    continue
-                direct_products.append(product)
 
         # 1. Normalize + dedupe input
         normalized = []
@@ -191,8 +90,7 @@ class BafB2BController(http.Controller):
                 seen.add(key)
                 normalized.append({'raw': str(raw).strip(), 'key': key})
 
-        # 2. Fetch every matching variant in a single query (case-insensitive),
-        #    restricted to brands this partner is allowed to see.
+        # 2. Fetch every matching variant in a single query (case-insensitive)
         keys = [item['key'] for item in normalized]
         templates_by_key = {}
         if keys:
@@ -200,7 +98,7 @@ class BafB2BController(http.Controller):
                 ('sku', 'in', keys + [k.lower() for k in keys]),
                 ('active', '=', True),
                 ('sale_ok', '=', True),
-            ] + _visible_brand_domain(partner))
+            ])
             for product in products:
                 key = _normalize_sku(product.product_tmpl_id.sku)
                 templates_by_key[key] = templates_by_key.get(key, Product.browse([])) | product
@@ -251,36 +149,16 @@ class BafB2BController(http.Controller):
 
             # Unambiguous: pick the first variant of the single matching brand
             chosen = next(iter(brand_groups.values()))[:1]
-            data = _product_to_dict(chosen, partner)
-            requested_qty = qty_map.get(item['key'])
-            if requested_qty:
-                data['requested_quantity'] = requested_qty
-            products_out.append(data)
-
-        # Append direct product-id lookups (from "Nachfolger ansehen") at the
-        # end. Skip duplicates that were already resolved via SKU above.
-        already_in = {p['id'] for p in products_out}
-        for product in direct_products:
-            if product.id in already_in:
-                continue
-            data = _product_to_dict(product, partner)
-            qty_key = _normalize_sku(data.get('part_number'))
-            requested_qty = qty_map.get(qty_key)
-            if requested_qty:
-                data['requested_quantity'] = requested_qty
-            products_out.append(data)
-
-        echo_quantities = {sku: qty_map[sku] for sku in qty_map}
+            products_out.append(_product_to_dict(chosen, partner))
 
         return {
             'products': products_out,
             'ambiguous': ambiguous,
             'not_found': not_found,
-            'quantities': echo_quantities,
         }
 
     @http.route(
-        '/bestellsystem/cart/add', type='jsonrpc', auth='user', methods=['POST'], csrf=False, website=True,
+        '/b2b/cart/add', type='jsonrpc', auth='user', methods=['POST'], csrf=False, website=True,
     )
     def cart_add(self, items=None, **kwargs):
         if not items:
@@ -304,29 +182,10 @@ class BafB2BController(http.Controller):
             if not product:
                 failed.append({'product_id': product_id, 'error': 'not_found'})
                 continue
-            if product.product_tmpl_id._baf_is_order_blocked():
-                failed.append({
-                    'product_id': product_id,
-                    'error': 'not_orderable',
-                    'sku': product.product_tmpl_id.sku or product.default_code or '',
-                })
-                continue
-            note = (item.get('note') or '').strip()
             try:
-                result = order.with_context(skip_cart_verification=True)._cart_add(
+                order.with_context(skip_cart_verification=True)._cart_add(
                     product_id=product.id, quantity=qty,
                 )
-                if note:
-                    line_id = (result or {}).get('line_id')
-                    line = (
-                        request.env['sale.order.line'].sudo().browse(line_id)
-                        if line_id
-                        else order.order_line.filtered(
-                            lambda l: l.product_id.id == product.id
-                        )[-1:]
-                    )
-                    if line:
-                        line.sudo().write({'baf_line_note': note})
                 added += 1
             except Exception as exc:
                 _logger.exception("B2B cart_add failed for product %s: %s", product_id, exc)
@@ -342,7 +201,7 @@ class BafB2BController(http.Controller):
         }
 
     @http.route(
-        '/bestellsystem/upload-parts-list', type='http', auth='user', methods=['POST'], csrf=False, website=True,
+        '/b2b/upload-parts-list', type='http', auth='user', methods=['POST'], csrf=False, website=True,
     )
     def upload_parts_list(self, **post):
         upload = post.get('file')
