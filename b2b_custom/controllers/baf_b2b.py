@@ -33,22 +33,23 @@ def _format_price(template, partner):
 def _visible_brand_domain(partner):
     """Restrict product.product search to brands the partner may see.
 
-    Mirrors `website.sale_product_domain` / `WebsiteSale._get_search_domain`:
-    public brands and no-brand products are always visible; if the partner has
-    `visible_brand_ids` set, those brands are added on top.
+    `visible_brand_ids` is normally configured on the commercial (company)
+    partner, not on individual user-contacts — we read it from there so a
+    logged-in employee inherits the company's brand access. If the commercial
+    partner has any `visible_brand_ids` set, only those brands plus public/
+    no-brand products are visible. If it has none configured, no extra
+    restriction is applied (matches pre-filter behavior so customers without
+    explicit brand setup still see the catalog).
     """
-    visible_ids = partner.visible_brand_ids.ids if partner else []
-    if visible_ids:
-        return [
-            '|', '|',
-            ('product_tmpl_id.brand.is_public', '=', True),
-            ('product_tmpl_id.brand', '=', False),
-            ('product_tmpl_id.brand', 'in', visible_ids),
-        ]
+    commercial = partner.commercial_partner_id if partner else partner
+    visible_ids = commercial.visible_brand_ids.ids if commercial else []
+    if not visible_ids:
+        return []
     return [
-        '|',
+        '|', '|',
         ('product_tmpl_id.brand.is_public', '=', True),
         ('product_tmpl_id.brand', '=', False),
+        ('product_tmpl_id.brand', 'in', visible_ids),
     ]
 
 
