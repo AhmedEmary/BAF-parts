@@ -106,6 +106,8 @@
                                         <th>Teilenummer</th>
                                         <th>Artikel</th>
                                         <th>Marke</th>
+                                        <th>Mod</th>
+                                        <th>Type</th>
                                         <th>Verfügbarkeit</th>
                                         <th>Lieferzeit</th>
                                         <th>B2B Preis</th>
@@ -401,6 +403,8 @@
                                 '&lt;td&gt;&lt;span class="baf-part-number"&gt;' + escapeHtml(product.part_number) + '&lt;/span&gt;&lt;/td&gt;' +
                                 '&lt;td&gt;&lt;span class="baf-product-name"&gt;' + escapeHtml(product.name) + '&lt;/span&gt;&lt;/td&gt;' +
                                 '&lt;td&gt;' + escapeHtml(product.brand || '—') + '&lt;/td&gt;' +
+                                '&lt;td&gt;' + escapeHtml(product.mod || '—') + '&lt;/td&gt;' +
+                                '&lt;td&gt;' + escapeHtml(product.type || '—') + '&lt;/td&gt;' +
                                 '&lt;td&gt;&lt;span class="baf-badge ' + escapeHtml(product.availability_type || '') + '"&gt;' + escapeHtml(product.availability || '') + '&lt;/span&gt;&lt;/td&gt;' +
                                 '&lt;td&gt;' + escapeHtml(product.delivery_time || '') + '&lt;/td&gt;' +
                                 '&lt;td&gt;&lt;strong&gt;' + escapeHtml(product.price || 'Preis nach Login') + '&lt;/strong&gt;&lt;/td&gt;' +
