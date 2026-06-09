@@ -30,6 +30,41 @@ def _format_price(template, partner):
     return f"{price:,.2f} {symbol}".replace(',', 'X').replace('.', ',').replace('X', '.')
 
 
+def _visible_brand_domain(partner):
+    """Restrict product.product search to brands the partner may see.
+
+    Mirrors `website.sale_product_domain` / `WebsiteSale._get_search_domain`:
+    public brands and no-brand products are always visible; if the partner has
+    `visible_brand_ids` set, those brands are added on top.
+    """
+    visible_ids = partner.visible_brand_ids.ids if partner else []
+    if visible_ids:
+        return [
+            '|', '|',
+            ('product_tmpl_id.brand.is_public', '=', True),
+            ('product_tmpl_id.brand', '=', False),
+            ('product_tmpl_id.brand', 'in', visible_ids),
+        ]
+    return [
+        '|',
+        ('product_tmpl_id.brand.is_public', '=', True),
+        ('product_tmpl_id.brand', '=', False),
+    ]
+
+
+def _mod_label(template):
+    value = template.baf_mod
+    if not value:
+        return ''
+    selection = dict(template._fields['baf_mod'].selection)
+    return selection.get(value, value)
+
+
+def _type_label(template):
+    code = template.baf_type_code or 0
+    return str(code) if code else ''
+
+
 def _product_to_dict(product, partner):
     template = product.product_tmpl_id
     qty = product.free_qty if hasattr(product, 'free_qty') else product.qty_available
@@ -51,6 +86,8 @@ def _product_to_dict(product, partner):
         'name': template.name,
         'brand': template.brand.name if template.brand else '',
         'brand_id': template.brand.id if template.brand else 0,
+        'mod': _mod_label(template),
+        'type': _type_label(template),
         'price': _format_price(template, partner),
         'availability': availability,
         'availability_type': availability_type,
@@ -90,7 +127,8 @@ class BafB2BController(http.Controller):
                 seen.add(key)
                 normalized.append({'raw': str(raw).strip(), 'key': key})
 
-        # 2. Fetch every matching variant in a single query (case-insensitive)
+        # 2. Fetch every matching variant in a single query (case-insensitive),
+        #    restricted to brands this partner is allowed to see.
         keys = [item['key'] for item in normalized]
         templates_by_key = {}
         if keys:
@@ -98,7 +136,7 @@ class BafB2BController(http.Controller):
                 ('sku', 'in', keys + [k.lower() for k in keys]),
                 ('active', '=', True),
                 ('sale_ok', '=', True),
-            ])
+            ] + _visible_brand_domain(partner))
             for product in products:
                 key = _normalize_sku(product.product_tmpl_id.sku)
                 templates_by_key[key] = templates_by_key.get(key, Product.browse([])) | product
