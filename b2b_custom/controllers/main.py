@@ -68,6 +68,14 @@ class B2BListToPart(http.Controller):
                     # Assuming standard 'sale_delay' or similar field, using 1 here as requested
                     moq = 1 
                     
+                    blocked = product_obj.product_tmpl_id._baf_is_order_blocked()
+                    replacement = product_obj.product_tmpl_id.replaced_by_id
+                    if blocked and replacement:
+                        block_note = f"Ersetzt durch {replacement.display_name} – nicht bestellbar"
+                    elif blocked:
+                        block_note = "Nicht mehr verfügbar – nicht bestellbar"
+                    else:
+                        block_note = ''
                     for item in input_map[code]:
                         results.append({
                             'brand': item['brand'],
@@ -78,6 +86,8 @@ class B2BListToPart(http.Controller):
                             'uom': product_obj.uom_id.name,
                             'price': product_obj.list_price,
                             'qty': item['qty'],
+                            'blocked': blocked,
+                            'block_note': block_note,
                             'line_key': f"{product_obj.id}_{item['qty']}"
                         })
                 else:
@@ -139,18 +149,25 @@ class B2BListToPart(http.Controller):
         # 1. Get/Create Order
         order = request.website._create_cart()
         
-        # 2. Prepare Value List
+        # 2. Prepare Value List — skip blocked products (NLA / replaced)
         line_values = []
+        skipped_blocked = 0
         for item in results:
             product = item['product']
             qty = item['qty']
-            
-            if qty > 0:
-                line_values.append({
-                    'order_id': order.id,
-                    'product_id': product.id,
-                    'product_uom_qty': qty,
-                })
+            if qty <= 0:
+                continue
+            if item.get('blocked'):
+                skipped_blocked += 1
+                continue
+            line_values.append({
+                'order_id': order.id,
+                'product_id': product.id,
+                'product_uom_qty': qty,
+            })
+
+        if skipped_blocked:
+            _logger.info("BATCH-CART: skipped %s blocked (NLA / replaced) line(s).", skipped_blocked)
 
         if line_values:
             _logger.info("BATCH-CART: Creating %s lines via ORM...", len(line_values))

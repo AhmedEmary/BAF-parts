@@ -1,4 +1,5 @@
-from odoo import models, fields, api
+from odoo import models, fields, api, _
+from odoo.exceptions import UserError
 
 
 class SaleOrderLine(models.Model):
@@ -83,9 +84,32 @@ class SaleOrderLine(models.Model):
         if standard:
             super(SaleOrderLine, standard)._compute_price_unit()
 
+    def _baf_assert_product_orderable(self, product):
+        """Raise UserError when the product is NLA or has a replacement."""
+        if not product:
+            return
+        template = product.product_tmpl_id if product._name == 'product.product' else product
+        if not template._baf_is_order_blocked():
+            return
+        if template.replaced_by_id:
+            raise UserError(_(
+                "“%(name)s” has been replaced and can no longer be ordered. "
+                "Please order the replacement “%(replacement)s” instead.",
+                name=template.display_name,
+                replacement=template.replaced_by_id.display_name,
+            ))
+        raise UserError(_(
+            "“%(name)s” is no longer available and cannot be ordered.",
+            name=template.display_name,
+        ))
+
     @api.model_create_multi
     def create(self, vals_list):
+        Product = self.env['product.product'].sudo()
         for vals in vals_list:
+            product_id = vals.get('product_id')
+            if product_id:
+                self._baf_assert_product_orderable(Product.browse(product_id))
             if 'price_unit' in vals and vals.get('order_id'):
                 order = self.env['sale.order'].sudo().browse(vals['order_id'])
                 if order.website_id:
@@ -93,6 +117,20 @@ class SaleOrderLine(models.Model):
         return super().create(vals_list)
 
     def write(self, vals):
+        if 'product_id' in vals and vals['product_id']:
+            product = self.env['product.product'].sudo().browse(vals['product_id'])
+            self._baf_assert_product_orderable(product)
+        # Bumping the qty of a now-blocked line (product flagged NLA / replaced
+        # after the line was added) must also be refused.
+        if 'product_uom_qty' in vals:
+            try:
+                new_qty = float(vals['product_uom_qty'])
+            except (TypeError, ValueError):
+                new_qty = 0.0
+            if new_qty > 0:
+                for line in self:
+                    if new_qty > line.product_uom_qty:
+                        self._baf_assert_product_orderable(line.product_id)
         if 'price_unit' in vals and any(line.order_id.website_id for line in self):
             vals.pop('price_unit')
         return super().write(vals)
