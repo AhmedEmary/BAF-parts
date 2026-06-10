@@ -17,6 +17,29 @@ class ProductTemplate(models.Model):
         help="Minimum number of units for a product to be sold",
     )
 
+    # ── Orderability ──────────────────────────────────────────────────────────
+
+    NLA_SKU = 'NLA'
+
+    def _baf_is_order_blocked(self):
+        """Return True when this template must not be ordered.
+
+        Two cases are blocked:
+          * the part is marked No Longer Available (SKU == 'NLA'); or
+          * the part has been superseded — `replaced_by_id` is set, the
+            customer must order the replacement instead.
+        """
+        self.ensure_one()
+        sku = (self.sku or '').strip().upper()
+        if sku == self.NLA_SKU:
+            return True
+        return bool(self.replaced_by_id)
+
+    def _is_add_to_cart_possible(self, parent_combination=None):
+        if self._baf_is_order_blocked():
+            return False
+        return super()._is_add_to_cart_possible(parent_combination=parent_combination)
+
     @api.model
     def _baf_enable_oos_orders(self):
         """One-shot SQL: allow buying every existing product when out-of-stock.
