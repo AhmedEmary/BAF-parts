@@ -120,16 +120,21 @@
 
     <template id="products_item_custom_sku" inherit_id="website_sale.products_item">
         <xpath expr="//h2[hasclass('o_wsale_products_item_title')]" position="after">
-            <t t-set="is_nla" t-value="product.replaced_by_id.sku and product.replaced_by_id.sku.strip().upper() == 'NLA'"/>
+            <t t-set="own_sku_nla" t-value="product.sku and product.sku.strip().upper() == 'NLA'"/>
+            <t t-set="is_replaced" t-value="bool(product.replaced_by_id)"/>
+            <t t-set="is_blocked" t-value="own_sku_nla or is_replaced"/>
 
-            <div t-if="product.brand or (product.sku and not is_nla)" class="mb-1 text-muted small">
+            <div t-if="product.brand or (product.sku and not own_sku_nla)" class="mb-1 text-muted small">
                 <span t-if="product.brand"><strong t-out="product.brand.name"/> - </span>
-                <span t-if="product.sku and not is_nla">SKU: <t t-out="product.sku"/></span>
+                <span t-if="product.sku and not own_sku_nla">SKU: <t t-out="product.sku"/></span>
             </div>
 
             <div class="mb-2 small">
-                <span t-if="is_nla" class="fw-bold" style="color: #c0392b;">
+                <span t-if="own_sku_nla" class="fw-bold" style="color: #c0392b;">
                     <i class="fa fa-ban me-1"/> No Longer Available
+                </span>
+                <span t-elif="is_replaced" class="fw-bold" style="color: #c0392b;">
+                    <i class="fa fa-exchange me-1"/> Replaced — order successor
                 </span>
                 <t t-else="">
                     <t t-set="is_in_stock" t-value="product.sudo().qty_available &gt; 0"/>
@@ -139,6 +144,7 @@
             </div>
         </xpath>
     </template>
+
 
    <template id="one_hybrid_custom_sku_brand" inherit_id="website.one_hybrid">
         <xpath expr="//div[hasclass('o_search_result_item_detail')]/div[1]" position="replace">

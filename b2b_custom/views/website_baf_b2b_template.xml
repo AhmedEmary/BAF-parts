@@ -110,6 +110,8 @@
                                         <th>Type</th>
                                         <th>Verfügbarkeit</th>
                                         <th>Lieferzeit</th>
+                                        <th>MOQ</th>
+                                        <th>Zuschlag</th>
                                         <th>B2B Preis</th>
                                         <th>Menge</th>
                                         <th/>
@@ -222,6 +224,11 @@
                 .baf-ambiguous-wrap select { width: 100%; border: 1px solid var(--baf-gray-200); border-radius: 12px; padding: 9px 12px; font-weight: 700; background: var(--baf-white); }
                 .baf-ambiguous-wrap select:focus { border-color: var(--baf-black); outline: none; box-shadow: 0 0 0 4px rgba(0,0,0,0.06); }
                 .baf-ambiguous-wrap input[type="checkbox"] { transform: scale(1.15); cursor: pointer; }
+                .baf-table tr.baf-row-blocked td { background: #fafafa; color: var(--baf-gray-500); }
+                .baf-table tr.baf-row-blocked .baf-part-number, .baf-table tr.baf-row-blocked .baf-product-name { color: var(--baf-gray-500); }
+                .baf-blocked-label { display: inline-flex; align-items: center; padding: 8px 14px; border-radius: 999px; background: #fbe1e1; color: #c0392b; font-weight: 950; font-size: 12px; white-space: nowrap; }
+                .baf-surcharge { display: inline-flex; padding: 4px 10px; border-radius: 999px; background: #f0e7ff; color: #5b3ec4; font-weight: 950; font-size: 12px; white-space: nowrap; }
+                .baf-add-btn-link { text-decoration: none !important; }
                 .baf-table tr.is-updated { animation: bafFlash 1.2s ease-out; }
                 @keyframes bafFlash { from { background: #fffbe6; } to { background: transparent; } }
                 .baf-sticky-cart { position: fixed; left: 0; right: 0; bottom: 0; z-index: 50; background: rgba(0,0,0,0.92); color: var(--baf-white); border-top: 1px solid rgba(255,255,255,0.12); backdrop-filter: blur(12px); }
@@ -398,8 +405,30 @@
                             const row = document.createElement('tr');
                             row.dataset.productId = product.id;
                             row.dataset.partKey = (product.part_number || '').toUpperCase();
+                            const isBlocked = product.orderable === false;
+                            if (isBlocked) {
+                                row.classList.add('baf-row-blocked');
+                                row.dataset.blocked = '1';
+                            }
+                            const moq = Number(product.moq) > 0 ? Number(product.moq) : 1;
+                            const selectCell = isBlocked
+                                ? '&lt;td&gt;&lt;/td&gt;'
+                                : '&lt;td&gt;&lt;input class="baf-row-select" type="checkbox"/&gt;&lt;/td&gt;';
+                            const qtyCell = isBlocked
+                                ? '&lt;td&gt;&lt;/td&gt;'
+                                : '&lt;td&gt;&lt;input class="baf-qty" type="number" min="' + moq + '" step="' + moq + '" value="' + moq + '"/&gt;&lt;/td&gt;';
+                            const moqCell = '&lt;td&gt;&lt;span class="baf-badge"&gt;' + escapeHtml(moq) + '&lt;/span&gt;&lt;/td&gt;';
+                            const surchargeCell = '&lt;td&gt;' + (product.surcharge ? '&lt;span class="baf-surcharge"&gt;' + escapeHtml(product.surcharge) + '&lt;/span&gt;' : '&lt;span class="text-muted"&gt;—&lt;/span&gt;') + '&lt;/td&gt;';
+                            let actionCell;
+                            if (isBlocked &amp;&amp; product.replacement_url) {
+                                actionCell = '&lt;td&gt;&lt;a class="baf-add-btn baf-add-btn-link" href="' + escapeHtml(product.replacement_url) + '"&gt;Nachfolger ansehen&lt;/a&gt;&lt;/td&gt;';
+                            } else if (isBlocked) {
+                                actionCell = '&lt;td&gt;&lt;span class="baf-blocked-label"&gt;Nicht bestellbar&lt;/span&gt;&lt;/td&gt;';
+                            } else {
+                                actionCell = '&lt;td&gt;&lt;button class="baf-add-btn" type="button"&gt;In den Warenkorb&lt;/button&gt;&lt;/td&gt;';
+                            }
                             row.innerHTML =
-                                '&lt;td&gt;&lt;input class="baf-row-select" type="checkbox"/&gt;&lt;/td&gt;' +
+                                selectCell +
                                 '&lt;td&gt;&lt;span class="baf-part-number"&gt;' + escapeHtml(product.part_number) + '&lt;/span&gt;&lt;/td&gt;' +
                                 '&lt;td&gt;&lt;span class="baf-product-name"&gt;' + escapeHtml(product.name) + '&lt;/span&gt;&lt;/td&gt;' +
                                 '&lt;td&gt;' + escapeHtml(product.brand || '—') + '&lt;/td&gt;' +
@@ -407,14 +436,22 @@
                                 '&lt;td&gt;' + escapeHtml(product.type || '—') + '&lt;/td&gt;' +
                                 '&lt;td&gt;&lt;span class="baf-badge ' + escapeHtml(product.availability_type || '') + '"&gt;' + escapeHtml(product.availability || '') + '&lt;/span&gt;&lt;/td&gt;' +
                                 '&lt;td&gt;' + escapeHtml(product.delivery_time || '') + '&lt;/td&gt;' +
+                                moqCell +
+                                surchargeCell +
                                 '&lt;td&gt;&lt;strong&gt;' + escapeHtml(product.price || 'Preis nach Login') + '&lt;/strong&gt;&lt;/td&gt;' +
-                                '&lt;td&gt;&lt;input class="baf-qty" type="number" min="1" value="1"/&gt;&lt;/td&gt;' +
-                                '&lt;td&gt;&lt;button class="baf-add-btn" type="button"&gt;In den Warenkorb&lt;/button&gt;&lt;/td&gt;';
-                            row.querySelector('.baf-row-select').addEventListener('change', updateSelectedButton);
-                            row.querySelector('.baf-add-btn').addEventListener('click', function () {
-                                const qty = Number(row.querySelector('.baf-qty').value || 1);
-                                addItemsToCart([{ product_id: product.id, quantity: qty }]);
-                            });
+                                qtyCell +
+                                actionCell;
+                            const selectCb = row.querySelector('.baf-row-select');
+                            if (selectCb) {
+                                selectCb.addEventListener('change', updateSelectedButton);
+                            }
+                            const addBtn = row.querySelector('button.baf-add-btn');
+                            if (addBtn) {
+                                addBtn.addEventListener('click', function () {
+                                    const qty = Number(row.querySelector('.baf-qty').value || 1);
+                                    addItemsToCart([{ product_id: product.id, quantity: qty }]);
+                                });
+                            }
                             return row;
                         }
 

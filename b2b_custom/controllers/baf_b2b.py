@@ -25,9 +25,13 @@ def _format_price(template, partner):
         price = template.with_context(partner=partner).baf_website_display_price()
     except Exception:
         price = template.list_price or 0.0
+    return _format_amount(template, price)
+
+
+def _format_amount(template, amount):
     currency = template.currency_id or request.env.company.currency_id
     symbol = currency.symbol or '€'
-    return f"{price:,.2f} {symbol}".replace(',', 'X').replace('.', ',').replace('X', '.')
+    return f"{amount or 0.0:,.2f} {symbol}".replace(',', 'X').replace('.', ',').replace('X', '.')
 
 
 def _visible_brand_domain(partner):
@@ -71,8 +75,17 @@ def _type_label(template):
 
 def _product_to_dict(product, partner):
     template = product.product_tmpl_id
+    blocked = template._baf_is_order_blocked()
     qty = product.free_qty if hasattr(product, 'free_qty') else product.qty_available
-    if qty > 5:
+    if blocked and template.replaced_by_id:
+        availability = 'Ersetzt – Nachfolger bestellen'
+        availability_type = 'no'
+        delivery_time = ''
+    elif blocked:
+        availability = 'Nicht mehr verfügbar'
+        availability_type = 'no'
+        delivery_time = ''
+    elif qty > 5:
         availability = 'Sofort verfügbar'
         availability_type = 'ok'
         delivery_time = '1-2 Werktage'
@@ -84,6 +97,8 @@ def _product_to_dict(product, partner):
         availability = ''
         availability_type = ''
         delivery_time = ''
+    moq = int(template.unit_of_sales or 0) or 1
+    surcharge_raw = getattr(product, 'surcharge', 0.0) or getattr(template, 'surcharge', 0.0) or 0.0
     return {
         'id': product.id,
         'part_number': template.sku or product.default_code or '',
@@ -93,9 +108,23 @@ def _product_to_dict(product, partner):
         'mod': _mod_label(template),
         'type': _type_label(template),
         'price': _format_price(template, partner),
+        'moq': moq,
+        'surcharge': _format_amount(template, surcharge_raw) if surcharge_raw else '',
+        'surcharge_raw': surcharge_raw,
         'availability': availability,
         'availability_type': availability_type,
         'delivery_time': delivery_time,
+        'orderable': not blocked,
+        'replacement_url': (
+            template.replaced_by_id.website_url
+            if blocked and template.replaced_by_id
+            else ''
+        ),
+        'replacement_name': (
+            template.replaced_by_id.display_name
+            if blocked and template.replaced_by_id
+            else ''
+        ),
     }
 
 
@@ -223,6 +252,13 @@ class BafB2BController(http.Controller):
             product = Product.browse(product_id).exists()
             if not product:
                 failed.append({'product_id': product_id, 'error': 'not_found'})
+                continue
+            if product.product_tmpl_id._baf_is_order_blocked():
+                failed.append({
+                    'product_id': product_id,
+                    'error': 'not_orderable',
+                    'sku': product.product_tmpl_id.sku or product.default_code or '',
+                })
                 continue
             try:
                 order.with_context(skip_cart_verification=True)._cart_add(
