@@ -110,7 +110,7 @@
                         </tr>
                     </thead>
                     <tbody>
-                        <tr t-foreach="results" t-as="line">
+                        <tr t-foreach="results" t-as="line" t-att-class="'table-secondary text-muted' if line.get('blocked') else ''">
                             <td><span t-esc="line['brand']"/></td>
                             <td><span t-esc="line['sku']"/></td>
                             <td>
@@ -119,18 +119,20 @@
                                 </a>
                             </td>
                             <td>
-                                <span t-esc="line['moq']"/> 
+                                <span t-esc="line['moq']"/>
                                 <small class="text-muted">(<span t-esc="line['uom']"/>)</small>
                             </td>
                             <td class="text-end">
-                                <span t-esc="line['price']" 
+                                <span t-esc="line['price']"
                                     t-options="{'widget': 'monetary', 'display_currency': website.currency_id}"/>
                             </td>
                             <td>
-                                <input type="text" class="form-control form-control-sm" placeholder="..."/>
+                                <span t-if="line.get('blocked')" class="badge bg-danger" t-esc="line['block_note']"/>
+                                <input t-else="" type="text" class="form-control form-control-sm" placeholder="..."/>
                             </td>
                             <td class="text-center">
-                                <span class="badge bg-primary" t-esc="line['qty']"/>
+                                <span t-if="line.get('blocked')" class="badge bg-secondary">—</span>
+                                <span t-else="" class="badge bg-primary" t-esc="line['qty']"/>
                             </td>
                         </tr>
                     </tbody>
