@@ -47,6 +47,12 @@ class SaleOrderLine(models.Model):
         precompute=True,
         help="Discount percentage applied to UPE for this line.",
     )
+    baf_line_note = fields.Char(
+        string='Notiz',
+        help="Free-text note attached to this line by the customer from the "
+             "B2B Bestellsystem page. Stored per line so it survives merge / "
+             "quantity updates.",
+    )
 
     @api.depends('product_id', 'order_id.partner_id', 'product_uom_qty')
     def _compute_baf_price(self):
