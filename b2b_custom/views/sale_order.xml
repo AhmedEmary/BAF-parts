@@ -10,6 +10,7 @@
                 <field name="surcharge"/>
                 <field name="baf_applied_column_key" optional="show"/>
                 <field name="baf_applied_discount_pct" string="Disc %" optional="show"/>
+                <field name="baf_line_note" string="Notiz" optional="show"/>
             </xpath>
         </field>
     </record>

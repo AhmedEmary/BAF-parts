@@ -42,7 +42,12 @@
                                         <span t-if="'sku' in line.product_id and line.product_id.sku">SKU: <t t-out="line.product_id.sku"/></span>
                                         <span t-elif="'default_code' in line.product_id and line.product_id.default_code">SKU: <t t-out="line.product_id.default_code"/></span>
                                     </div>
-                                    
+
+                                    <div t-if="line.baf_line_note" class="small mb-2 baf-cart-line-note">
+                                        <span class="fw-bold">Notiz:</span>
+                                        <span t-out="line.baf_line_note"/>
+                                    </div>
+
                                     <t t-call="website_sale.cart_line_description_following_lines"/>
                                     <ul t-if="is_combo" class="list-group">
                                         <t t-foreach="line.linked_line_ids.filtered('combo_item_id')" t-as="combo_item_line">
