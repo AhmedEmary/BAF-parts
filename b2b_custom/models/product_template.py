@@ -21,17 +21,35 @@ class ProductTemplate(models.Model):
 
     NLA_SKU = 'NLA'
 
+    def _baf_is_nla(self):
+        """Return True when this template — or any product reached by walking
+        the `replaced_by_id` chain — has SKU 'NLA'.
+
+        A part is NLA both when:
+          * its own SKU is 'NLA'; or
+          * its replacement (or the replacement's replacement, …) is NLA.
+        """
+        self.ensure_one()
+        seen = set()
+        current = self
+        while current and current.id not in seen:
+            seen.add(current.id)
+            sku = (current.sku or '').strip().upper()
+            if sku == self.NLA_SKU:
+                return True
+            current = current.replaced_by_id
+        return False
+
     def _baf_is_order_blocked(self):
         """Return True when this template must not be ordered.
 
         Two cases are blocked:
-          * the part is marked No Longer Available (SKU == 'NLA'); or
+          * the part is NLA (own SKU or any successor in the chain); or
           * the part has been superseded — `replaced_by_id` is set, the
             customer must order the replacement instead.
         """
         self.ensure_one()
-        sku = (self.sku or '').strip().upper()
-        if sku == self.NLA_SKU:
+        if self._baf_is_nla():
             return True
         return bool(self.replaced_by_id)
 
