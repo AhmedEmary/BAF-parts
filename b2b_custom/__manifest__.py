@@ -3,7 +3,7 @@
     'summary': "This is a custom sale module for B2B companies",
     'version': '1.0',
     'category': 'Sales/Sales',
-    'depends': ['general_system_custom', 'website_sale', 'mail'],
+    'depends': ['general_system_custom', 'website_sale', 'mail', 'portal'],
     'installable': True,
     'data': [
         'security/ir.model.access.csv',
@@ -12,7 +12,9 @@
         'views/product_template_view.xml',
         'views/website_list_to_part_template.xml',
         'views/website_baf_b2b_template.xml',
+        'views/portal_my_home_template.xml',
         'views/website_sale_cart_view.xml',
+        'views/website_sale_cart_baf_skin.xml',
         'views/website_backorders_template.xml',
         'views/checkout_template.xml',
         'views/sale_order.xml',
