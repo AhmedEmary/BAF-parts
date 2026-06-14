@@ -6,71 +6,34 @@
             <div id="wrap" class="baf-apply-page">
                 <section class="baf-apply-hero">
                     <div class="container">
-                        <div class="baf-apply-hero-grid">
-                            <div class="baf-apply-hero-content">
-                                <span class="baf-kicker">BAF Parts B2B</span>
-                                <h1>B2B-Zugang beantragen</h1>
-                                <p>
-                                    Beantragen Sie Ihren Zugang zum BAF B2B-Bestellsystem.
-                                    Bitte füllen Sie das Formular vollständig aus. Die Freischaltung
-                                    erfolgt erst nach interner Prüfung durch unser Team.
-                                </p>
-                            </div>
-
-                            <aside class="baf-apply-important">
-                                <h3>Wichtig</h3>
-                                <p>
-                                    Ihre Unternehmensdaten werden geprüft. Der Login wird nicht
-                                    automatisch freigeschaltet. Nach erfolgreicher Prüfung erhalten
-                                    Sie Ihre Zugangsinformationen per E-Mail.
-                                </p>
-                            </aside>
-                        </div>
+                        <span class="baf-kicker">BAF Parts B2B</span>
+                        <h1>B2B-Zugang beantragen</h1>
+                        <p>
+                            Registrieren Sie Ihr Unternehmen für unseren B2B-Bereich.
+                            Nach kurzer Prüfung erhalten Sie eine E-Mail mit Ihrem persönlichen Zugangslink.
+                        </p>
                     </div>
                 </section>
 
                 <section class="baf-apply-form-section">
                     <div class="container">
-                        <div class="baf-apply-layout">
+                        <div class="baf-apply-card">
+                            <div t-if="errors and errors.get('__global__')" class="baf-apply-error-global">
+                                <t t-esc="errors['__global__']"/>
+                            </div>
 
-                            <aside class="baf-apply-side">
-                                <h2>So funktioniert die Freischaltung</h2>
-                                <ol class="baf-apply-steps">
-                                    <li>Sie senden Ihre B2B-Anfrage über dieses Formular ab.</li>
-                                    <li>Unser Team prüft Ihre Unternehmensdaten.</li>
-                                    <li>Sie erhalten anschließend Ihre Zugangsinformationen per E-Mail.</li>
-                                </ol>
+                            <form action="/b2b/apply/submit" method="post" class="baf-apply-form">
+                                <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
 
-                                <div class="baf-apply-required">
-                                    <h4>Benötigte Angaben</h4>
-                                    <p>Firma, Ansprechpartner, Kontaktdaten, USt-IdNr. und Adresse.</p>
-                                </div>
-                            </aside>
-
-                            <div class="baf-apply-card">
-                                <div class="baf-apply-card-head">
-                                    <span class="baf-kicker">Registrierungsformular</span>
-                                    <h2>Neue B2B-Anfrage</h2>
-                                    <p class="baf-apply-card-hint">
-                                        Bitte füllen Sie die folgenden Angaben vollständig aus.
-                                        Pflichtfelder sind mit * markiert.
-                                    </p>
-                                </div>
-
-                                <div t-if="errors and errors.get('__global__')" class="baf-apply-error-global">
-                                    <t t-esc="errors['__global__']"/>
-                                </div>
-
-                                <form action="/b2b/apply/submit" method="post" class="baf-apply-form">
-                                    <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                                <div class="baf-apply-section">
+                                    <h2>Unternehmen</h2>
 
                                     <div class="baf-apply-grid">
                                         <div class="baf-apply-field">
-                                            <label for="company_name">Firma *</label>
+                                            <label for="company_name">Firmenname *</label>
                                             <input type="text" id="company_name" name="company_name"
                                                    t-att-value="values.get('company_name') or ''"
                                                    t-att-class="'baf-input is-error' if errors.get('company_name') else 'baf-input'"
-                                                   placeholder="z. B. Muster Autohaus GmbH"
                                                    required="required"/>
                                             <span t-if="errors.get('company_name')" class="baf-field-error">
                                                 <t t-esc="errors['company_name']"/>
@@ -78,51 +41,17 @@
                                         </div>
 
                                         <div class="baf-apply-field">
-                                            <label for="contact_name">Ansprechpartner *</label>
-                                            <input type="text" id="contact_name" name="contact_name"
-                                                   t-att-value="values.get('contact_name') or ''"
-                                                   t-att-class="'baf-input is-error' if errors.get('contact_name') else 'baf-input'"
-                                                   placeholder="Vor- und Nachname"
-                                                   required="required"/>
-                                            <span t-if="errors.get('contact_name')" class="baf-field-error">
-                                                <t t-esc="errors['contact_name']"/>
-                                            </span>
-                                        </div>
-
-                                        <div class="baf-apply-field">
-                                            <label for="email">E-Mail *</label>
-                                            <input type="email" id="email" name="email"
-                                                   t-att-value="values.get('email') or ''"
-                                                   t-att-class="'baf-input is-error' if errors.get('email') else 'baf-input'"
-                                                   placeholder="name@firma.de"
-                                                   required="required"/>
-                                            <span t-if="errors.get('email')" class="baf-field-error">
-                                                <t t-esc="errors['email']"/>
-                                            </span>
-                                        </div>
-
-                                        <div class="baf-apply-field">
-                                            <label for="phone">Telefon</label>
-                                            <input type="text" id="phone" name="phone"
-                                                   t-att-value="values.get('phone') or ''"
-                                                   class="baf-input"
-                                                   placeholder="+49 ..."/>
-                                        </div>
-
-                                        <div class="baf-apply-field baf-apply-field-wide">
                                             <label for="vat">USt-IdNr.</label>
                                             <input type="text" id="vat" name="vat"
                                                    t-att-value="values.get('vat') or ''"
-                                                   class="baf-input"
-                                                   placeholder="z. B. DE123456789"/>
+                                                   class="baf-input"/>
                                         </div>
 
                                         <div class="baf-apply-field baf-apply-field-wide">
                                             <label for="street">Straße &amp; Hausnummer</label>
                                             <input type="text" id="street" name="street"
                                                    t-att-value="values.get('street') or ''"
-                                                   class="baf-input"
-                                                   placeholder="Straße, Hausnummer"/>
+                                                   class="baf-input"/>
                                         </div>
 
                                         <div class="baf-apply-field">
@@ -138,37 +67,62 @@
                                                    t-att-value="values.get('city') or ''"
                                                    class="baf-input"/>
                                         </div>
+                                    </div>
+                                </div>
 
-                                        <div class="baf-apply-field baf-apply-field-wide">
-                                            <label for="country_id">Land</label>
-                                            <select id="country_id" name="country_id" class="baf-input">
-                                                <option value="">— Bitte auswählen —</option>
-                                                <t t-foreach="countries or []" t-as="country">
-                                                    <option t-att-value="country.id"
-                                                            t-att-selected="'selected' if str(values.get('country_id') or '') == str(country.id) else None">
-                                                        <t t-esc="country.name"/>
-                                                    </option>
-                                                </t>
-                                            </select>
+                                <div class="baf-apply-section">
+                                    <h2>Ansprechpartner</h2>
+
+                                    <div class="baf-apply-grid">
+                                        <div class="baf-apply-field">
+                                            <label for="contact_name">Name *</label>
+                                            <input type="text" id="contact_name" name="contact_name"
+                                                   t-att-value="values.get('contact_name') or ''"
+                                                   t-att-class="'baf-input is-error' if errors.get('contact_name') else 'baf-input'"
+                                                   required="required"/>
+                                            <span t-if="errors.get('contact_name')" class="baf-field-error">
+                                                <t t-esc="errors['contact_name']"/>
+                                            </span>
                                         </div>
 
-                                        <div class="baf-apply-field baf-apply-field-wide">
-                                            <label for="note">Nachricht</label>
-                                            <textarea id="note" name="note" rows="4" class="baf-input"
-                                                      placeholder="Weitere Informationen zu Ihrem Unternehmen oder Ihrer Anfrage"><t t-esc="values.get('note') or ''"/></textarea>
+                                        <div class="baf-apply-field">
+                                            <label for="function">Position</label>
+                                            <input type="text" id="function" name="function"
+                                                   t-att-value="values.get('function') or ''"
+                                                   class="baf-input"/>
+                                        </div>
+
+                                        <div class="baf-apply-field">
+                                            <label for="email">E-Mail *</label>
+                                            <input type="email" id="email" name="email"
+                                                   t-att-value="values.get('email') or ''"
+                                                   t-att-class="'baf-input is-error' if errors.get('email') else 'baf-input'"
+                                                   required="required"/>
+                                            <span t-if="errors.get('email')" class="baf-field-error">
+                                                <t t-esc="errors['email']"/>
+                                            </span>
+                                        </div>
+
+                                        <div class="baf-apply-field">
+                                            <label for="phone">Telefon</label>
+                                            <input type="text" id="phone" name="phone"
+                                                   t-att-value="values.get('phone') or ''"
+                                                   class="baf-input"/>
                                         </div>
                                     </div>
+                                </div>
 
-                                    <div class="baf-apply-submit">
-                                        <button type="submit" class="baf-apply-btn">B2B-Anfrage absenden</button>
-                                        <p>
-                                            Nach dem Absenden prüft unser Team Ihre Angaben. Sobald Ihr Zugang
-                                            freigeschaltet ist, erhalten Sie eine E-Mail mit Aktivierungslink.
-                                        </p>
-                                    </div>
-                                </form>
-                            </div>
+                                <div class="baf-apply-section">
+                                    <h2>Hinweis an unser Team</h2>
+                                    <textarea id="note" name="note" rows="4" class="baf-input"
+                                              placeholder="Marken, Bezugskanäle, gewünschter Start, etc."><t t-esc="values.get('note') or ''"/></textarea>
+                                </div>
 
+                                <div class="baf-apply-submit">
+                                    <button type="submit" class="baf-apply-btn">Antrag senden</button>
+                                    <p>Pflichtfelder sind mit * markiert. Nach dem Absenden erhalten Sie eine Bestätigung. Der Zugangslink folgt nach interner Freigabe.</p>
+                                </div>
+                            </form>
                         </div>
                     </div>
                 </section>
@@ -183,26 +137,15 @@
                 }
 
                 .baf-apply-page .container {
-                    max-width: 1180px;
+                    max-width: 980px;
                 }
 
                 .baf-apply-hero {
-                    padding: 52px 0 32px;
+                    padding: 52px 0 28px;
                     background:
                         radial-gradient(circle at top right, rgba(0,0,0,0.06), transparent 32%),
                         linear-gradient(135deg, #ffffff 0%, #f4f4f4 100%);
                     border-bottom: 1px solid #d8d8d8;
-                }
-
-                .baf-apply-hero-grid {
-                    display: grid;
-                    grid-template-columns: minmax(0, 1fr) minmax(280px, 360px);
-                    gap: 32px;
-                    align-items: start;
-                }
-
-                .baf-apply-hero-content {
-                    min-width: 0;
                 }
 
                 .baf-apply-page .baf-kicker {
@@ -233,91 +176,8 @@
                     font-weight: 800;
                 }
 
-                .baf-apply-important {
-                    padding: 20px 22px;
-                    border: 1px solid #d8d8d8;
-                    border-radius: 18px;
-                    background: #ffffff;
-                    box-shadow: 0 12px 32px rgba(0,0,0,0.06);
-                }
-
-                .baf-apply-important h3 {
-                    margin: 0 0 10px;
-                    font-size: 16px;
-                    font-weight: 950;
-                    letter-spacing: -0.02em;
-                }
-
-                .baf-apply-important p {
-                    margin: 0;
-                    color: #555555;
-                    font-size: 13px;
-                    line-height: 1.5;
-                    font-weight: 700;
-                }
-
                 .baf-apply-form-section {
                     padding: 36px 0 8px;
-                }
-
-                .baf-apply-layout {
-                    display: grid;
-                    grid-template-columns: minmax(260px, 320px) minmax(0, 1fr);
-                    gap: 28px;
-                    align-items: start;
-                }
-
-                .baf-apply-side {
-                    padding: 26px 26px;
-                    border: 1px solid #d8d8d8;
-                    border-radius: 22px;
-                    background: #ffffff;
-                    box-shadow: 0 18px 48px rgba(0,0,0,0.08);
-                    position: sticky;
-                    top: 24px;
-                }
-
-                .baf-apply-side h2 {
-                    margin: 0 0 16px;
-                    font-size: 18px;
-                    font-weight: 950;
-                    letter-spacing: -0.03em;
-                    line-height: 1.2;
-                }
-
-                .baf-apply-steps {
-                    margin: 0 0 22px;
-                    padding-left: 22px;
-                    color: #000000;
-                    font-size: 14px;
-                    line-height: 1.55;
-                    font-weight: 800;
-                }
-
-                .baf-apply-steps li {
-                    margin-bottom: 8px;
-                }
-
-                .baf-apply-required {
-                    padding: 16px 18px;
-                    border: 1px solid #e3e3e3;
-                    border-radius: 16px;
-                    background: #f8f8f8;
-                }
-
-                .baf-apply-required h4 {
-                    margin: 0 0 6px;
-                    font-size: 14px;
-                    font-weight: 950;
-                    letter-spacing: -0.02em;
-                }
-
-                .baf-apply-required p {
-                    margin: 0;
-                    color: #555555;
-                    font-size: 12px;
-                    line-height: 1.5;
-                    font-weight: 700;
                 }
 
                 .baf-apply-card {
@@ -328,25 +188,15 @@
                     box-shadow: 0 18px 48px rgba(0,0,0,0.10);
                 }
 
-                .baf-apply-card-head {
-                    margin-bottom: 22px;
-                    padding-bottom: 18px;
-                    border-bottom: 1px solid #e3e3e3;
+                .baf-apply-section {
+                    margin-bottom: 26px;
                 }
 
-                .baf-apply-card-head h2 {
-                    margin: 6px 0 0;
-                    font-size: 28px;
+                .baf-apply-section h2 {
+                    margin: 0 0 14px;
+                    font-size: 20px;
                     font-weight: 950;
-                    letter-spacing: -0.05em;
-                    line-height: 1.05;
-                }
-
-                .baf-apply-card-hint {
-                    margin: 10px 0 0;
-                    color: #555555;
-                    font-size: 13px;
-                    font-weight: 700;
+                    letter-spacing: -0.04em;
                 }
 
                 .baf-apply-grid {
@@ -383,11 +233,6 @@
                     color: #000000;
                 }
 
-                .baf-input::placeholder {
-                    color: #aaaaaa;
-                    font-weight: 600;
-                }
-
                 .baf-input:focus {
                     border-color: #000000;
                     box-shadow: 0 0 0 4px rgba(0,0,0,0.08);
@@ -416,9 +261,7 @@
                 }
 
                 .baf-apply-submit {
-                    margin-top: 22px;
-                    padding-top: 18px;
-                    border-top: 1px solid #e3e3e3;
+                    margin-top: 8px;
                 }
 
                 .baf-apply-btn {
@@ -447,21 +290,6 @@
                     color: #777777;
                     font-size: 12px;
                     font-weight: 750;
-                    line-height: 1.55;
-                }
-
-                @media (max-width: 992px) {
-                    .baf-apply-hero-grid {
-                        grid-template-columns: 1fr;
-                    }
-
-                    .baf-apply-layout {
-                        grid-template-columns: 1fr;
-                    }
-
-                    .baf-apply-side {
-                        position: static;
-                    }
                 }
 
                 @media (max-width: 680px) {
@@ -471,10 +299,6 @@
 
                     .baf-apply-card {
                         padding: 22px;
-                    }
-
-                    .baf-apply-card-head h2 {
-                        font-size: 24px;
                     }
                 }
             </style>
@@ -592,1010 +416,6 @@
                         <a href="/web/session/logout?redirect=/" class="baf-apply-btn">Abmelden</a>
                     </div>
                 </section>
-            </div>
-
-            <style>
-                .baf-apply-thanks-page {
-                    background: #ffffff;
-                    color: #000000;
-                    font-family: Inter, Arial, sans-serif;
-                    padding: 60px 0;
-                }
-
-                .baf-thanks-card {
-                    max-width: 640px;
-                    margin: 0 auto;
-                    padding: 36px;
-                    border: 1px solid #d8d8d8;
-                    border-radius: 22px;
-                    background: #ffffff;
-                    box-shadow: 0 18px 48px rgba(0,0,0,0.10);
-                    text-align: center;
-                }
-
-                .baf-thanks-card .baf-kicker {
-                    display: inline-flex;
-                    margin-bottom: 10px;
-                    color: #333333;
-                    font-size: 11px;
-                    font-weight: 950;
-                    letter-spacing: 0.16em;
-                    text-transform: uppercase;
-                }
-
-                .baf-thanks-card h1 {
-                    margin: 0 0 14px;
-                    font-size: 44px;
-                    font-weight: 950;
-                    letter-spacing: -0.06em;
-                }
-
-                .baf-thanks-card p {
-                    margin: 0 0 12px;
-                    color: #333333;
-                    font-size: 15px;
-                    line-height: 1.5;
-                    font-weight: 750;
-                }
-
-                .baf-thanks-sub {
-                    color: #777777;
-                    font-size: 13px !important;
-                }
-
-                .baf-thanks-sub a {
-                    color: #000000;
-                    font-weight: 900;
-                    text-decoration: underline;
-                }
-
-                .baf-apply-btn {
-                    display: inline-flex;
-                    align-items: center;
-                    justify-content: center;
-                    margin-top: 18px;
-                    min-height: 46px;
-                    border: 1px solid #000000;
-                    border-radius: 999px;
-                    background: #000000;
-                    color: #ffffff !important;
-                    padding: 12px 24px;
-                    font-size: 14px;
-                    font-weight: 950;
-                    text-decoration: none !important;
-                    cursor: pointer;
-                    transition: 0.18s ease;
-                }
-
-                .baf-apply-btn:hover {
-                    opacity: 0.84;
-                }
-            </style>
-        </t>
-    </template>
-
-    <template id="baf_b2b_register_page" name="BAF B2B Registrierung">
-        <t t-call="website.layout">
-            <div id="wrap" class="baf-register-page">
-
-                <section class="baf-register-hero">
-                    <div class="container">
-                        <div class="baf-register-hero-inner">
-                            <div>
-                                <span class="baf-kicker">BAF Parts B2B</span>
-                                <h1>B2B-Zugang beantragen</h1>
-                                <p>
-                                    Beantragen Sie Ihren Zugang zum BAF B2B-Bestellsystem.
-                                    Bitte füllen Sie das Formular vollständig aus und laden Sie Ihren Gewerbeschein hoch.
-                                    Die Freischaltung erfolgt erst nach interner Prüfung durch unser Team.
-                                </p>
-                            </div>
-
-                            <div class="baf-register-status">
-                                <strong>Wichtig</strong>
-                                <span>
-                                    Ihre Firmendaten werden geprüft. Ein Login wird nicht automatisch aktiviert.
-                                    Nach erfolgreicher Prüfung erhalten Sie Ihre Zugangsinformationen.
-                                </span>
-                            </div>
-                        </div>
-                    </div>
-                </section>
-
-                <section class="baf-register-section">
-                    <div class="container">
-                        <div class="baf-register-grid">
-
-                            <aside class="baf-register-info">
-                                <h2>So funktioniert die Freischaltung</h2>
-                                <ol>
-                                    <li>Sie senden Ihre B2B-Anfrage mit Gewerbeschein ab.</li>
-                                    <li>Unser Team prüft Ihre Unternehmensdaten.</li>
-                                    <li>Sie erhalten anschließend Ihre Zugangsinformationen.</li>
-                                </ol>
-
-                                <div class="baf-info-box">
-                                    <strong>Benötigte Angaben</strong>
-                                    <p>
-                                        Firma, Ansprechpartner, Kontaktdaten, USt-IdNr.,
-                                        Adresse und Gewerbeschein.
-                                    </p>
-                                </div>
-                            </aside>
-
-                            <form id="bafB2BRegisterForm" class="baf-register-form" action="/b2b/register/submit" method="post" enctype="multipart/form-data">
-
-                                <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
-                                <div t-if="errors and errors.get('__global__')" class="baf-apply-error-global">
-                                    <t t-esc="errors['__global__']"/>
-                                </div>
-                                <div t-if="errors and any(v for k, v in errors.items() if k != '__global__')" class="baf-apply-error-global">
-                                    <strong>Bitte korrigieren Sie die markierten Felder.</strong>
-                                </div>
-
-                                <div class="baf-form-head">
-                                    <span>Registrierungsformular</span>
-                                    <strong>Neue B2B-Anfrage</strong>
-                                    <p>
-                                        Bitte füllen Sie die folgenden Angaben vollständig aus.
-                                        Pflichtfelder sind mit * markiert.
-                                    </p>
-                                </div>
-
-                                <div class="baf-form-grid">
-
-                                    <div class="baf-field">
-                                        <label for="baf_company">Firma *</label>
-                                        <input id="baf_company" name="company" type="text" required="required"
-                                               autocomplete="organization"
-                                               t-att-value="(values or {}).get('company') or ''"
-                                               t-att-class="'is-error' if errors and errors.get('company') else None"
-                                               placeholder="z. B. Muster Autohaus GmbH"/>
-                                        <span t-if="errors and errors.get('company')" class="baf-field-error">
-                                            <t t-esc="errors['company']"/>
-                                        </span>
-                                    </div>
-
-                                    <div class="baf-field">
-                                        <label for="baf_contact">Ansprechpartner *</label>
-                                        <input id="baf_contact" name="contact" type="text" required="required"
-                                               autocomplete="name"
-                                               t-att-value="(values or {}).get('contact') or ''"
-                                               t-att-class="'is-error' if errors and errors.get('contact') else None"
-                                               placeholder="Vor- und Nachname"/>
-                                        <span t-if="errors and errors.get('contact')" class="baf-field-error">
-                                            <t t-esc="errors['contact']"/>
-                                        </span>
-                                    </div>
-
-                                    <div class="baf-field">
-                                        <label for="baf_email">E-Mail *</label>
-                                        <input id="baf_email" name="email" type="email" required="required"
-                                               autocomplete="email"
-                                               t-att-value="(values or {}).get('email') or ''"
-                                               t-att-class="'is-error' if errors and errors.get('email') else None"
-                                               placeholder="name@firma.de"/>
-                                        <span t-if="errors and errors.get('email')" class="baf-field-error">
-                                            <t t-esc="errors['email']"/>
-                                        </span>
-                                    </div>
-
-                                    <div class="baf-field">
-                                        <label for="baf_phone">Telefon *</label>
-                                        <input id="baf_phone" name="phone" type="tel" required="required"
-                                               autocomplete="tel"
-                                               t-att-value="(values or {}).get('phone') or ''"
-                                               t-att-class="'is-error' if errors and errors.get('phone') else None"
-                                               placeholder="+49 ..."/>
-                                        <span t-if="errors and errors.get('phone')" class="baf-field-error">
-                                            <t t-esc="errors['phone']"/>
-                                        </span>
-                                    </div>
-
-                                    <div class="baf-field baf-field-wide">
-                                        <label for="baf_vat">USt-IdNr. *</label>
-                                        <input id="baf_vat" name="vat" type="text" required="required"
-                                               autocomplete="off"
-                                               t-att-value="(values or {}).get('vat') or ''"
-                                               t-att-class="'is-error' if errors and errors.get('vat') else None"
-                                               placeholder="z. B. DE123456789"/>
-                                        <span t-if="errors and errors.get('vat')" class="baf-field-error">
-                                            <t t-esc="errors['vat']"/>
-                                        </span>
-                                    </div>
-
-                                    <div class="baf-field baf-field-wide">
-                                        <label for="baf_street">Straße / Hausnummer *</label>
-                                        <input id="baf_street" name="street" type="text" required="required"
-                                               autocomplete="address-line1"
-                                               t-att-value="(values or {}).get('street') or ''"
-                                               t-att-class="'is-error' if errors and errors.get('street') else None"
-                                               placeholder="Straße und Hausnummer"/>
-                                        <span t-if="errors and errors.get('street')" class="baf-field-error">
-                                            <t t-esc="errors['street']"/>
-                                        </span>
-                                    </div>
-
-                                    <div class="baf-field baf-field-wide">
-                                        <label for="baf_street2">Adresszusatz</label>
-                                        <input id="baf_street2" name="street2" type="text"
-                                               autocomplete="address-line2"
-                                               t-att-value="(values or {}).get('street2') or ''"
-                                               placeholder="Etage, Gebäude, c/o ..."/>
-                                    </div>
-
-                                    <div class="baf-field">
-                                        <label for="baf_zip">PLZ *</label>
-                                        <input id="baf_zip" name="zip" type="text" required="required"
-                                               autocomplete="postal-code"
-                                               t-att-value="(values or {}).get('zip') or ''"
-                                               t-att-class="'is-error' if errors and errors.get('zip') else None"
-                                               placeholder="PLZ"/>
-                                        <span t-if="errors and errors.get('zip')" class="baf-field-error">
-                                            <t t-esc="errors['zip']"/>
-                                        </span>
-                                    </div>
-
-                                    <div class="baf-field">
-                                        <label for="baf_city">Ort *</label>
-                                        <input id="baf_city" name="city" type="text" required="required"
-                                               autocomplete="address-level2"
-                                               t-att-value="(values or {}).get('city') or ''"
-                                               t-att-class="'is-error' if errors and errors.get('city') else None"
-                                               placeholder="Ort"/>
-                                        <span t-if="errors and errors.get('city')" class="baf-field-error">
-                                            <t t-esc="errors['city']"/>
-                                        </span>
-                                    </div>
-
-                                    <div class="baf-field">
-                                        <label for="baf_country_id">Land *</label>
-                                        <select id="baf_country_id" name="country_id" required="required"
-                                                autocomplete="country"
-                                                t-att-class="'is-error' if errors and errors.get('country_id') else None">
-                                            <option value="">— Bitte auswählen —</option>
-                                            <t t-foreach="countries or []" t-as="country">
-                                                <option t-att-value="country.id"
-                                                        t-att-selected="'selected' if str((values or {}).get('country_id') or '') == str(country.id) else None">
-                                                    <t t-esc="country.name"/>
-                                                </option>
-                                            </t>
-                                        </select>
-                                        <span t-if="errors and errors.get('country_id')" class="baf-field-error">
-                                            <t t-esc="errors['country_id']"/>
-                                        </span>
-                                    </div>
-
-                                    <div class="baf-field">
-                                        <label for="baf_state_id">Bundesland / Region</label>
-                                        <select id="baf_state_id" name="state_id"
-                                                data-selected-state-id=""
-                                                t-att-data-initial-state-id="(values or {}).get('state_id') or ''">
-                                            <option value="">— Optional —</option>
-                                        </select>
-                                    </div>
-
-                                    <div class="baf-field">
-                                        <label for="baf_customer_type">Kundentyp *</label>
-                                        <t t-set="ct_value" t-value="(values or {}).get('customer_type') or ''"/>
-                                        <select id="baf_customer_type" name="customer_type" required="required"
-                                                t-att-class="'is-error' if errors and errors.get('customer_type') else None">
-                                            <option value="">Bitte auswählen</option>
-                                            <t t-foreach="['Werkstatt', 'Autohandel', 'Teilehandel', 'Flotte', 'Sonstiges']" t-as="ct_opt">
-                                                <option t-att-value="ct_opt"
-                                                        t-att-selected="'selected' if ct_value == ct_opt else None">
-                                                    <t t-esc="ct_opt"/>
-                                                </option>
-                                            </t>
-                                        </select>
-                                        <span t-if="errors and errors.get('customer_type')" class="baf-field-error">
-                                            <t t-esc="errors['customer_type']"/>
-                                        </span>
-                                    </div>
-
-                                    <div class="baf-field baf-field-wide">
-                                        <span class="baf-brand-legend">Interessierte Marken</span>
-                                        <t t-set="selected_brand_ids" t-value="(values or {}).get('brand_ids') or []"/>
-                                        <div class="baf-brand-grid" role="group" aria-label="Interessierte Marken">
-                                            <t t-foreach="brands or []" t-as="brand">
-                                                <label class="baf-brand-option">
-                                                    <input type="checkbox" name="brand_ids"
-                                                           t-att-value="brand.id"
-                                                           t-att-checked="'checked' if brand.id in selected_brand_ids else None"/>
-                                                    <span><t t-esc="brand.name"/></span>
-                                                </label>
-                                            </t>
-                                            <t t-if="not brands">
-                                                <p class="baf-brand-empty">
-                                                    Aktuell sind keine Marken hinterlegt.
-                                                </p>
-                                            </t>
-                                        </div>
-                                        <small>
-                                            Mehrfachauswahl möglich – einfach mehrere Marken anklicken.
-                                        </small>
-                                    </div>
-
-                                    <div class="baf-field baf-field-wide">
-                                        <label for="baf_website">Website</label>
-                                        <input id="baf_website" name="website" type="text"
-                                               autocomplete="url"
-                                               t-att-value="(values or {}).get('website') or ''"
-                                               placeholder="z. B. www.meinefirma.de"/>
-                                        <small>
-                                            Optional. Sie müssen kein https:// eingeben.
-                                        </small>
-                                    </div>
-
-                                    <div class="baf-field baf-field-wide">
-                                        <label for="baf_trade_license">Gewerbeschein hochladen *</label>
-                                        <div class="baf-upload-field">
-                                            <input id="baf_trade_license" name="trade_license" type="file"
-                                                   accept=".pdf,.jpg,.jpeg,.png" required="required"
-                                                   t-att-class="'is-error' if errors and errors.get('trade_license') else None"/>
-                                            <p>
-                                                Erlaubte Formate: PDF, JPG, JPEG oder PNG.
-                                                Maximale Dateigröße: 10 MB.
-                                            </p>
-                                        </div>
-                                        <span t-if="errors and errors.get('trade_license')" class="baf-field-error">
-                                            <t t-esc="errors['trade_license']"/>
-                                        </span>
-                                    </div>
-
-                                    <div class="baf-field baf-field-wide">
-                                        <label for="baf_message">Nachricht</label>
-                                        <textarea id="baf_message" name="message" rows="5"
-                                                  placeholder="Weitere Informationen zu Ihrem Unternehmen oder Ihrer Anfrage"><t t-esc="(values or {}).get('message') or ''"/></textarea>
-                                    </div>
-                                </div>
-
-                                <div class="baf-register-warning">
-                                    <strong>Hinweis zur Freischaltung:</strong>
-                                    Nach dem Absenden wird Ihre Anfrage intern geprüft.
-                                    Ein Login ist erst nach manueller Aktivierung möglich.
-                                </div>
-
-                                <div class="baf-form-actions">
-                                    <a href="/web/login" class="baf-btn baf-btn-outline">
-                                        Zurück zum Login
-                                    </a>
-
-                                    <button type="submit" class="baf-btn baf-btn-dark">
-                                        B2B-Anfrage absenden
-                                    </button>
-                                </div>
-                            </form>
-                        </div>
-                    </div>
-                </section>
-
-                <script type="text/javascript"><![CDATA[
-                document.addEventListener('DOMContentLoaded', function () {
-                    var form = document.getElementById('bafB2BRegisterForm');
-                    var fileInput = document.getElementById('baf_trade_license');
-                    var websiteInput = document.getElementById('baf_website');
-
-                    var countrySelect = document.getElementById('baf_country_id');
-                    var stateSelect = document.getElementById('baf_state_id');
-
-                    function loadStates(countryId, preselectStateId) {
-                        if (!stateSelect) { return; }
-                        while (stateSelect.options.length > 1) {
-                            stateSelect.remove(1);
-                        }
-                        if (!countryId) { return; }
-                        fetch('/b2b/register/states?country_id=' + encodeURIComponent(countryId), {
-                            method: 'GET',
-                            credentials: 'same-origin',
-                            headers: { 'Accept': 'application/json' }
-                        })
-                        .then(function (response) {
-                            if (!response.ok) { throw new Error('states fetch failed'); }
-                            return response.json();
-                        })
-                        .then(function (data) {
-                            var states = (data && data.states) || [];
-                            states.forEach(function (state) {
-                                var opt = document.createElement('option');
-                                opt.value = state.id;
-                                opt.textContent = state.name;
-                                if (preselectStateId && String(state.id) === String(preselectStateId)) {
-                                    opt.selected = true;
-                                }
-                                stateSelect.appendChild(opt);
-                            });
-                        })
-                        .catch(function () { /* leave empty — state stays optional */ });
-                    }
-
-                    if (countrySelect) {
-                        var initialState = stateSelect ? (stateSelect.getAttribute('data-initial-state-id') || '') : '';
-                        if (countrySelect.value) {
-                            loadStates(countrySelect.value, initialState);
-                        }
-                        countrySelect.addEventListener('change', function () {
-                            loadStates(countrySelect.value, '');
-                        });
-                    }
-
-                    if (form && fileInput) {
-                        form.addEventListener('submit', function (event) {
-                            var file = fileInput.files && fileInput.files[0];
-                            if (websiteInput && websiteInput.value) {
-                                var websiteValue = String(websiteInput.value || '').trim();
-                                if (websiteValue && !/^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//.test(websiteValue)) {
-                                    websiteInput.value = 'https://' + websiteValue;
-                                }
-                            }
-                            if (!file) {
-                                event.preventDefault();
-                                alert('Bitte laden Sie Ihren Gewerbeschein hoch.');
-                                return;
-                            }
-                            var allowedTypes = ['application/pdf', 'image/jpeg', 'image/png'];
-                            var allowedExtensions = /\.(pdf|jpg|jpeg|png)$/i;
-                            var fileName = String(file.name || '');
-                            if (allowedTypes.indexOf(file.type) === -1 && !allowedExtensions.test(fileName)) {
-                                event.preventDefault();
-                                alert('Bitte laden Sie nur PDF, JPG, JPEG oder PNG hoch.');
-                                return;
-                            }
-                            var maxSizeMb = 10;
-                            var maxSizeBytes = maxSizeMb * 1024 * 1024;
-                            if (file.size > maxSizeBytes) {
-                                event.preventDefault();
-                                alert('Die Datei ist zu groß. Maximal erlaubt sind ' + maxSizeMb + ' MB.');
-                                return;
-                            }
-                        });
-                    }
-                });
-                ]]></script>
-
-                <style>
-                    .baf-register-page {
-                        --baf-black: #000000;
-                        --baf-white: #ffffff;
-                        --baf-gray-50: #f7f7f7;
-                        --baf-gray-100: #eeeeee;
-                        --baf-gray-200: #d8d8d8;
-                        --baf-gray-500: #777777;
-                        --baf-gray-700: #333333;
-                        --baf-radius: 24px;
-                        --baf-shadow: 0 16px 42px rgba(0,0,0,0.10);
-                        background: var(--baf-white);
-                        color: var(--baf-black);
-                        font-family: Inter, Arial, sans-serif;
-                    }
-
-                    .baf-register-hero {
-                        padding: 42px 0 28px;
-                        background:
-                            radial-gradient(circle at top right, rgba(0,0,0,0.08), transparent 32%),
-                            linear-gradient(135deg, #ffffff 0%, #f4f4f4 100%);
-                        border-bottom: 1px solid var(--baf-gray-200);
-                    }
-
-                    .baf-register-hero-inner {
-                        display: grid;
-                        grid-template-columns: minmax(0, 1fr) 360px;
-                        gap: 24px;
-                        align-items: center;
-                    }
-
-                    .baf-register-page .baf-kicker {
-                        display: inline-flex;
-                        margin-bottom: 8px;
-                        color: var(--baf-gray-700);
-                        font-size: 12px;
-                        font-weight: 950;
-                        letter-spacing: 0.16em;
-                        text-transform: uppercase;
-                    }
-
-                    .baf-register-hero h1 {
-                        margin: 0;
-                        color: var(--baf-black);
-                        font-size: clamp(40px, 5vw, 72px);
-                        font-weight: 950;
-                        letter-spacing: -0.065em;
-                        line-height: 0.96;
-                    }
-
-                    .baf-register-hero p {
-                        max-width: 820px;
-                        margin: 16px 0 0;
-                        color: var(--baf-gray-700);
-                        font-size: 18px;
-                        line-height: 1.55;
-                    }
-
-                    .baf-register-status {
-                        padding: 22px;
-                        border: 1px solid var(--baf-gray-200);
-                        border-radius: var(--baf-radius);
-                        background: rgba(255,255,255,0.92);
-                        box-shadow: var(--baf-shadow);
-                    }
-
-                    .baf-register-status strong {
-                        display: block;
-                        margin-bottom: 8px;
-                        color: var(--baf-black);
-                        font-size: 18px;
-                        font-weight: 950;
-                    }
-
-                    .baf-register-status span {
-                        color: var(--baf-gray-500);
-                        font-size: 14px;
-                        line-height: 1.5;
-                    }
-
-                    .baf-register-section {
-                        padding: 34px 0 70px;
-                    }
-
-                    .baf-register-grid {
-                        display: grid;
-                        grid-template-columns: 340px minmax(0, 1fr);
-                        gap: 24px;
-                        align-items: start;
-                    }
-
-                    .baf-register-info,
-                    .baf-register-form {
-                        border: 1px solid var(--baf-gray-200);
-                        border-radius: var(--baf-radius);
-                        background: var(--baf-white);
-                        box-shadow: var(--baf-shadow);
-                    }
-
-                    .baf-register-info {
-                        padding: 24px;
-                        position: sticky;
-                        top: 24px;
-                    }
-
-                    .baf-register-info h2 {
-                        margin: 0 0 16px;
-                        color: var(--baf-black);
-                        font-size: 26px;
-                        font-weight: 950;
-                        letter-spacing: -0.04em;
-                        line-height: 1.05;
-                    }
-
-                    .baf-register-info ol {
-                        margin: 0;
-                        padding-left: 20px;
-                        color: var(--baf-gray-700);
-                        line-height: 1.7;
-                        font-weight: 750;
-                    }
-
-                    .baf-info-box {
-                        margin-top: 22px;
-                        padding: 16px;
-                        border-radius: 18px;
-                        background: var(--baf-gray-50);
-                        border: 1px solid var(--baf-gray-200);
-                    }
-
-                    .baf-info-box strong {
-                        display: block;
-                        margin-bottom: 6px;
-                        color: var(--baf-black);
-                        font-weight: 950;
-                    }
-
-                    .baf-info-box p {
-                        margin: 0;
-                        color: var(--baf-gray-500);
-                        font-size: 13px;
-                        line-height: 1.5;
-                        font-weight: 700;
-                    }
-
-                    .baf-register-form {
-                        padding: 24px;
-                    }
-
-                    .baf-form-head {
-                        margin-bottom: 22px;
-                        padding-bottom: 18px;
-                        border-bottom: 1px solid var(--baf-gray-100);
-                    }
-
-                    .baf-form-head span {
-                        display: block;
-                        margin-bottom: 6px;
-                        color: var(--baf-gray-500);
-                        font-size: 12px;
-                        font-weight: 950;
-                        letter-spacing: 0.12em;
-                        text-transform: uppercase;
-                    }
-
-                    .baf-form-head strong {
-                        display: block;
-                        color: var(--baf-black);
-                        font-size: 30px;
-                        font-weight: 950;
-                        letter-spacing: -0.05em;
-                        line-height: 1;
-                    }
-
-                    .baf-form-head p {
-                        margin: 10px 0 0;
-                        color: var(--baf-gray-500);
-                        font-size: 14px;
-                        line-height: 1.5;
-                    }
-
-                    .baf-form-grid {
-                        display: grid;
-                        grid-template-columns: repeat(2, minmax(0, 1fr));
-                        gap: 16px;
-                    }
-
-                    .baf-field-wide {
-                        grid-column: 1 / -1;
-                    }
-
-                    .baf-field label {
-                        display: block;
-                        margin-bottom: 8px;
-                        color: var(--baf-black);
-                        font-size: 14px;
-                        font-weight: 950;
-                    }
-
-                    .baf-field small {
-                        display: block;
-                        margin-top: 8px;
-                        color: var(--baf-gray-500);
-                        font-size: 12px;
-                        line-height: 1.45;
-                        font-weight: 700;
-                    }
-
-                    .baf-field input,
-                    .baf-field select,
-                    .baf-field textarea {
-                        width: 100%;
-                        min-height: 48px;
-                        border: 1px solid var(--baf-gray-200);
-                        border-radius: 16px;
-                        padding: 12px 14px;
-                        color: var(--baf-black);
-                        background: var(--baf-white);
-                        font-size: 15px;
-                        outline: none;
-                        box-sizing: border-box;
-                    }
-
-                    .baf-field textarea {
-                        resize: vertical;
-                    }
-
-                    .baf-brand-legend {
-                        display: block;
-                        margin-bottom: 8px;
-                        color: var(--baf-black);
-                        font-size: 14px;
-                        font-weight: 950;
-                    }
-
-                    .baf-brand-grid {
-                        display: flex;
-                        flex-wrap: wrap;
-                        gap: 8px;
-                        padding: 12px;
-                        border: 1px solid var(--baf-gray-200);
-                        border-radius: 16px;
-                        background: var(--baf-white);
-                        max-height: 220px;
-                        overflow-y: auto;
-                    }
-
-                    .baf-brand-option {
-                        display: inline-flex;
-                        align-items: center;
-                        gap: 8px;
-                        margin: 0;
-                        padding: 8px 14px;
-                        border: 1px solid var(--baf-gray-200);
-                        border-radius: 999px;
-                        background: var(--baf-gray-50);
-                        color: var(--baf-black);
-                        font-size: 13px;
-                        font-weight: 700;
-                        cursor: pointer;
-                        transition: background 0.15s ease, border-color 0.15s ease;
-                    }
-
-                    .baf-brand-option:hover {
-                        background: var(--baf-gray-100);
-                    }
-
-                    .baf-brand-option input[type="checkbox"] {
-                        width: auto;
-                        min-height: auto;
-                        margin: 0;
-                        padding: 0;
-                        border: none;
-                        background: transparent;
-                        accent-color: var(--baf-black);
-                    }
-
-                    .baf-brand-option:has(input[type="checkbox"]:checked) {
-                        background: var(--baf-black);
-                        border-color: var(--baf-black);
-                        color: var(--baf-white);
-                    }
-
-                    .baf-brand-empty {
-                        margin: 0;
-                        color: var(--baf-gray-500);
-                        font-size: 13px;
-                        font-weight: 700;
-                    }
-
-                    .baf-field input.is-error,
-                    .baf-field select.is-error,
-                    .baf-field textarea.is-error {
-                        border-color: #b91c1c;
-                        background: #fff5f5;
-                    }
-
-                    .baf-field-error {
-                        display: block;
-                        margin-top: 6px;
-                        color: #b91c1c;
-                        font-size: 12px;
-                        font-weight: 700;
-                        line-height: 1.4;
-                    }
-
-                    .baf-apply-error-global {
-                        margin-bottom: 16px;
-                        padding: 14px 18px;
-                        border: 1px solid #b91c1c;
-                        border-radius: 14px;
-                        background: #fff5f5;
-                        color: #7a1414;
-                        font-size: 14px;
-                        font-weight: 800;
-                        line-height: 1.45;
-                    }
-
-                    .baf-apply-error-global strong {
-                        color: #7a1414;
-                        font-weight: 950;
-                    }
-
-                    .baf-field input:focus,
-                    .baf-field select:focus,
-                    .baf-field textarea:focus {
-                        border-color: var(--baf-black);
-                        box-shadow: 0 0 0 5px rgba(0,0,0,0.08);
-                    }
-
-                    .baf-address-autocomplete {
-                        padding: 16px;
-                        border: 1px solid var(--baf-gray-200);
-                        border-radius: 18px;
-                        background: var(--baf-gray-50);
-                    }
-
-                    .baf-address-search-wrap {
-                        position: relative;
-                    }
-
-                    .baf-address-suggestions {
-                        display: none;
-                        position: absolute;
-                        left: 0;
-                        right: 0;
-                        top: calc(100% + 8px);
-                        z-index: 50;
-                        max-height: 280px;
-                        overflow-y: auto;
-                        border: 1px solid var(--baf-gray-200);
-                        border-radius: 18px;
-                        background: var(--baf-white);
-                        box-shadow: 0 18px 42px rgba(0,0,0,0.14);
-                        padding: 8px;
-                    }
-
-                    .baf-address-suggestions.is-visible {
-                        display: block;
-                    }
-
-                    .baf-address-suggestion {
-                        width: 100%;
-                        display: block;
-                        border: 0;
-                        border-radius: 14px;
-                        padding: 12px;
-                        background: var(--baf-white);
-                        color: var(--baf-black);
-                        text-align: left;
-                        cursor: pointer;
-                    }
-
-                    .baf-address-suggestion:hover,
-                    .baf-address-suggestion:focus {
-                        background: var(--baf-gray-50);
-                        outline: none;
-                    }
-
-                    .baf-address-suggestion strong {
-                        display: block;
-                        color: var(--baf-black);
-                        font-size: 14px;
-                        font-weight: 950;
-                        line-height: 1.3;
-                    }
-
-                    .baf-address-suggestion span {
-                        display: block;
-                        margin-top: 4px;
-                        color: var(--baf-gray-500);
-                        font-size: 12px;
-                        line-height: 1.4;
-                        font-weight: 700;
-                    }
-
-                    .baf-address-suggestion.is-empty {
-                        cursor: default;
-                        color: var(--baf-gray-500);
-                        font-weight: 800;
-                    }
-
-                    .baf-address-suggestion.is-empty:hover {
-                        background: var(--baf-white);
-                    }
-
-                    .baf-zip-status {
-                        min-height: 18px;
-                    }
-
-                    .baf-zip-status.is-loading {
-                        color: var(--baf-gray-500);
-                    }
-
-                    .baf-zip-status.is-success {
-                        color: #176b2c;
-                    }
-
-                    .baf-zip-status.is-error {
-                        color: #9b1c1c;
-                    }
-
-                    .baf-upload-field {
-                        border: 2px dashed var(--baf-gray-200);
-                        border-radius: 18px;
-                        padding: 18px;
-                        background: var(--baf-gray-50);
-                    }
-
-                    .baf-upload-field input[type="file"] {
-                        min-height: auto;
-                        border: 0;
-                        border-radius: 0;
-                        padding: 0;
-                        background: transparent;
-                    }
-
-                    .baf-upload-field p {
-                        margin: 10px 0 0;
-                        color: var(--baf-gray-500);
-                        font-size: 13px;
-                        line-height: 1.5;
-                        font-weight: 750;
-                    }
-
-                    .baf-register-warning {
-                        margin-top: 20px;
-                        padding: 16px 18px;
-                        border: 1px solid var(--baf-gray-200);
-                        border-radius: 18px;
-                        background: var(--baf-gray-50);
-                        color: var(--baf-gray-700);
-                        font-size: 14px;
-                        line-height: 1.5;
-                    }
-
-                    .baf-register-warning strong {
-                        color: var(--baf-black);
-                        font-weight: 950;
-                    }
-
-                    .baf-form-actions {
-                        display: flex;
-                        justify-content: space-between;
-                        gap: 12px;
-                        flex-wrap: wrap;
-                        margin-top: 22px;
-                    }
-
-                    .baf-btn {
-                        display: inline-flex;
-                        align-items: center;
-                        justify-content: center;
-                        min-height: 46px;
-                        border-radius: 999px;
-                        border: 1px solid var(--baf-black);
-                        padding: 12px 20px;
-                        font-weight: 950;
-                        text-decoration: none !important;
-                        cursor: pointer;
-                        transition: 0.18s ease;
-                    }
-
-                    .baf-btn-dark {
-                        background: var(--baf-black) !important;
-                        color: var(--baf-white) !important;
-                        border-color: var(--baf-black) !important;
-                    }
-
-                    .baf-btn-outline {
-                        background: var(--baf-white);
-                        color: var(--baf-black) !important;
-                    }
-
-                    .baf-btn:hover {
-                        opacity: 0.82;
-                        transform: translateY(-1px);
-                    }
-
-                    @media (max-width: 992px) {
-                        .baf-register-hero-inner,
-                        .baf-register-grid {
-                            grid-template-columns: 1fr;
-                        }
-
-                        .baf-register-info {
-                            position: static;
-                        }
-                    }
-
-                    @media (max-width: 640px) {
-                        .baf-register-hero {
-                            padding: 30px 0 22px;
-                        }
-
-                        .baf-register-hero h1 {
-                            font-size: 40px;
-                        }
-
-                        .baf-register-hero p {
-                            font-size: 16px;
-                        }
-
-                        .baf-register-form,
-                        .baf-register-info,
-                        .baf-register-status {
-                            padding: 18px;
-                        }
-
-                        .baf-form-grid {
-                            grid-template-columns: 1fr;
-                        }
-
-                        .baf-form-actions,
-                        .baf-btn {
-                            width: 100%;
-                        }
-
-                        .baf-address-suggestions {
-                            max-height: 240px;
-                        }
-                    }
-                </style>
             </div>
         </t>
     </template>

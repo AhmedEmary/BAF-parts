@@ -6,17 +6,9 @@
          anyone without a signup token. New B2B customers must use
          /b2b/apply; their portal user is created (with token) only after
          internal approval, and the signup email carries the token. -->
-    <function model="ir.config_parameter" name="set_param">
-        <value>auth_signup.invitation_scope</value>
-        <value>b2b</value>
-    </function>
-
-    <!-- Extend the signup token validity to 30 days (default is 144h / 6 days).
-         B2B applicants often don't act on the activation email immediately;
-         a longer window reduces "link doesn't work" support requests. -->
-    <function model="ir.config_parameter" name="set_param">
-        <value>auth_signup.signup.validity.hours</value>
-        <value>720</value>
-    </function>
+    <record id="auth_signup_invitation_scope" model="ir.config_parameter">
+        <field name="key">auth_signup.invitation_scope</field>
+        <field name="value">b2b</field>
+    </record>
 
 </odoo>

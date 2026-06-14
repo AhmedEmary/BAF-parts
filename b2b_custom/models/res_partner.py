@@ -1,5 +1,3 @@
-from markupsafe import Markup
-
 from odoo import _, api, fields, models
 from odoo.exceptions import UserError
 
@@ -29,15 +27,6 @@ class ResPartner(models.Model):
         copy=False,
         help="Free-text message submitted by the customer on the application form.",
     )
-    baf_trade_license = fields.Binary(
-        string='Trade License (Gewerbeschein)',
-        copy=False,
-        attachment=True,
-    )
-    baf_trade_license_filename = fields.Char(
-        string='Trade License Filename',
-        copy=False,
-    )
 
     def _baf_b2b_groups(self):
         portal = self.env.ref('base.group_portal', raise_if_not_found=False)
@@ -60,11 +49,11 @@ class ResPartner(models.Model):
             user = User.with_context(no_reset_password=True).create({
                 'login': self.email,
                 'partner_id': self.id,
-                'group_ids': [(6, 0, [portal_group.id, b2b_group.id])],
+                'groups_id': [(6, 0, [portal_group.id, b2b_group.id])],
             })
         else:
             user.sudo().write({
-                'group_ids': [(4, portal_group.id), (4, b2b_group.id)],
+                'groups_id': [(4, portal_group.id), (4, b2b_group.id)],
             })
         return user
 
@@ -89,10 +78,10 @@ class ResPartner(models.Model):
             )
             if template:
                 template.sudo().send_mail(partner.id, force_send=True)
-                partner._baf_b2b_log_invitation(template, prefix=_("B2B signup invitation sent to"))
 
     def action_baf_b2b_reject(self):
-        """Mark application rejected. Revokes B2B group but keeps the contact."""
+        """Mark application rejected. Revokes B2B group (and optionally
+        deactivates the portal user) but keeps the contact for the record."""
         for partner in self:
             partner.write({
                 'baf_b2b_state': 'rejected',
@@ -101,14 +90,14 @@ class ResPartner(models.Model):
             })
             _, b2b_group = partner._baf_b2b_groups()
             if b2b_group and partner.user_ids:
-                partner.user_ids.sudo().write({'group_ids': [(3, b2b_group.id)]})
+                partner.user_ids.sudo().write({'groups_id': [(3, b2b_group.id)]})
 
     def action_baf_b2b_reset_to_pending(self):
         """Push an approved or rejected application back to pending review."""
         for partner in self:
             _, b2b_group = partner._baf_b2b_groups()
             if b2b_group and partner.user_ids:
-                partner.user_ids.sudo().write({'group_ids': [(3, b2b_group.id)]})
+                partner.user_ids.sudo().write({'groups_id': [(3, b2b_group.id)]})
             partner.write({
                 'baf_b2b_state': 'pending',
                 'baf_b2b_approved_at': False,
@@ -129,28 +118,6 @@ class ResPartner(models.Model):
             )
             if template:
                 template.sudo().send_mail(partner.id, force_send=True)
-                partner._baf_b2b_log_invitation(template, prefix=_("B2B signup invitation re-sent to"))
-
-    def _baf_b2b_log_invitation(self, template, prefix):
-        """Post an internal note on the partner chatter with the recipient,
-        the activation link (so staff can copy it if mail delivery fails),
-        and the full rendered email body for reference."""
-        self.ensure_one()
-        signup_url = self.sudo()._get_signup_url() or ''
-        try:
-            rendered = template.sudo()._render_field('body_html', [self.id])
-        except Exception:
-            rendered = {}
-        body_html = rendered.get(self.id, '') if isinstance(rendered, dict) else (rendered or '')
-        note = Markup(
-            "<p>%s <strong>%s</strong>.</p>"
-            "<p><strong>Activation link:</strong><br/>"
-            "<a href=\"%s\" style=\"word-break:break-all;\">%s</a></p>"
-            "<hr/>"
-            "<p><em>Email preview:</em></p>"
-            "%s"
-        ) % (prefix, self.email or '', signup_url, signup_url, body_html)
-        self.message_post(body=note, subtype_xmlid='mail.mt_note')
 
     @api.model
     def baf_b2b_create_application(self, vals):
@@ -161,12 +128,9 @@ class ResPartner(models.Model):
             'email': (vals.get('email') or '').strip(),
             'phone': (vals.get('phone') or '').strip(),
             'street': (vals.get('street') or '').strip(),
-            'street2': (vals.get('street2') or '').strip(),
             'city': (vals.get('city') or '').strip(),
             'zip': (vals.get('zip') or '').strip(),
             'vat': (vals.get('vat') or '').strip(),
-            'country_id': vals.get('country_id') or False,
-            'state_id': vals.get('state_id') or False,
             'company_type': 'company' if vals.get('company_name') else 'person',
             'is_company': bool(vals.get('company_name')),
             'baf_b2b_state': 'pending',
@@ -174,9 +138,6 @@ class ResPartner(models.Model):
             'baf_b2b_application_note': (vals.get('note') or '').strip(),
             'customer_rank': 1,
         }
-        brand_ids = vals.get('brand_ids') or []
-        if brand_ids:
-            partner_vals['visible_brand_ids'] = [(6, 0, list(brand_ids))]
         contact_name = (vals.get('contact_name') or '').strip()
         partner = self.sudo().create(partner_vals)
         if contact_name and partner_vals['company_type'] == 'company':
