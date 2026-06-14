@@ -1,0 +1,766 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <template id="portal_my_home_baf" name="My Portal" inherit_id="portal.portal_my_home" priority="100">
+        <xpath expr="//t[@t-call='portal.portal_layout']" position="replace">
+            <t t-call="portal.portal_layout">
+                <t t-set="my_details" t-value="False"/>
+
+                <div class="baf-account-page">
+
+                    <section class="baf-account-hero o_colored_level">
+                        <div class="baf-bg-grid"/>
+
+                        <div class="container">
+                            <div class="baf-account-hero-inner">
+                                <div class="baf-account-title">
+                                    <span class="baf-kicker">BAF Parts B2B</span>
+                                    <h1>Mein Konto</h1>
+                                    <p>
+                                        Ihr zentraler Einkaufsbereich für Schnellbestellung, Preisdateien,
+                                        Warenkorb, Bestellungen und Kontoverwaltung.
+                                    </p>
+                                </div>
+
+                                <div class="baf-user-card">
+                                    <span>Angemeldet als</span>
+                                    <strong>
+                                        <t t-esc="request.env.user.name"/>
+                                    </strong>
+                                    <small>
+                                        <t t-esc="request.env.user.partner_id.commercial_company_name or request.env.user.partner_id.name"/>
+                                    </small>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+
+                    <section class="baf-account-main o_colored_level">
+                        <div class="container">
+
+                            <div class="baf-primary-grid">
+
+                                <a href="/bestellsystem" class="baf-primary-card dark">
+                                    <div class="baf-card-top">
+                                        <span>01</span>
+                                        <div class="baf-card-icon baf-icon-order">⌕</div>
+                                    </div>
+
+                                    <div class="baf-card-content">
+                                        <div class="baf-card-label">
+                                            <span class="baf-mini-icon">+</span>
+                                            <span>Schnell bestellen</span>
+                                        </div>
+
+                                        <h2>Schnellbestellung</h2>
+                                        <p>
+                                            Teilenummern eingeben, Excel-Listen hochladen und Artikel direkt in den Warenkorb legen.
+                                        </p>
+                                    </div>
+
+                                    <strong>Bestellung starten</strong>
+                                </a>
+
+                                <a href="/pricefile" class="baf-primary-card">
+                                    <div class="baf-card-top">
+                                        <span>02</span>
+                                        <div class="baf-card-icon baf-icon-download">↓</div>
+                                    </div>
+
+                                    <div class="baf-card-content">
+                                        <div class="baf-card-label">
+                                            <span class="baf-mini-icon">€</span>
+                                            <span>Monatliche Dateien</span>
+                                        </div>
+
+                                        <h2>Preisdateien</h2>
+                                        <p>
+                                            Aktuelle monatliche Preislisten passend zu Ihrer Kundengruppe herunterladen.
+                                        </p>
+                                    </div>
+
+                                    <strong>Preislisten öffnen</strong>
+                                </a>
+
+                                <a href="/shop/cart" class="baf-primary-card">
+                                    <div class="baf-card-top">
+                                        <span>03</span>
+                                        <div class="baf-card-icon baf-icon-cart">▣</div>
+                                    </div>
+
+                                    <div class="baf-card-content">
+                                        <div class="baf-card-label">
+                                            <span class="baf-mini-icon">✓</span>
+                                            <span>Bestellung prüfen</span>
+                                        </div>
+
+                                        <h2>Warenkorb</h2>
+                                        <p>
+                                            Aktuelle Auswahl prüfen, Mengen kontrollieren und Bestellung abschließen.
+                                        </p>
+                                    </div>
+
+                                    <strong>Warenkorb öffnen</strong>
+                                </a>
+
+                            </div>
+
+                        </div>
+                    </section>
+
+                    <section class="baf-account-secondary o_colored_level">
+                        <div class="container">
+
+                            <div class="baf-section-head">
+                                <span class="baf-kicker">Kontoübersicht</span>
+                                <h2>Wichtige Bereiche</h2>
+                            </div>
+
+                            <div class="baf-secondary-grid">
+
+                                <a href="/my/orders" class="baf-secondary-card">
+                                    <div class="baf-secondary-icon">📦</div>
+                                    <span>Bestellungen</span>
+                                    <strong>Meine Bestellungen</strong>
+                                    <p>Bestellhistorie und Status öffnen.</p>
+                                </a>
+
+                                <a href="/my/invoices" class="baf-secondary-card">
+                                    <div class="baf-secondary-icon">▤</div>
+                                    <span>Dokumente</span>
+                                    <strong>Rechnungen</strong>
+                                    <p>Rechnungen und Zahlstatus ansehen.</p>
+                                </a>
+
+                                <a href="/my/quotes" class="baf-secondary-card">
+                                    <div class="baf-secondary-icon">%</div>
+                                    <span>Angebote</span>
+                                    <strong>Meine Angebote</strong>
+                                    <p>Offene Angebote prüfen.</p>
+                                </a>
+
+                                <a href="/my/addresses" class="baf-secondary-card">
+                                    <div class="baf-secondary-icon">⌂</div>
+                                    <span>Konto</span>
+                                    <strong>Adressen</strong>
+                                    <p>Liefer- und Rechnungsadressen verwalten.</p>
+                                </a>
+
+                                <a href="/my/security" class="baf-secondary-card">
+                                    <div class="baf-secondary-icon">●</div>
+                                    <span>Sicherheit</span>
+                                    <strong>Login &amp; Sicherheit</strong>
+                                    <p>Zugang und Sicherheitseinstellungen öffnen.</p>
+                                </a>
+
+                                <a href="/contactus" class="baf-secondary-card dark">
+                                    <div class="baf-secondary-icon">?</div>
+                                    <span>Support</span>
+                                    <strong>B2B Support</strong>
+                                    <p>Fragen zu Teilenummern oder Großbestellungen senden.</p>
+                                </a>
+
+                            </div>
+
+                        </div>
+                    </section>
+
+                    <section class="baf-account-cta o_colored_level">
+                        <div class="container">
+                            <div class="baf-cta-inner">
+                                <div>
+                                    <span class="baf-kicker">Direkt weiterarbeiten</span>
+                                    <strong>Bereit für die nächste Bestellung?</strong>
+                                    <p>
+                                        Starten Sie eine neue Schnellbestellung oder öffnen Sie Ihren Warenkorb.
+                                    </p>
+                                </div>
+
+                                <div class="baf-cta-actions">
+                                    <a href="/bestellsystem" class="baf-btn-light">Neue Bestellung</a>
+                                    <a href="/shop/cart" class="baf-btn-outline">Warenkorb öffnen</a>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+
+                </div>
+
+                <!-- Odoo compatibility structure.
+                     Do not remove. Other portal modules use XPath targets inside this block. -->
+                <div class="o_portal_my_home baf-portal-compat">
+                    <div class="oe_structure" id="oe_structure_portal_my_home_1"/>
+
+                    <div class="o_portal_docs row g-2">
+                        <div t-if="portal_alert_category_enable" class="o_portal_category row g-2 mt-3" id="portal_alert_category"/>
+                        <div t-if="portal_client_category_enable" class="o_portal_category row g-2 mt-3" id="portal_client_category"/>
+                        <div t-if="portal_service_category_enable" class="o_portal_category row g-2 mt-3" id="portal_service_category"/>
+                        <div t-if="portal_vendor_category_enable" class="o_portal_category row g-2 mt-3" id="portal_vendor_category"/>
+                        <div class="o_portal_category row g-2 mt-3" id="portal_common_category"/>
+                        <div class="o_portal_doc_spinner spinner-border text-o-color-2 align-self-center mt-5"/>
+                    </div>
+
+                    <div class="oe_structure" id="oe_structure_portal_my_home_2"/>
+                </div>
+
+                <style>
+                    .baf-portal-compat {
+                        display: none !important;
+                        visibility: hidden !important;
+                        height: 0 !important;
+                        max-height: 0 !important;
+                        overflow: hidden !important;
+                        opacity: 0 !important;
+                        pointer-events: none !important;
+                    }
+
+                    .o_portal_wrap,
+                    .o_portal_my_home,
+                    .o_portal_docs {
+                        margin-top: 0 !important;
+                    }
+
+                    .o_ribbon,
+                    .o_ribbon_wrapper,
+                    .ribbon,
+                    .ribbon-wrapper,
+                    [class*="ribbon"],
+                    [class*="Ribbon"] {
+                        display: none !important;
+                    }
+
+                    :root {
+                        --baf-black: #000000;
+                        --baf-white: #ffffff;
+                        --baf-gray-50: #f7f7f7;
+                        --baf-gray-100: #eeeeee;
+                        --baf-gray-200: #d8d8d8;
+                        --baf-gray-300: #cfcfcf;
+                        --baf-gray-500: #777777;
+                        --baf-gray-700: #333333;
+                        --baf-radius: 24px;
+                        --baf-shadow: 0 18px 46px rgba(0,0,0,0.10);
+                    }
+
+                    .baf-account-page {
+                        background: var(--baf-white);
+                        color: var(--baf-black);
+                        font-family: Inter, Arial, sans-serif;
+                        overflow: hidden;
+                        margin-top: 0;
+                    }
+
+                    .baf-account-page .container {
+                        max-width: 1320px;
+                    }
+
+                    .baf-account-hero {
+                        position: relative;
+                        overflow: hidden;
+                        padding: 48px 0 42px;
+                        background:
+                            radial-gradient(circle at top right, rgba(0,0,0,0.055), transparent 34%),
+                            linear-gradient(135deg, #ffffff 0%, #f4f4f4 100%);
+                        border-bottom: 1px solid var(--baf-gray-200);
+                    }
+
+                    .baf-bg-grid {
+                        position: absolute;
+                        inset: 0;
+                        background-image:
+                            linear-gradient(rgba(0,0,0,0.045) 1px, transparent 1px),
+                            linear-gradient(90deg, rgba(0,0,0,0.045) 1px, transparent 1px);
+                        background-size: 42px 42px;
+                        mask-image: linear-gradient(to bottom, black, transparent 90%);
+                        pointer-events: none;
+                    }
+
+                    .baf-account-hero-inner {
+                        position: relative;
+                        display: grid;
+                        grid-template-columns: minmax(0, 1fr) 340px;
+                        gap: 34px;
+                        align-items: center;
+                    }
+
+                    .baf-kicker {
+                        display: inline-flex;
+                        margin-bottom: 10px;
+                        color: var(--baf-gray-700);
+                        font-size: 11px;
+                        font-weight: 950;
+                        letter-spacing: 0.15em;
+                        text-transform: uppercase;
+                    }
+
+                    .baf-account-title h1,
+                    .baf-section-head h2 {
+                        margin: 0;
+                        color: var(--baf-black);
+                        font-weight: 950;
+                        letter-spacing: -0.075em;
+                        line-height: 0.92;
+                    }
+
+                    .baf-account-title h1 {
+                        font-size: clamp(48px, 6vw, 82px);
+                    }
+
+                    .baf-account-title p {
+                        max-width: 760px;
+                        margin: 18px 0 0;
+                        color: var(--baf-gray-700);
+                        font-size: 17px;
+                        line-height: 1.55;
+                        font-weight: 800;
+                    }
+
+                    .baf-user-card {
+                        min-height: 178px;
+                        display: flex;
+                        flex-direction: column;
+                        justify-content: center;
+                        background: var(--baf-black);
+                        color: var(--baf-white);
+                        border-radius: var(--baf-radius);
+                        padding: 26px;
+                        box-shadow: var(--baf-shadow);
+                    }
+
+                    .baf-user-card span,
+                    .baf-user-card strong,
+                    .baf-user-card small {
+                        display: block;
+                    }
+
+                    .baf-user-card span {
+                        margin-bottom: 14px;
+                        color: #d0d0d0;
+                        font-size: 11px;
+                        font-weight: 950;
+                        letter-spacing: 0.13em;
+                        text-transform: uppercase;
+                    }
+
+                    .baf-user-card strong {
+                        font-size: 27px;
+                        line-height: 1.05;
+                        font-weight: 950;
+                        letter-spacing: -0.055em;
+                        word-break: break-word;
+                    }
+
+                    .baf-user-card small {
+                        margin-top: 10px;
+                        color: #d0d0d0;
+                        font-size: 13px;
+                        line-height: 1.4;
+                        font-weight: 750;
+                        word-break: break-word;
+                    }
+
+                    .baf-account-main {
+                        padding: 44px 0 48px;
+                        background: var(--baf-white);
+                    }
+
+                    .baf-primary-grid {
+                        display: grid;
+                        grid-template-columns: 1.15fr 1fr 1fr;
+                        gap: 18px;
+                    }
+
+                    .baf-primary-card {
+                        min-height: 270px;
+                        display: flex;
+                        flex-direction: column;
+                        justify-content: space-between;
+                        border: 1px solid var(--baf-gray-200);
+                        border-radius: var(--baf-radius);
+                        background: var(--baf-white);
+                        color: var(--baf-black) !important;
+                        text-decoration: none !important;
+                        padding: 26px;
+                        box-shadow: 0 12px 34px rgba(0,0,0,0.055);
+                        transition: 0.2s ease;
+                        overflow: hidden;
+                    }
+
+                    .baf-primary-card:hover,
+                    .baf-secondary-card:hover {
+                        transform: translateY(-4px);
+                        box-shadow: 0 22px 54px rgba(0,0,0,0.13);
+                    }
+
+                    .baf-primary-card.dark,
+                    .baf-secondary-card.dark {
+                        background: var(--baf-black);
+                        color: var(--baf-white) !important;
+                        border-color: var(--baf-black);
+                    }
+
+                    .baf-card-top {
+                        display: flex;
+                        justify-content: space-between;
+                        align-items: flex-start;
+                        gap: 14px;
+                        margin-bottom: 18px;
+                    }
+
+                    .baf-card-top span {
+                        color: var(--baf-gray-500);
+                        font-size: 13px;
+                        font-weight: 950;
+                        letter-spacing: 0.12em;
+                    }
+
+                    .baf-primary-card.dark .baf-card-top span,
+                    .baf-secondary-card.dark span {
+                        color: #d0d0d0;
+                    }
+
+                    .baf-card-icon {
+                        width: 54px;
+                        height: 54px;
+                        display: inline-flex;
+                        align-items: center;
+                        justify-content: center;
+                        border-radius: 999px;
+                        background: rgba(0,0,0,0.06);
+                        color: var(--baf-black);
+                        font-size: 25px;
+                        font-weight: 950;
+                        flex: 0 0 auto;
+                    }
+
+                    .baf-primary-card.dark .baf-card-icon {
+                        background: rgba(255,255,255,0.13);
+                        color: var(--baf-white);
+                    }
+
+                    .baf-icon-order {
+                        font-size: 28px;
+                    }
+
+                    .baf-icon-download {
+                        font-size: 30px;
+                    }
+
+                    .baf-icon-cart {
+                        font-size: 26px;
+                    }
+
+                    .baf-card-label {
+                        display: inline-flex;
+                        align-items: center;
+                        gap: 8px;
+                        margin-bottom: 13px;
+                        padding: 7px 10px;
+                        border-radius: 999px;
+                        background: var(--baf-gray-100);
+                        color: var(--baf-gray-700);
+                        font-size: 11px;
+                        font-weight: 950;
+                        letter-spacing: 0.06em;
+                        text-transform: uppercase;
+                    }
+
+                    .baf-primary-card.dark .baf-card-label {
+                        background: rgba(255,255,255,0.13);
+                        color: var(--baf-white);
+                    }
+
+                    .baf-mini-icon {
+                        width: 20px;
+                        height: 20px;
+                        display: inline-flex;
+                        align-items: center;
+                        justify-content: center;
+                        border-radius: 999px;
+                        background: var(--baf-black);
+                        color: var(--baf-white);
+                        font-size: 12px;
+                        font-weight: 950;
+                        line-height: 1;
+                    }
+
+                    .baf-primary-card.dark .baf-mini-icon {
+                        background: var(--baf-white);
+                        color: var(--baf-black);
+                    }
+
+                    .baf-primary-card h2 {
+                        margin: 0 0 12px;
+                        font-size: clamp(31px, 3.3vw, 46px);
+                        line-height: 0.94;
+                        font-weight: 950;
+                        letter-spacing: -0.075em;
+                    }
+
+                    .baf-primary-card p {
+                        margin: 0;
+                        color: var(--baf-gray-500);
+                        font-size: 15px;
+                        line-height: 1.5;
+                        font-weight: 750;
+                    }
+
+                    .baf-primary-card.dark p {
+                        color: #d0d0d0;
+                    }
+
+                    .baf-primary-card strong {
+                        display: block;
+                        margin-top: 22px;
+                        padding-top: 16px;
+                        border-top: 1px solid rgba(0,0,0,0.08);
+                        font-size: 15px;
+                        font-weight: 950;
+                    }
+
+                    .baf-primary-card.dark strong {
+                        border-top-color: rgba(255,255,255,0.14);
+                    }
+
+                    .baf-account-secondary {
+                        padding: 52px 0;
+                        background: var(--baf-gray-50);
+                        border-top: 1px solid var(--baf-gray-200);
+                        border-bottom: 1px solid var(--baf-gray-200);
+                    }
+
+                    .baf-section-head {
+                        max-width: 860px;
+                        margin-bottom: 26px;
+                    }
+
+                    .baf-section-head h2 {
+                        font-size: clamp(34px, 4vw, 58px);
+                    }
+
+                    .baf-secondary-grid {
+                        display: grid;
+                        grid-template-columns: repeat(3, 1fr);
+                        gap: 16px;
+                    }
+
+                    .baf-secondary-card {
+                        min-height: 180px;
+                        display: flex;
+                        flex-direction: column;
+                        justify-content: space-between;
+                        border: 1px solid var(--baf-gray-200);
+                        border-radius: 22px;
+                        background: var(--baf-white);
+                        color: var(--baf-black) !important;
+                        text-decoration: none !important;
+                        padding: 23px;
+                        box-shadow: 0 10px 30px rgba(0,0,0,0.045);
+                        transition: 0.2s ease;
+                        position: relative;
+                        overflow: hidden;
+                    }
+
+                    .baf-secondary-icon {
+                        width: 46px;
+                        height: 46px;
+                        display: inline-flex;
+                        align-items: center;
+                        justify-content: center;
+                        margin-bottom: 16px;
+                        border-radius: 999px;
+                        background: var(--baf-gray-100);
+                        color: var(--baf-black);
+                        font-size: 20px;
+                        font-weight: 950;
+                        line-height: 1;
+                    }
+
+                    .baf-secondary-card.dark .baf-secondary-icon {
+                        background: rgba(255,255,255,0.14);
+                        color: var(--baf-white);
+                    }
+
+                    .baf-secondary-card span {
+                        color: var(--baf-gray-500);
+                        font-size: 11px;
+                        font-weight: 950;
+                        letter-spacing: 0.13em;
+                        text-transform: uppercase;
+                    }
+
+                    .baf-secondary-card strong {
+                        display: block;
+                        margin-top: 10px;
+                        font-size: 25px;
+                        line-height: 1;
+                        font-weight: 950;
+                        letter-spacing: -0.055em;
+                    }
+
+                    .baf-secondary-card p {
+                        margin: 10px 0 0;
+                        color: var(--baf-gray-500);
+                        line-height: 1.46;
+                        font-size: 14px;
+                        font-weight: 750;
+                    }
+
+                    .baf-secondary-card.dark p {
+                        color: #d0d0d0;
+                    }
+
+                    .baf-account-cta {
+                        padding: 38px 0;
+                        background: var(--baf-black);
+                        color: var(--baf-white);
+                    }
+
+                    .baf-cta-inner {
+                        display: grid;
+                        grid-template-columns: minmax(0, 1fr) auto;
+                        gap: 28px;
+                        align-items: center;
+                    }
+
+                    .baf-cta-inner .baf-kicker {
+                        color: #d0d0d0;
+                        margin-bottom: 8px;
+                    }
+
+                    .baf-cta-inner strong {
+                        display: block;
+                        color: var(--baf-white);
+                        font-size: clamp(28px, 3.4vw, 44px);
+                        line-height: 0.98;
+                        font-weight: 950;
+                        letter-spacing: -0.065em;
+                    }
+
+                    .baf-cta-inner p {
+                        max-width: 720px;
+                        margin: 10px 0 0;
+                        color: #d0d0d0;
+                        font-size: 15px;
+                        line-height: 1.5;
+                        font-weight: 750;
+                    }
+
+                    .baf-cta-actions {
+                        display: flex;
+                        gap: 12px;
+                        flex-wrap: wrap;
+                        justify-content: flex-end;
+                    }
+
+                    .baf-btn-light,
+                    .baf-btn-outline {
+                        display: inline-flex;
+                        align-items: center;
+                        justify-content: center;
+                        min-height: 46px;
+                        border-radius: 999px;
+                        padding: 12px 22px;
+                        font-weight: 950;
+                        text-decoration: none !important;
+                        white-space: nowrap;
+                        transition: 0.18s ease;
+                    }
+
+                    .baf-btn-light {
+                        background: var(--baf-white);
+                        color: var(--baf-black) !important;
+                        border: 1px solid var(--baf-white);
+                    }
+
+                    .baf-btn-outline {
+                        background: transparent;
+                        color: var(--baf-white) !important;
+                        border: 1px solid rgba(255,255,255,0.6);
+                    }
+
+                    .baf-btn-light:hover,
+                    .baf-btn-outline:hover {
+                        opacity: 0.84;
+                        transform: translateY(-1px);
+                    }
+
+                    @media (max-width: 1200px) {
+                        .baf-primary-grid {
+                            grid-template-columns: 1fr;
+                        }
+
+                        .baf-primary-card {
+                            min-height: 230px;
+                        }
+
+                        .baf-secondary-grid {
+                            grid-template-columns: repeat(2, 1fr);
+                        }
+                    }
+
+                    @media (max-width: 992px) {
+                        .baf-account-hero-inner,
+                        .baf-cta-inner {
+                            grid-template-columns: 1fr;
+                        }
+
+                        .baf-user-card {
+                            max-width: 100%;
+                        }
+
+                        .baf-cta-actions {
+                            justify-content: flex-start;
+                        }
+                    }
+
+                    @media (max-width: 640px) {
+                        .baf-account-hero {
+                            padding: 42px 0 36px;
+                        }
+
+                        .baf-account-title h1 {
+                            font-size: 52px;
+                        }
+
+                        .baf-account-title p {
+                            font-size: 15px;
+                        }
+
+                        .baf-user-card {
+                            min-height: auto;
+                        }
+
+                        .baf-account-main,
+                        .baf-account-secondary {
+                            padding: 36px 0;
+                        }
+
+                        .baf-secondary-grid {
+                            grid-template-columns: 1fr;
+                        }
+
+                        .baf-primary-card,
+                        .baf-secondary-card {
+                            min-height: auto;
+                            padding: 22px;
+                        }
+
+                        .baf-primary-card h2 {
+                            font-size: 34px;
+                        }
+
+                        .baf-secondary-card strong {
+                            font-size: 24px;
+                        }
+
+                        .baf-cta-actions,
+                        .baf-btn-light,
+                        .baf-btn-outline {
+                            width: 100%;
+                        }
+                    }
+                </style>
+            </t>
+        </xpath>
+    </template>
+</odoo>

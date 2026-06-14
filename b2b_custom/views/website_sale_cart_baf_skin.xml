@@ -1,0 +1,1023 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <template id="cart_baf_skin" name="Shopping Cart" inherit_id="website_sale.cart" priority="100">
+        <xpath expr="//t[@t-call='website_sale.checkout_layout']" position="replace">
+            <t t-call="website_sale.checkout_layout">
+                <t t-set="show_shorter_cart_summary" t-value="True"/>
+                <t t-set="show_footer" t-value="True"/>
+
+                <t t-set="oe_structure">
+                    <div class="oe_structure" id="oe_structure_website_sale_cart_2"/>
+                </t>
+
+                <div id="shop_cart" class="col baf-b2b-cart-page">
+
+                    <t t-set="cart_lines" t-value="website_sale_order.order_line.filtered(lambda line: not line.display_type) if website_sale_order else []"/>
+
+                    <div class="baf-cart-header">
+                        <div class="baf-cart-title">
+                            <span class="baf-kicker">BAF Parts B2B</span>
+                            <h1>Bestellübersicht</h1>
+                            <p>
+                                Prüfen Sie Ihre ausgewählten Artikel, speichern Sie Ihren Warenkorb
+                                oder schließen Sie Ihre Bestellung ab.
+                            </p>
+                        </div>
+
+                        <div class="baf-cart-actions">
+                            <a href="/bestellsystem" class="baf-action-btn baf-action-btn-dark">
+                                Zurück zum Bestellsystem
+                            </a>
+
+                            <button type="button" id="bafSaveCartBtn" class="baf-action-btn baf-action-btn-light">
+                                Warenkorb speichern
+                            </button>
+
+                            <button type="button" id="bafLoadCartBtn" class="baf-action-btn baf-action-btn-light">
+                                Gespeicherten laden
+                            </button>
+
+                            <button type="button" id="bafExportCartBtn" class="baf-action-btn baf-action-btn-light">
+                                Excel exportieren
+                            </button>
+
+                            <button type="button" id="bafClearCartBtn" class="baf-action-btn baf-action-btn-light">
+                                Warenkorb leeren
+                            </button>
+                        </div>
+                    </div>
+
+                    <div id="bafCartStatus" class="baf-cart-status" hidden="hidden"/>
+
+                    <div t-if="abandoned_proceed or access_token" class="alert alert-info mt8 mb8 baf-cart-alert" role="alert">
+
+                        <t t-if="abandoned_proceed">
+                            <p>Ihr vorheriger Warenkorb wurde bereits abgeschlossen.</p>
+                            <p t-if="website_sale_order">Bitte mit dem aktuellen Warenkorb fortfahren.</p>
+                        </t>
+
+                        <t t-if="access_token">
+                            <p>Hier ist Ihr aktueller Warenkorb.</p>
+
+                            <p>
+                                <strong>
+                                    <a class="o_translate_inline" t-attf-href="/shop/cart/?id={{id}}&amp;access_token={{access_token}}&amp;revive_method=squash">
+                                        Hier klicken
+                                    </a>
+                                </strong>
+                                wenn Sie Ihren vorherigen Warenkorb wiederherstellen möchten.
+                                Ihr aktueller Warenkorb wird durch Ihren vorherigen Warenkorb ersetzt.
+                            </p>
+
+                            <p>
+                                <strong>
+                                    <a class="o_translate_inline" t-attf-href="/shop/cart/?id={{id}}&amp;access_token={{access_token}}&amp;revive_method=merge">
+                                        Hier klicken
+                                    </a>
+                                </strong>
+                                wenn Sie Ihren vorherigen Warenkorb mit dem aktuellen zusammenführen möchten.
+                            </p>
+                        </t>
+                    </div>
+
+                    <div class="baf-cart-card">
+
+                        <t t-if="cart_lines">
+                            <table class="baf-cart-table" id="bafCartTable">
+                                <thead>
+                                    <tr>
+                                        <th class="baf-col-pos">Pos.</th>
+                                        <th class="baf-col-part">Teilenummer</th>
+                                        <th class="baf-col-name">Artikel</th>
+                                        <th class="baf-col-qty">Menge</th>
+                                        <th class="baf-col-unit">Einzelpreis</th>
+                                        <th class="baf-col-total">Gesamtpreis</th>
+                                        <th class="baf-col-remove"/>
+                                    </tr>
+                                </thead>
+
+                                <tbody>
+                                    <tr t-foreach="cart_lines" t-as="line" t-key="line.id" class="baf-cart-line" t-att-data-line-id="line.id" t-att-data-product-id="line.product_id.id" t-att-data-part-number="line.product_id.default_code or line.product_id.barcode or ''" t-att-data-product-name="line.product_id.name" t-att-data-quantity="line.product_uom_qty" t-att-data-unit-price="line.price_subtotal / line.product_uom_qty if line.product_uom_qty else 0" t-att-data-total-price="line.price_subtotal">
+
+                                        <td class="baf-col-pos">
+                                            <span class="baf-cart-pos">
+                                                <t t-esc="line_index + 1"/>
+                                            </span>
+                                        </td>
+
+                                        <td class="baf-col-part">
+                                            <span class="baf-cart-part">
+                                                <t t-esc="line.product_id.default_code or line.product_id.barcode or '-'"/>
+                                            </span>
+                                        </td>
+
+                                        <td class="baf-col-name">
+                                            <span class="baf-cart-name">
+                                                <t t-esc="line.product_id.name"/>
+                                            </span>
+
+                                            <span class="baf-cart-description" t-if="line.name and line.name != line.product_id.display_name and line.name != line.product_id.name">
+                                                <t t-esc="line.name"/>
+                                            </span>
+                                        </td>
+
+                                        <td class="baf-col-qty">
+                                            <div class="baf-cart-qty">
+                                                <a class="baf-qty-btn" title="Menge reduzieren" t-attf-href="/shop/cart/update?line_id={{ line.id }}&amp;product_id={{ line.product_id.id }}&amp;add_qty=-1">
+                                                    −
+                                                </a>
+
+                                                <input type="number" min="0" step="1" class="baf-cart-qty-input" t-att-data-line-id="line.id" t-att-data-product-id="line.product_id.id" t-att-value="int(line.product_uom_qty) if line.product_uom_qty == int(line.product_uom_qty) else line.product_uom_qty"/>
+
+                                                <a class="baf-qty-btn" title="Menge erhöhen" t-attf-href="/shop/cart/update?line_id={{ line.id }}&amp;product_id={{ line.product_id.id }}&amp;add_qty=1">
+                                                    +
+                                                </a>
+                                            </div>
+                                        </td>
+
+                                        <td class="baf-col-unit">
+                                            <span class="baf-cart-unit">
+                                                <t t-if="line.product_uom_qty">
+                                                    <t t-set="unit_price" t-value="line.price_subtotal / line.product_uom_qty"/>
+                                                    <span t-options="{'widget': 'monetary', 'display_currency': website_sale_order.currency_id}" t-esc="unit_price"/>
+                                                </t>
+                                                <t t-if="not line.product_uom_qty">
+                                                    -
+                                                </t>
+                                            </span>
+                                        </td>
+
+                                        <td class="baf-col-total">
+                                            <span class="baf-cart-total">
+                                                <span t-options="{'widget': 'monetary', 'display_currency': website_sale_order.currency_id}" t-esc="line.price_subtotal"/>
+                                            </span>
+                                        </td>
+
+                                        <td class="baf-col-remove">
+                                            <a class="baf-cart-remove" title="Artikel entfernen" t-attf-href="/shop/cart/update?line_id={{ line.id }}&amp;product_id={{ line.product_id.id }}&amp;set_qty=0">
+                                                Entfernen
+                                            </a>
+                                        </td>
+
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </t>
+
+                        <t t-if="not cart_lines">
+                            <div class="baf-cart-empty">
+                                <strong>Ihr Warenkorb ist leer.</strong>
+                                <span>Fügen Sie Artikel über das BAF Bestellsystem hinzu.</span>
+
+                                <a href="/bestellsystem" class="baf-action-btn baf-action-btn-dark">
+                                    Zum Bestellsystem
+                                </a>
+                            </div>
+                        </t>
+
+                    </div>
+
+                    <div class="clearfix"/>
+
+                    <div class="oe_structure" id="oe_structure_website_sale_cart_1"/>
+
+                    <script type="text/javascript">
+
+                        document.addEventListener('DOMContentLoaded', function () {
+                            var STORAGE_KEY = 'baf_saved_cart_v2';
+                            var cartRoot = document.getElementById('shop_cart');
+
+                            if (!cartRoot) {
+                                return;
+                            }
+
+                            function showStatus(message, type) {
+                                var box = document.getElementById('bafCartStatus');
+
+                                if (!box) {
+                                    return;
+                                }
+
+                                box.hidden = false;
+                                box.textContent = message;
+                                box.classList.remove('is-success');
+                                box.classList.remove('is-error');
+
+                                if (type === 'error') {
+                                    box.classList.add('is-error');
+                                } else {
+                                    box.classList.add('is-success');
+                                }
+
+                                window.setTimeout(function () {
+                                    box.hidden = true;
+                                }, 4200);
+                            }
+
+                            function getCartRows() {
+                                return Array.prototype.slice.call(
+                                    cartRoot.querySelectorAll('.baf-cart-line')
+                                );
+                            }
+
+                            function getCartItems() {
+                                var rows = getCartRows();
+                                var items = [];
+
+                                rows.forEach(function (row) {
+                                    var productId = row.getAttribute('data-product-id');
+                                    var qtyInput = row.querySelector('.baf-cart-qty-input');
+                                    var qty = qtyInput ? parseFloat(String(qtyInput.value || '0').replace(',', '.')) : 0;
+
+                                    if (!productId || !Number.isFinite(qty) || qty &lt;= 0) {
+                                        return;
+                                    }
+
+                                    items.push({
+                                        product_id: productId,
+                                        quantity: qty,
+                                        part_number: row.getAttribute('data-part-number') || '',
+                                        name: row.getAttribute('data-product-name') || '',
+                                        unit_price: row.getAttribute('data-unit-price') || '',
+                                        total_price: row.getAttribute('data-total-price') || ''
+                                    });
+                                });
+
+                                return items;
+                            }
+
+                            function bindQuantityInputs() {
+                                cartRoot.querySelectorAll('.baf-cart-qty-input').forEach(function (input) {
+                                    input.addEventListener('change', function () {
+                                        var lineId = input.getAttribute('data-line-id');
+                                        var productId = input.getAttribute('data-product-id');
+                                        var qty = parseFloat(String(input.value || '0').replace(',', '.'));
+
+                                        if (!Number.isFinite(qty) || qty &lt; 0) {
+                                            qty = 0;
+                                        }
+
+                                        window.location.href =
+                                            '/shop/cart/update?line_id=' +
+                                            encodeURIComponent(lineId) +
+                                            '&amp;product_id=' +
+                                            encodeURIComponent(productId) +
+                                            '&amp;set_qty=' +
+                                            encodeURIComponent(qty);
+                                    });
+                                });
+                            }
+
+                            function saveCart() {
+                                var items = getCartItems();
+
+                                if (!items.length) {
+                                    showStatus('Der Warenkorb ist leer und kann nicht gespeichert werden.', 'error');
+                                    return;
+                                }
+
+                                localStorage.setItem(STORAGE_KEY, JSON.stringify({
+                                    saved_at: new Date().toISOString(),
+                                    items: items
+                                }));
+
+                                showStatus('Warenkorb wurde gespeichert.', 'success');
+                            }
+
+                            async function loadSavedCart() {
+                                var raw = localStorage.getItem(STORAGE_KEY);
+
+                                if (!raw) {
+                                    showStatus('Es wurde kein gespeicherter Warenkorb gefunden.', 'error');
+                                    return;
+                                }
+
+                                var payload;
+
+                                try {
+                                    payload = JSON.parse(raw);
+                                } catch (error) {
+                                    showStatus('Der gespeicherte Warenkorb konnte nicht gelesen werden.', 'error');
+                                    return;
+                                }
+
+                                if (!payload.items || !payload.items.length) {
+                                    showStatus('Der gespeicherte Warenkorb ist leer.', 'error');
+                                    return;
+                                }
+
+                                showStatus('Gespeicherter Warenkorb wird geladen...', 'success');
+
+                                for (var i = 0; i &lt; payload.items.length; i++) {
+                                    await fetch(
+                                        '/shop/cart/update?product_id=' +
+                                        encodeURIComponent(payload.items[i].product_id) +
+                                        '&amp;set_qty=' +
+                                        encodeURIComponent(payload.items[i].quantity),
+                                        {
+                                            method: 'GET',
+                                            credentials: 'same-origin'
+                                        }
+                                    );
+                                }
+
+                                window.location.href = '/shop/cart';
+                            }
+
+                            async function clearCart() {
+                                var items = getCartItems();
+
+                                if (!items.length) {
+                                    showStatus('Der Warenkorb ist bereits leer.', 'error');
+                                    return;
+                                }
+
+                                if (!window.confirm('Möchten Sie den Warenkorb wirklich leeren?')) {
+                                    return;
+                                }
+
+                                showStatus('Warenkorb wird geleert...', 'success');
+
+                                for (var i = 0; i &lt; items.length; i++) {
+                                    await fetch(
+                                        '/shop/cart/update?product_id=' +
+                                        encodeURIComponent(items[i].product_id) +
+                                        '&amp;set_qty=0',
+                                        {
+                                            method: 'GET',
+                                            credentials: 'same-origin'
+                                        }
+                                    );
+                                }
+
+                                window.location.href = '/shop/cart';
+                            }
+
+                            function formatDateForFilename(date) {
+                                var year = date.getFullYear();
+                                var month = String(date.getMonth() + 1).padStart(2, '0');
+                                var day = String(date.getDate()).padStart(2, '0');
+
+                                return year + '-' + month + '-' + day;
+                            }
+
+                            function csvEscape(value) {
+                                value = String(value == null ? '' : value);
+                                return '"' + value.replace(/"/g, '""') + '"';
+                            }
+
+                            function exportCart() {
+                                var rows = getCartRows();
+
+                                if (!rows.length) {
+                                    showStatus('Der Warenkorb ist leer. Es gibt nichts zu exportieren.', 'error');
+                                    return;
+                                }
+
+                                var csvRows = [];
+
+                                csvRows.push([
+                                    'Pos.',
+                                    'Teilenummer',
+                                    'Artikel',
+                                    'Menge',
+                                    'Einzelpreis',
+                                    'Gesamtpreis'
+                                ].map(csvEscape).join(';'));
+
+                                rows.forEach(function (row, index) {
+                                    var part = row.querySelector('.baf-cart-part');
+                                    var name = row.querySelector('.baf-cart-name');
+                                    var qty = row.querySelector('.baf-cart-qty-input');
+                                    var unit = row.querySelector('.baf-cart-unit');
+                                    var total = row.querySelector('.baf-cart-total');
+
+                                    csvRows.push([
+                                        index + 1,
+                                        part ? part.textContent.trim() : '',
+                                        name ? name.textContent.trim() : '',
+                                        qty ? qty.value : '',
+                                        unit ? unit.textContent.trim() : '',
+                                        total ? total.textContent.trim() : ''
+                                    ].map(csvEscape).join(';'));
+                                });
+
+                                var blob = new Blob([csvRows.join('\n')], {
+                                    type: 'text/csv;charset=utf-8;'
+                                });
+
+                                var url = window.URL.createObjectURL(blob);
+                                var link = document.createElement('a');
+                                var filename = 'BAF_Order_' + formatDateForFilename(new Date()) + '.csv';
+
+                                link.href = url;
+                                link.download = filename;
+                                document.body.appendChild(link);
+                                link.click();
+                                document.body.removeChild(link);
+
+                                window.URL.revokeObjectURL(url);
+
+                                showStatus('Excel-Datei wurde heruntergeladen: ' + filename, 'success');
+                            }
+
+                            var saveBtn = document.getElementById('bafSaveCartBtn');
+                            var loadBtn = document.getElementById('bafLoadCartBtn');
+                            var exportBtn = document.getElementById('bafExportCartBtn');
+                            var clearBtn = document.getElementById('bafClearCartBtn');
+
+                            if (saveBtn) {
+                                saveBtn.addEventListener('click', saveCart);
+                            }
+
+                            if (loadBtn) {
+                                loadBtn.addEventListener('click', loadSavedCart);
+                            }
+
+                            if (exportBtn) {
+                                exportBtn.addEventListener('click', exportCart);
+                            }
+
+                            if (clearBtn) {
+                                clearBtn.addEventListener('click', clearCart);
+                            }
+
+                            bindQuantityInputs();
+                        });
+
+                    </script>
+
+                    <style>
+                        :root {
+                            --baf-black: #000000;
+                            --baf-white: #ffffff;
+                            --baf-gray-50: #f7f7f7;
+                            --baf-gray-100: #eeeeee;
+                            --baf-gray-200: #d8d8d8;
+                            --baf-gray-500: #777777;
+                            --baf-gray-700: #333333;
+                            --baf-red: #c0392b;
+                            --baf-red-light: #fbe1e1;
+                            --baf-green: #1c6b1c;
+                            --baf-green-light: #e6f5e6;
+                            --baf-blue: #004b7a;
+                            --baf-blue-light: #f1f8ff;
+                            --baf-blue-border: #b8dfff;
+                            --baf-radius: 22px;
+                            --baf-shadow: 0 18px 48px rgba(0,0,0,0.10);
+                        }
+
+                        .baf-b2b-cart-page {
+                            color: var(--baf-black);
+                            font-family: Inter, Arial, sans-serif;
+                            width: 100%;
+                            max-width: 100%;
+                            overflow: visible;
+                        }
+
+                        .baf-cart-header {
+                            display: grid;
+                            grid-template-columns: minmax(0, 1fr) auto;
+                            align-items: center;
+                            gap: 22px;
+                            margin-bottom: 18px;
+                            padding: 22px 24px;
+                            border: 1px solid var(--baf-gray-200);
+                            border-radius: var(--baf-radius);
+                            background:
+                                radial-gradient(circle at top right, rgba(0,0,0,0.06), transparent 30%),
+                                linear-gradient(135deg, #ffffff 0%, #f4f4f4 100%);
+                            box-shadow: var(--baf-shadow);
+                            overflow: hidden;
+                        }
+
+                        .baf-cart-title {
+                            min-width: 0;
+                        }
+
+                        .baf-kicker {
+                            display: inline-flex;
+                            margin-bottom: 7px;
+                            color: var(--baf-gray-700);
+                            font-size: 11px;
+                            font-weight: 950;
+                            letter-spacing: 0.16em;
+                            text-transform: uppercase;
+                        }
+
+                        .baf-cart-header h1 {
+                            margin: 0;
+                            color: var(--baf-black);
+                            font-size: clamp(30px, 3.2vw, 46px);
+                            font-weight: 950;
+                            letter-spacing: -0.065em;
+                            line-height: 0.95;
+                            white-space: nowrap;
+                        }
+
+                        .baf-cart-header p {
+                            margin: 9px 0 0;
+                            color: var(--baf-gray-700);
+                            font-size: 14px;
+                            line-height: 1.45;
+                            font-weight: 750;
+                        }
+
+                        .baf-cart-actions {
+                            display: flex;
+                            align-items: center;
+                            justify-content: flex-end;
+                            gap: 10px;
+                            flex-wrap: wrap;
+                            max-width: 560px;
+                        }
+
+                        .baf-action-btn {
+                            display: inline-flex !important;
+                            align-items: center !important;
+                            justify-content: center !important;
+                            min-height: 40px !important;
+                            border-radius: 999px !important;
+                            border: 1px solid var(--baf-black) !important;
+                            padding: 9px 16px !important;
+                            font-weight: 950 !important;
+                            font-size: 13px !important;
+                            text-decoration: none !important;
+                            white-space: nowrap !important;
+                            cursor: pointer !important;
+                            transition: 0.18s ease !important;
+                            box-shadow: none !important;
+                        }
+
+                        .baf-action-btn-dark {
+                            background: var(--baf-black) !important;
+                            color: var(--baf-white) !important;
+                        }
+
+                        .baf-action-btn-light {
+                            background: var(--baf-white) !important;
+                            color: var(--baf-black) !important;
+                        }
+
+                        .baf-action-btn:hover {
+                            opacity: 0.84 !important;
+                            transform: translateY(-1px);
+                        }
+
+                        .baf-cart-status {
+                            margin-bottom: 14px;
+                            padding: 12px 16px;
+                            border-radius: 16px;
+                            font-size: 13px;
+                            font-weight: 850;
+                        }
+
+                        .baf-cart-status.is-success {
+                            border: 1px solid var(--baf-green);
+                            background: var(--baf-green-light);
+                            color: var(--baf-green);
+                        }
+
+                        .baf-cart-status.is-error {
+                            border: 1px solid var(--baf-red);
+                            background: var(--baf-red-light);
+                            color: var(--baf-red);
+                        }
+
+                        .baf-cart-alert {
+                            border-radius: 18px;
+                            border: 1px solid var(--baf-blue-border);
+                            background: var(--baf-blue-light);
+                            color: var(--baf-blue);
+                            font-weight: 700;
+                        }
+
+                        .baf-cart-card {
+                            border: 1px solid var(--baf-gray-200);
+                            border-radius: var(--baf-radius);
+                            background: var(--baf-white);
+                            box-shadow: var(--baf-shadow);
+                            overflow: hidden;
+                            width: 100%;
+                            max-width: 100%;
+                        }
+
+                        .baf-cart-table {
+                            width: 100%;
+                            max-width: 100%;
+                            border-collapse: separate;
+                            border-spacing: 0;
+                            table-layout: fixed;
+                            margin: 0 !important;
+                        }
+
+                        .baf-cart-table th {
+                            padding: 12px 8px;
+                            background: linear-gradient(180deg, #ffffff 0%, #f7f7f7 100%);
+                            border-bottom: 1px solid var(--baf-gray-200);
+                            color: var(--baf-gray-500);
+                            font-size: 10px;
+                            font-weight: 950;
+                            letter-spacing: 0.07em;
+                            text-transform: uppercase;
+                            white-space: nowrap;
+                        }
+
+                        .baf-cart-table td {
+                            padding: 12px 8px;
+                            border-bottom: 1px solid var(--baf-gray-200);
+                            background: var(--baf-white);
+                            vertical-align: middle;
+                        }
+
+                        .baf-cart-table tr:hover td {
+                            background: var(--baf-gray-50);
+                        }
+
+                        .baf-cart-table tr:last-child td {
+                            border-bottom: 0;
+                        }
+
+                        .baf-col-pos {
+                            width: 46px;
+                            text-align: center;
+                        }
+
+                        .baf-col-part {
+                            width: 15%;
+                            min-width: 0;
+                        }
+
+                        .baf-col-name {
+                            width: auto;
+                            min-width: 0;
+                        }
+
+                        .baf-col-qty {
+                            width: 124px;
+                            text-align: center;
+                        }
+
+                        .baf-col-unit {
+                            width: 92px;
+                            text-align: right;
+                        }
+
+                        .baf-col-total {
+                            width: 98px;
+                            text-align: right;
+                        }
+
+                        .baf-col-remove {
+                            width: 76px;
+                            text-align: right;
+                        }
+
+                        .baf-cart-pos {
+                            display: inline-flex;
+                            align-items: center;
+                            justify-content: center;
+                            width: 28px;
+                            height: 28px;
+                            border-radius: 999px;
+                            border: 1px solid var(--baf-gray-200);
+                            background: var(--baf-gray-50);
+                            color: var(--baf-black);
+                            font-size: 12px;
+                            font-weight: 950;
+                        }
+
+                        .baf-cart-part,
+                        .baf-cart-name,
+                        .baf-cart-unit,
+                        .baf-cart-total {
+                            display: block;
+                            color: var(--baf-black);
+                            font-size: 13px;
+                            font-weight: 950;
+                            white-space: nowrap;
+                            overflow: hidden;
+                            text-overflow: ellipsis;
+                        }
+
+                        .baf-cart-name {
+                            font-size: 14px;
+                            line-height: 1.25;
+                            text-transform: uppercase;
+                        }
+
+                        .baf-cart-description {
+                            display: block;
+                            margin-top: 3px;
+                            color: var(--baf-gray-500);
+                            font-size: 11px;
+                            font-weight: 750;
+                            white-space: nowrap;
+                            overflow: hidden;
+                            text-overflow: ellipsis;
+                        }
+
+                        .baf-cart-qty {
+                            display: inline-flex;
+                            align-items: center;
+                            justify-content: center;
+                            width: 112px;
+                            height: 34px;
+                            border-radius: 13px;
+                            overflow: hidden;
+                            margin: 0 auto;
+                        }
+
+                        .baf-qty-btn {
+                            width: 32px;
+                            height: 34px;
+                            display: inline-flex;
+                            align-items: center;
+                            justify-content: center;
+                            border: 1px solid var(--baf-gray-200);
+                            background: var(--baf-white);
+                            color: var(--baf-black) !important;
+                            font-size: 17px;
+                            font-weight: 950;
+                            text-decoration: none !important;
+                            line-height: 1;
+                        }
+
+                        .baf-qty-btn:first-child {
+                            border-radius: 13px 0 0 13px;
+                        }
+
+                        .baf-qty-btn:last-child {
+                            border-radius: 0 13px 13px 0;
+                        }
+
+                        .baf-cart-qty-input {
+                            width: 48px;
+                            height: 34px;
+                            border: 1px solid var(--baf-gray-200);
+                            border-left: 0;
+                            border-right: 0;
+                            border-radius: 0;
+                            background: var(--baf-white);
+                            color: var(--baf-black);
+                            text-align: center;
+                            font-size: 13px;
+                            font-weight: 950;
+                            box-shadow: none;
+                            padding: 0;
+                        }
+
+                        .baf-cart-remove {
+                            display: inline-flex;
+                            align-items: center;
+                            justify-content: center;
+                            min-height: 30px;
+                            border-radius: 999px;
+                            border: 1px solid var(--baf-gray-200);
+                            background: var(--baf-white);
+                            color: var(--baf-black) !important;
+                            padding: 6px 8px;
+                            font-size: 11px;
+                            font-weight: 950;
+                            text-decoration: none !important;
+                            white-space: nowrap;
+                        }
+
+                        .baf-cart-remove:hover {
+                            border-color: var(--baf-red);
+                            background: var(--baf-red-light);
+                            color: var(--baf-red) !important;
+                        }
+
+                        .baf-cart-empty {
+                            padding: 42px 24px;
+                            text-align: center;
+                            color: var(--baf-gray-500);
+                            font-weight: 800;
+                        }
+
+                        .baf-cart-empty strong {
+                            display: block;
+                            margin-bottom: 8px;
+                            color: var(--baf-black);
+                            font-size: 22px;
+                            font-weight: 950;
+                        }
+
+                        .baf-cart-empty .baf-action-btn {
+                            margin-top: 18px;
+                        }
+
+                        #shop_cart img,
+                        #shop_cart picture,
+                        #shop_cart figure,
+                        #shop_cart .td-img,
+                        #shop_cart .td-img-cart,
+                        #shop_cart .o_wsale_cart_item_image,
+                        #shop_cart .o_image_64_contain,
+                        #shop_cart .o_image_64_cover,
+                        #shop_cart .o_image_128_contain,
+                        #shop_cart .o_image_128_cover,
+                        #shop_cart .o_product_image,
+                        #shop_cart .product_img,
+                        #shop_cart .card-img-top,
+                        #shop_cart .oe_product_image,
+                        #shop_cart .o_wsale_product_image,
+                        #shop_cart .o_cart_product_image,
+                        #shop_cart .quick_reorder_button,
+                        #shop_cart .o_quick_reorder,
+                        #shop_cart .quick-reorder,
+                        #shop_cart .o_wsale_quick_reorder {
+                            display: none !important;
+                        }
+
+                        #shop_cart .oe_website_sale_coupon,
+                        #shop_cart .o_website_sale_coupon,
+                        #shop_cart .o_coupon,
+                        #shop_cart .o_promo_code,
+                        #shop_cart .o_pricelist_coupon,
+                        #shop_cart .o_wsale_coupon,
+                        #shop_cart .o_wsale_coupon_form,
+                        #shop_cart .o_wsale_promo_code,
+                        #shop_cart .o_wsale_gift_card,
+                        #shop_cart .o_website_sale_gift_card,
+                        #shop_cart .gift_card,
+                        #shop_cart .gift-card {
+                            display: none !important;
+                        }
+
+                        .o_wsale_cart_summary,
+                        #o_cart_summary,
+                        .card.js_cart_summary {
+                            border: 1px solid var(--baf-gray-200) !important;
+                            border-radius: var(--baf-radius) !important;
+                            box-shadow: var(--baf-shadow);
+                            overflow: hidden;
+                        }
+
+                        .o_wsale_cart_summary .card-header,
+                        #o_cart_summary .card-header,
+                        .card.js_cart_summary .card-header {
+                            background: var(--baf-black) !important;
+                            color: var(--baf-white) !important;
+                            font-weight: 950;
+                        }
+
+                        #shop_cart .btn-primary,
+                        #shop_cart a.btn-primary,
+                        #shop_cart button.btn-primary,
+                        .o_wsale_cart_summary .btn-primary,
+                        #o_cart_summary .btn-primary,
+                        .card.js_cart_summary .btn-primary {
+                            border-color: var(--baf-black) !important;
+                            background: var(--baf-black) !important;
+                            color: var(--baf-white) !important;
+                            border-radius: 999px !important;
+                            font-weight: 950 !important;
+                        }
+
+                        @media (max-width: 992px) {
+                            .baf-cart-header {
+                                grid-template-columns: 1fr;
+                            }
+
+                            .baf-cart-header h1 {
+                                white-space: normal;
+                                font-size: 38px;
+                            }
+
+                            .baf-cart-actions {
+                                justify-content: flex-start;
+                                max-width: 100%;
+                            }
+
+                            .baf-action-btn {
+                                flex: 1 1 auto;
+                            }
+
+                            .baf-cart-table th {
+                                font-size: 9px;
+                                padding: 10px 5px;
+                            }
+
+                            .baf-cart-table td {
+                                padding: 10px 5px;
+                            }
+
+                            .baf-col-pos {
+                                width: 38px;
+                            }
+
+                            .baf-col-part {
+                                width: 14%;
+                            }
+
+                            .baf-col-qty {
+                                width: 104px;
+                            }
+
+                            .baf-col-unit {
+                                width: 78px;
+                            }
+
+                            .baf-col-total {
+                                width: 82px;
+                            }
+
+                            .baf-col-remove {
+                                width: 58px;
+                            }
+
+                            .baf-cart-part,
+                            .baf-cart-name,
+                            .baf-cart-unit,
+                            .baf-cart-total {
+                                font-size: 12px;
+                            }
+
+                            .baf-cart-description {
+                                display: none;
+                            }
+
+                            .baf-cart-qty {
+                                width: 96px;
+                                height: 32px;
+                            }
+
+                            .baf-qty-btn {
+                                width: 28px;
+                                height: 32px;
+                                font-size: 16px;
+                            }
+
+                            .baf-cart-qty-input {
+                                width: 40px;
+                                height: 32px;
+                                font-size: 13px;
+                            }
+
+                            .baf-cart-remove {
+                                font-size: 0;
+                                width: 28px;
+                                height: 28px;
+                                padding: 0;
+                            }
+
+                            .baf-cart-remove:before {
+                                content: "×";
+                                font-size: 18px;
+                                line-height: 1;
+                            }
+                        }
+
+                        @media (max-width: 768px) {
+                            .baf-cart-header {
+                                padding: 20px 18px;
+                            }
+
+                            .baf-cart-actions,
+                            .baf-cart-actions .baf-action-btn {
+                                width: 100%;
+                            }
+
+                            .baf-col-pos {
+                                display: none;
+                            }
+
+                            .baf-cart-table th.baf-col-pos,
+                            .baf-cart-table td.baf-col-pos {
+                                display: none;
+                            }
+
+                            .baf-col-part {
+                                width: 18%;
+                            }
+
+                            .baf-col-unit {
+                                display: none;
+                            }
+
+                            .baf-cart-table th.baf-col-unit,
+                            .baf-cart-table td.baf-col-unit {
+                                display: none;
+                            }
+
+                            .baf-col-qty {
+                                width: 96px;
+                            }
+
+                            .baf-col-total {
+                                width: 74px;
+                            }
+
+                            .baf-col-remove {
+                                width: 34px;
+                            }
+                        }
+                    </style>
+
+                </div>
+            </t>
+        </xpath>
+    </template>
+</odoo>
