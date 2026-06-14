@@ -49,12 +49,6 @@
                                    invisible="baf_b2b_state != 'rejected'"/>
                         </group>
                     </group>
-                    <separator string="Trade License (Gewerbeschein)"/>
-                    <field name="baf_trade_license"
-                           filename="baf_trade_license_filename"
-                           widget="binary"
-                           nolabel="1"/>
-                    <field name="baf_trade_license_filename" invisible="1"/>
                     <separator string="Application Note"/>
                     <field name="baf_b2b_application_note" readonly="1" nolabel="1"/>
                 </page>
