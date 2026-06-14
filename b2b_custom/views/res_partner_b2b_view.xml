@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="view_partner_form_baf_b2b" model="ir.ui.view">
+        <field name="name">res.partner.form.baf.b2b</field>
+        <field name="model">res.partner</field>
+        <field name="inherit_id" ref="base.view_partner_form"/>
+        <field name="arch" type="xml">
+
+            <xpath expr="//sheet" position="before">
+                <header>
+                    <button name="action_baf_b2b_approve"
+                            type="object"
+                            string="Approve &amp; Send Signup"
+                            class="oe_highlight"
+                            invisible="baf_b2b_state in ('approved', 'not_b2b')"
+                            confirm="Approve this B2B applicant? A signup link will be emailed."/>
+                    <button name="action_baf_b2b_reject"
+                            type="object"
+                            string="Reject"
+                            invisible="baf_b2b_state in ('rejected', 'not_b2b')"
+                            confirm="Reject this B2B application?"/>
+                    <button name="action_baf_b2b_reset_to_pending"
+                            type="object"
+                            string="Reset to Pending"
+                            invisible="baf_b2b_state in ('pending', 'not_b2b')"/>
+                    <button name="action_baf_b2b_resend_invitation"
+                            type="object"
+                            string="Re-send Signup Email"
+                            invisible="baf_b2b_state != 'approved'"/>
+                    <field name="baf_b2b_state"
+                           widget="statusbar"
+                           statusbar_visible="pending,approved"
+                           options="{'clickable': '0'}"/>
+                </header>
+            </xpath>
+
+            <xpath expr="//notebook" position="inside">
+                <page string="B2B Application" name="baf_b2b_application"
+                      invisible="baf_b2b_state == 'not_b2b'">
+                    <group>
+                        <group>
+                            <field name="baf_b2b_applied_at" readonly="1"/>
+                            <field name="baf_b2b_approved_at" readonly="1"/>
+                            <field name="baf_b2b_approved_by_id" readonly="1"/>
+                        </group>
+                        <group>
+                            <field name="baf_b2b_rejection_reason"
+                                   invisible="baf_b2b_state != 'rejected'"/>
+                        </group>
+                    </group>
+                    <separator string="Application Note"/>
+                    <field name="baf_b2b_application_note" readonly="1" nolabel="1"/>
+                </page>
+            </xpath>
+
+        </field>
+    </record>
+
+    <record id="action_baf_b2b_pending_applications" model="ir.actions.act_window">
+        <field name="name">Pending B2B Applications</field>
+        <field name="res_model">res.partner</field>
+        <field name="view_mode">list,form</field>
+        <field name="domain">[('baf_b2b_state', '=', 'pending')]</field>
+        <field name="context">{'search_default_baf_b2b_state': 'pending'}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">No pending B2B applications</p>
+            <p>Customers who fill out the public /b2b/apply form appear here for review.</p>
+        </field>
+    </record>
+
+    <menuitem id="menu_baf_b2b_applications"
+              name="B2B Applications"
+              parent="contacts.menu_contacts"
+              action="action_baf_b2b_pending_applications"
+              sequence="50"/>
+
+</odoo>
