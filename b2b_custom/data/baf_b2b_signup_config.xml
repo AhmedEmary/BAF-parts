@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo noupdate="1">
+
+    <!-- Force the auth_signup module into invitation-only ('b2b') mode.
+         With invitation_scope=b2b, the public /web/signup page rejects
+         anyone without a signup token. New B2B customers must use
+         /b2b/apply; their portal user is created (with token) only after
+         internal approval, and the signup email carries the token. -->
+    <record id="auth_signup_invitation_scope" model="ir.config_parameter">
+        <field name="key">auth_signup.invitation_scope</field>
+        <field name="value">b2b</field>
+    </record>
+
+</odoo>

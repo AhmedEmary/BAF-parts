@@ -1,3 +1,5 @@
+from . import res_partner
+from . import ir_http
 from . import product_template
 from . import sales_order_line
 from . import mass_product_import
