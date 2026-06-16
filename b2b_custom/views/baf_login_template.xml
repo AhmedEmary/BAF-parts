@@ -1,0 +1,443 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <template id="login_baf_b2b" name="BAF B2B Login"
+              inherit_id="web.login" priority="100">
+        <xpath expr="//t[@t-call='web.login_layout']" position="replace">
+            <t t-call="website.layout">
+                <div class="oe_website_login_container">
+
+                    <div class="baf-login-page">
+
+                        <div class="baf-bg-parts" aria-hidden="true">
+                            <span>⚙</span>
+                            <span>🔩</span>
+                            <span>🔧</span>
+                            <span>⚙</span>
+                        </div>
+
+                        <div class="baf-login-box">
+
+                            <div class="baf-login-left">
+                                <span class="baf-kicker">BAF-Parts B2B</span>
+
+                                <h1>Willkommen im B2B-Bestellsystem</h1>
+
+                                <p>
+                                    Melden Sie sich an oder beantragen<br/>Sie einen neuen B2B-Zugang.
+                                </p>
+
+                                <a href="/b2b/register" class="baf-register-btn">Jetzt B2B-Zugang beantragen</a>
+                            </div>
+
+                            <div class="baf-login-right">
+
+                                <div class="oe_structure" id="oe_structure_login_top"/>
+
+                                <div class="baf-login-head">
+                                    <span class="baf-kicker">Login</span>
+                                    <h2>Anmelden</h2>
+                                </div>
+
+                                <form role="form" method="post"
+                                      onsubmit="this.action = '/web/login' + location.hash"
+                                      data-captcha="login"
+                                      class="oe_login_form"
+                                      action="/web/login">
+
+                                    <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+
+                                    <div class="mb-3 field-login">
+                                        <label for="login" class="form-label">E-Mail</label>
+                                        <input type="text" placeholder="E-Mail eingeben"
+                                               name="login" id="login" class="form-control"
+                                               required="required" autocapitalize="off"
+                                               autocomplete="username"
+                                               t-att-value="login"
+                                               t-att-autofocus="'autofocus' if not login else None"/>
+                                    </div>
+
+                                    <div class="o_caps_lock_warning">
+                                        <label for="password" class="form-label">Passwort</label>
+                                        <a class="btn btn-link btn-sm" tabindex="1" href="/web/reset_password">Passwort zurücksetzen</a>
+
+                                        <div class="input-group mb-1">
+                                            <input type="password" placeholder="Passwort eingeben"
+                                                   name="password" id="password" class="form-control"
+                                                   required="required" autocomplete="current-password"
+                                                   maxlength="4096"
+                                                   t-att-autofocus="'autofocus' if login else None"/>
+                                            <button type="button" class="btn btn-sm border border-start-0 o_show_password">
+                                                <i class="fa fa-eye"/>
+                                            </button>
+                                        </div>
+                                        <span class="o_caps_lock_warning_text text-danger d-none"> Die Feststelltaste ist aktiviert! </span>
+                                    </div>
+
+                                    <p class="alert alert-danger mt-3" t-if="error" role="alert">
+                                        <t t-esc="error"/>
+                                    </p>
+                                    <p class="alert alert-success mt-3" t-if="message" role="status">
+                                        <t t-esc="message"/>
+                                    </p>
+
+                                    <div class="oe_login_buttons text-center d-grid mb-1 pt-3">
+                                        <button type="submit" class="btn btn-primary baf-login-submit">
+                                            Login
+                                        </button>
+                                        <a class="btn btn-link btn-sm mt-2" href="/b2b/register">Sie haben noch kein Konto?</a>
+
+                                        <t t-call="web.login_oauth"/>
+                                    </div>
+
+                                    <div class="baf-register-mobile">
+                                        <span>Noch kein Zugang?</span>
+                                        <a href="/b2b/register">Jetzt registrieren</a>
+                                    </div>
+
+                                    <input type="hidden" name="type" value="password"/>
+                                    <input type="hidden" name="webauthn_response"/>
+                                    <input type="hidden" name="redirect" t-att-value="redirect or '/bestellsystem'"/>
+                                </form>
+
+                                <div class="oe_structure" id="oe_structure_login_bottom"/>
+                            </div>
+                        </div>
+                    </div>
+
+                    <style>
+                        body:has(.baf-login-page) {
+                            background: #f4f4f4;
+                        }
+
+                        .baf-login-page {
+                            --baf-black: #000000;
+                            --baf-white: #ffffff;
+                            --baf-gray-50: #f7f7f7;
+                            --baf-gray-100: #eeeeee;
+                            --baf-gray-200: #d8d8d8;
+                            --baf-gray-500: #777777;
+                            --baf-gray-700: #333333;
+                            --baf-radius: 24px;
+                            --baf-shadow: 0 18px 55px rgba(0,0,0,0.14);
+                            position: relative;
+                            min-height: 100vh;
+                            overflow: hidden;
+                            display: flex;
+                            align-items: center;
+                            justify-content: center;
+                            padding: 20px;
+                            background:
+                                radial-gradient(circle at top left, rgba(0,0,0,0.08), transparent 28%),
+                                radial-gradient(circle at bottom right, rgba(0,0,0,0.08), transparent 30%),
+                                linear-gradient(135deg, #ffffff 0%, #f3f3f3 100%);
+                            color: var(--baf-black);
+                            font-family: Inter, Arial, sans-serif;
+                        }
+
+                        .baf-login-box {
+                            position: relative;
+                            z-index: 2;
+                            width: min(980px, 100%);
+                            display: grid;
+                            grid-template-columns: 1fr 390px;
+                            border: 1px solid var(--baf-gray-200);
+                            border-radius: var(--baf-radius);
+                            background: rgba(255,255,255,0.94);
+                            box-shadow: var(--baf-shadow);
+                            overflow: hidden;
+                        }
+
+                        .baf-login-left {
+                            position: relative;
+                            padding: 34px;
+                            background: var(--baf-black);
+                            color: var(--baf-white);
+                            display: flex;
+                            flex-direction: column;
+                            justify-content: center;
+                        }
+
+                        .baf-login-left:after {
+                            content: "";
+                            position: absolute;
+                            right: -80px;
+                            bottom: -90px;
+                            width: 230px;
+                            height: 230px;
+                            border-radius: 50%;
+                            border: 34px solid rgba(255,255,255,0.08);
+                        }
+
+                        .baf-login-page .baf-kicker {
+                            display: inline-flex;
+                            margin-bottom: 8px;
+                            color: inherit;
+                            opacity: 0.68;
+                            font-size: 12px;
+                            font-weight: 950;
+                            letter-spacing: 0.16em;
+                            text-transform: uppercase;
+                        }
+
+                        .baf-login-left h1 {
+                            position: relative;
+                            z-index: 1;
+                            max-width: 520px;
+                            margin: 0;
+                            color: var(--baf-white);
+                            font-size: clamp(34px, 4.8vw, 58px);
+                            font-weight: 950;
+                            letter-spacing: -0.07em;
+                            line-height: 0.94;
+                        }
+
+                        .baf-login-left p {
+                            position: relative;
+                            z-index: 1;
+                            max-width: 440px;
+                            margin: 16px 0 24px;
+                            color: rgba(255,255,255,0.76);
+                            font-size: 16px;
+                            line-height: 1.5;
+                            font-weight: 650;
+                        }
+
+                        .baf-register-btn {
+                            position: relative;
+                            z-index: 1;
+                            display: inline-flex;
+                            align-items: center;
+                            justify-content: center;
+                            width: fit-content;
+                            min-height: 44px;
+                            padding: 11px 20px;
+                            border-radius: 999px;
+                            background: var(--baf-white);
+                            color: var(--baf-black) !important;
+                            font-weight: 950;
+                            text-decoration: none !important;
+                            transition: 0.18s ease;
+                        }
+
+                        .baf-register-btn:hover {
+                            opacity: 0.86;
+                            transform: translateY(-1px);
+                        }
+
+                        .baf-login-right {
+                            padding: 30px;
+                            background: var(--baf-white);
+                            display: flex;
+                            flex-direction: column;
+                            justify-content: center;
+                        }
+
+                        .baf-login-head {
+                            margin-bottom: 20px;
+                        }
+
+                        .baf-login-head h2 {
+                            margin: 0;
+                            color: var(--baf-black);
+                            font-size: 38px;
+                            font-weight: 950;
+                            letter-spacing: -0.065em;
+                            line-height: 0.96;
+                        }
+
+                        .baf-login-right label {
+                            color: var(--baf-black);
+                            font-size: 14px;
+                            font-weight: 900;
+                        }
+
+                        .baf-login-right .form-control {
+                            min-height: 48px;
+                            border: 1px solid var(--baf-gray-200);
+                            border-radius: 15px;
+                            padding: 11px 14px;
+                            color: var(--baf-black);
+                            background: var(--baf-white);
+                            font-size: 15px;
+                            box-shadow: none;
+                        }
+
+                        .baf-login-right .form-control:focus {
+                            border-color: var(--baf-black);
+                            box-shadow: 0 0 0 4px rgba(0,0,0,0.08);
+                        }
+
+                        .baf-login-right .input-group .form-control {
+                            border-top-right-radius: 0;
+                            border-bottom-right-radius: 0;
+                        }
+
+                        .baf-login-right .input-group .btn {
+                            min-height: 48px;
+                            border-radius: 0 15px 15px 0;
+                            background: var(--baf-white);
+                        }
+
+                        .baf-login-submit,
+                        .baf-login-right .btn-primary {
+                            min-height: 48px;
+                            border-radius: 999px !important;
+                            border-color: var(--baf-black) !important;
+                            background: var(--baf-black) !important;
+                            color: var(--baf-white) !important;
+                            font-weight: 950;
+                            transition: 0.18s ease;
+                        }
+
+                        .baf-login-submit:hover,
+                        .baf-login-right .btn-primary:hover {
+                            opacity: 0.84;
+                            transform: translateY(-1px);
+                        }
+
+                        .baf-register-mobile {
+                            display: none;
+                            margin-top: 16px;
+                            padding: 13px;
+                            border: 1px solid var(--baf-gray-200);
+                            border-radius: 16px;
+                            background: var(--baf-gray-50);
+                            text-align: center;
+                        }
+
+                        .baf-register-mobile span {
+                            display: block;
+                            margin-bottom: 4px;
+                            color: var(--baf-gray-500);
+                            font-size: 13px;
+                            font-weight: 800;
+                        }
+
+                        .baf-register-mobile a {
+                            color: var(--baf-black);
+                            font-weight: 950;
+                            text-decoration: none;
+                        }
+
+                        .baf-bg-parts {
+                            position: absolute;
+                            inset: 0;
+                            pointer-events: none;
+                            overflow: hidden;
+                            z-index: 1;
+                        }
+
+                        .baf-bg-parts span {
+                            position: absolute;
+                            color: rgba(0,0,0,0.10);
+                            font-size: 34px;
+                            filter: grayscale(1);
+                            animation: bafFloat 9s ease-in-out infinite;
+                        }
+
+                        .baf-bg-parts span:nth-child(1) {
+                            left: 8%;
+                            top: 12%;
+                        }
+
+                        .baf-bg-parts span:nth-child(2) {
+                            right: 10%;
+                            top: 16%;
+                            animation-delay: -2s;
+                        }
+
+                        .baf-bg-parts span:nth-child(3) {
+                            left: 12%;
+                            bottom: 12%;
+                            animation-delay: -4s;
+                        }
+
+                        .baf-bg-parts span:nth-child(4) {
+                            right: 12%;
+                            bottom: 14%;
+                            animation-delay: -6s;
+                        }
+
+                        @keyframes bafFloat {
+                            0% {
+                                transform: translate3d(0,0,0) rotate(0deg);
+                                opacity: 0.22;
+                            }
+
+                            50% {
+                                transform: translate3d(16px,-18px,0) rotate(18deg);
+                                opacity: 0.34;
+                            }
+
+                            100% {
+                                transform: translate3d(0,0,0) rotate(0deg);
+                                opacity: 0.22;
+                            }
+                        }
+
+                        @media (max-width: 860px) {
+                            .baf-login-box {
+                                grid-template-columns: 1fr;
+                                max-width: 440px;
+                            }
+
+                            .baf-login-left {
+                                padding: 24px;
+                                text-align: center;
+                                align-items: center;
+                            }
+
+                            .baf-login-left h1 {
+                                font-size: 34px;
+                            }
+
+                            .baf-login-left p {
+                                margin-bottom: 0;
+                            }
+
+                            .baf-register-btn {
+                                display: none;
+                            }
+
+                            .baf-login-right {
+                                padding: 24px;
+                            }
+
+                            .baf-register-mobile {
+                                display: block;
+                            }
+                        }
+
+                        @media (max-width: 520px) {
+                            .baf-login-page {
+                                height: auto;
+                                min-height: 100vh;
+                                overflow: auto;
+                                padding: 12px;
+                            }
+
+                            .baf-login-left {
+                                display: none;
+                            }
+
+                            .baf-login-right {
+                                padding: 22px 18px;
+                            }
+
+                            .baf-login-head h2 {
+                                font-size: 34px;
+                            }
+
+                            .baf-register-mobile {
+                                display: block;
+                            }
+                        }
+                    </style>
+
+                </div>
+            </t>
+        </xpath>
+    </template>
+
+</odoo>

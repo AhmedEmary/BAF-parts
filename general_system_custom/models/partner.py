@@ -99,6 +99,10 @@ class ResPartner(models.Model):
             # Derive the next number from the current MAX in the table, same
             # pattern Odoo uses for website_sequence / pos_sequence. Deleted
             # numbers are reused and manually inserted ones are respected.
+            # Flush pending contact_number writes so back-to-back create()
+            # calls in one transaction (e.g. company + child contact) see
+            # each other's numbers and don't collide on the UNIQUE index.
+            self.env['res.partner'].flush_model(['contact_number'])
             self.env.cr.execute("""
                 SELECT MAX(contact_number::bigint)
                 FROM res_partner
