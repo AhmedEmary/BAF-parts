@@ -14,6 +14,7 @@
         'data/enable_oos_orders.xml',
         'views/res_partner_b2b_view.xml',
         'views/baf_b2b_apply_template.xml',
+        'views/baf_login_template.xml',
         'views/product_template_view.xml',
         'views/website_list_to_part_template.xml',
         'views/website_baf_b2b_template.xml',
