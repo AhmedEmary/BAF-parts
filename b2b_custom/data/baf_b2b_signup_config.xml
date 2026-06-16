@@ -6,9 +6,9 @@
          anyone without a signup token. New B2B customers must use
          /b2b/apply; their portal user is created (with token) only after
          internal approval, and the signup email carries the token. -->
-    <record id="auth_signup_invitation_scope" model="ir.config_parameter">
-        <field name="key">auth_signup.invitation_scope</field>
-        <field name="value">b2b</field>
-    </record>
+    <function model="ir.config_parameter" name="set_param">
+        <value>auth_signup.invitation_scope</value>
+        <value>b2b</value>
+    </function>
 
 </odoo>

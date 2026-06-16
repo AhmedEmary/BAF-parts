@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<odoo noupdate="1">
+<odoo>
 
     <record id="mail_template_baf_b2b_approved" model="mail.template">
         <field name="name">BAF B2B: Zugang freigeschaltet</field>
@@ -26,8 +26,9 @@
                     wir haben Ihren B2B-Antrag geprüft und Ihren Zugang freigeschaltet.
                     Bitte schließen Sie die Registrierung über den folgenden Link ab und vergeben Sie Ihr Passwort.
                 </p>
+                <t t-set="signup_url" t-value="object._get_signup_url()"/>
                 <p style="margin:24px 0;text-align:center;">
-                    <a t-att-href="object.signup_url"
+                    <a t-att-href="signup_url"
                        style="display:inline-block;background:#000000;color:#ffffff;border-radius:999px;padding:14px 28px;font-weight:900;font-size:15px;text-decoration:none;letter-spacing:-0.01em;">
                         Zugang aktivieren
                     </a>
@@ -36,7 +37,7 @@
                     Falls der Button nicht funktioniert, kopieren Sie diesen Link in Ihren Browser:
                 </p>
                 <p style="margin:0 0 18px;font-size:12px;word-break:break-all;color:#004b7a;">
-                    <a t-att-href="object.signup_url" t-out="object.signup_url or ''" style="color:#004b7a;"/>
+                    <a t-att-href="signup_url" t-out="signup_url or ''" style="color:#004b7a;"/>
                 </p>
                 <p style="margin:0 0 8px;">
                     Nach der Aktivierung können Sie über

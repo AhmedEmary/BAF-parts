@@ -7,9 +7,15 @@
         <field name="sequence">90</field>
     </record>
 
+    <record id="privilege_baf_b2b" model="res.groups.privilege">
+        <field name="name">BAF B2B</field>
+        <field name="category_id" ref="module_category_baf_b2b"/>
+        <field name="sequence">90</field>
+    </record>
+
     <record id="group_b2b_customer" model="res.groups">
         <field name="name">B2B Customer (approved)</field>
-        <field name="category_id" ref="module_category_baf_b2b"/>
+        <field name="privilege_id" ref="privilege_baf_b2b"/>
         <field name="comment">Approved B2B customer. Members can see prices, use /bestellsystem and place orders. Assigned automatically when staff approves a B2B application.</field>
     </record>
 
