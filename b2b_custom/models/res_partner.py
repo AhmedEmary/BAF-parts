@@ -29,6 +29,15 @@ class ResPartner(models.Model):
         copy=False,
         help="Free-text message submitted by the customer on the application form.",
     )
+    baf_trade_license = fields.Binary(
+        string='Trade License (Gewerbeschein)',
+        copy=False,
+        attachment=True,
+    )
+    baf_trade_license_filename = fields.Char(
+        string='Trade License Filename',
+        copy=False,
+    )
 
     def _baf_b2b_groups(self):
         portal = self.env.ref('base.group_portal', raise_if_not_found=False)

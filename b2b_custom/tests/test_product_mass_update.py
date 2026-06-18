@@ -62,6 +62,19 @@ class TestProductMassUpdate(TransactionCase):
             job.invalidate_recordset()
         self.fail("Job did not finish within %d batches (state=%s)" % (max_iter, job.state))
 
+    def _stage_job_pending(self, job):
+        """Stage the job in 'pending' state so ``_process_one_batch`` can be
+        driven step by step. We bypass ``action_launch`` here because it drains
+        the whole job synchronously, which collides with tests that need to
+        observe partial-progress / resumption / cancel-mid-run behaviour."""
+        job.write({
+            'state': 'pending',
+            'vals_json': json.dumps(job._collect_vals()),
+            'domain_json': json.dumps(job._build_domain()),
+            'processed_count': 0,
+            'last_processed_id': 0,
+        })
+
     # ------------------------------------------------------------------
     # Validation
     # ------------------------------------------------------------------
@@ -317,7 +330,7 @@ class TestProductMassUpdate(TransactionCase):
                 brand_ids=[Command.set(self.brand_a.ids)],
                 apply_categ_id=True, categ_id=self.category_new.id,
             )
-            job.action_launch()
+            self._stage_job_pending(job)
 
             # First call: pending->processing, total set, AND first batch written.
             more = job._process_one_batch()
@@ -362,7 +375,7 @@ class TestProductMassUpdate(TransactionCase):
                 brand_ids=[Command.set(self.brand_a.ids)],
                 apply_categ_id=True, categ_id=self.category_new.id,
             )
-            job.action_launch()
+            self._stage_job_pending(job)
             job._process_one_batch()  # init + batch 1 (2 products)
             self.assertEqual(job.processed_count, 2)
 

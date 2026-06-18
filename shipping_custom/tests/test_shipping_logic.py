@@ -1,3 +1,4 @@
+import logging
 from unittest.mock import patch, MagicMock
 
 from odoo.tests import TransactionCase, tagged
@@ -9,6 +10,14 @@ class TestShippingCustomLogic(TransactionCase):
 
     def setUp(self):
         super().setUp()
+
+        # The fake FedEx label fixture used by test_07 has a non-spec xref
+        # table; PyPDF2 recovers fine but emits a noisy WARNING. Silence it
+        # for the duration of each test.
+        pdf_logger = logging.getLogger('PyPDF2._reader')
+        previous_level = pdf_logger.level
+        pdf_logger.setLevel(logging.ERROR)
+        self.addCleanup(pdf_logger.setLevel, previous_level)
 
         company = self.env.company
 
