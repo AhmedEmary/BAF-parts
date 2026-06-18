@@ -11,4 +11,12 @@
         <value>b2b</value>
     </function>
 
+    <!-- Extend the signup token validity to 30 days (default is 144h / 6 days).
+         B2B applicants often don't act on the activation email immediately;
+         a longer window reduces "link doesn't work" support requests. -->
+    <function model="ir.config_parameter" name="set_param">
+        <value>auth_signup.signup.validity.hours</value>
+        <value>720</value>
+    </function>
+
 </odoo>
