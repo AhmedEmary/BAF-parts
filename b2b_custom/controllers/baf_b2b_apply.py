@@ -217,12 +217,9 @@ class BafB2BApplyController(http.Controller):
                 if website:
                     partner.sudo().write({'website': website})
                 if file_bytes:
-                    request.env['ir.attachment'].sudo().create({
-                        'name': trade_license.filename,
-                        'datas': base64.b64encode(file_bytes),
-                        'res_model': 'res.partner',
-                        'res_id': partner.id,
-                        'mimetype': trade_license.mimetype or 'application/octet-stream',
+                    partner.sudo().write({
+                        'baf_trade_license': base64.b64encode(file_bytes),
+                        'baf_trade_license_filename': trade_license.filename,
                     })
         except (UserError, ValidationError, AccessError) as exc:
             _logger.warning("BAF B2B register: rejected by business rule: %s", exc)
