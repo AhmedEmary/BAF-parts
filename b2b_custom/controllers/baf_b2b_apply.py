@@ -156,6 +156,24 @@ class BafB2BApplyController(http.Controller):
         if email and '@' not in email:
             errors['email'] = "Bitte gültige E-Mail-Adresse eingeben."
 
+        password = post.get('password') or ''
+        password_confirm = post.get('password_confirm') or ''
+        if not password:
+            errors['password'] = "Pflichtfeld"
+        elif len(password) < 8:
+            errors['password'] = "Mindestens 8 Zeichen."
+        if not password_confirm:
+            errors['password_confirm'] = "Pflichtfeld"
+        elif password and password != password_confirm:
+            errors['password_confirm'] = "Passwörter stimmen nicht überein."
+
+        if email and not errors.get('email'):
+            existing = request.env['res.users'].with_context(active_test=False).sudo().search(
+                [('login', '=', email)], limit=1,
+            )
+            if existing:
+                errors['email'] = "Für diese E-Mail existiert bereits ein Zugang."
+
         trade_license = request.httprequest.files.get('trade_license')
         if not trade_license or not trade_license.filename:
             errors['trade_license'] = "Pflichtfeld"
@@ -171,8 +189,9 @@ class BafB2BApplyController(http.Controller):
                 errors['trade_license'] = "Datei darf max. 10 MB groß sein."
 
         if errors:
+            safe_values = {k: v for k, v in post.items() if k not in ('password', 'password_confirm')}
             return request.render('b2b_custom.baf_b2b_register_page', {
-                'values': post,
+                'values': safe_values,
                 'errors': errors,
                 'countries': self._baf_apply_countries(),
                 'brands': self._baf_apply_brands(),
@@ -212,6 +231,7 @@ class BafB2BApplyController(http.Controller):
                     'brand_ids': brand_ids,
                     'vat': post.get('vat'),
                     'note': note,
+                    'password': password,
                 })
                 website = (post.get('website') or '').strip()
                 if website:
@@ -225,16 +245,18 @@ class BafB2BApplyController(http.Controller):
             _logger.warning("BAF B2B register: rejected by business rule: %s", exc)
             message = (getattr(exc, 'args', None) and exc.args[0]) or str(exc) \
                 or "Antrag konnte nicht gespeichert werden."
+            safe_values = {k: v for k, v in post.items() if k not in ('password', 'password_confirm')}
             return request.render('b2b_custom.baf_b2b_register_page', {
-                'values': post,
+                'values': safe_values,
                 'errors': {'__global__': message},
                 'countries': self._baf_apply_countries(),
                 'brands': self._baf_apply_brands(),
             })
         except Exception:
             _logger.exception("BAF B2B register: failed to create partner")
+            safe_values = {k: v for k, v in post.items() if k not in ('password', 'password_confirm')}
             return request.render('b2b_custom.baf_b2b_register_page', {
-                'values': post,
+                'values': safe_values,
                 'errors': {'__global__': "Antrag konnte nicht gespeichert werden. Bitte erneut versuchen."},
                 'countries': self._baf_apply_countries(),
                 'brands': self._baf_apply_brands(),
