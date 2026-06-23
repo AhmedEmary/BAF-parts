@@ -49,6 +49,18 @@
                                    invisible="baf_b2b_state != 'rejected'"/>
                         </group>
                     </group>
+                    <separator string="Portal User"/>
+                    <field name="user_ids"
+                           context="{'active_test': False}"
+                           readonly="1"
+                           nolabel="1">
+                        <list>
+                            <field name="login"/>
+                            <field name="active" widget="boolean_toggle" readonly="1"/>
+                            <field name="create_date"/>
+                            <field name="login_date"/>
+                        </list>
+                    </field>
                     <separator string="Trade License (Gewerbeschein)"/>
                     <field name="baf_trade_license"
                            filename="baf_trade_license_filename"
