@@ -26,6 +26,7 @@
 
             <xpath expr="//field[@name='partner_id']" position="after">
                 <field name="b2b_so" placeholder="Enter B2B SO"/>
+                <field name="so_source"/>
                 <field name="shipping_method" placeholder="Select shipping method"/>
                 <field name="customer_po" placeholder="Enter customer PO number"/>
             </xpath>
@@ -70,6 +71,17 @@
                 <field name="coverage_percentage" widget="progressbar" optional="show" decoration-success="coverage_percentage == 100"/>
             </xpath>
 
+        </field>
+    </record>
+
+    <record id="sale_order_view_tree" model="ir.ui.view">
+        <field name="name">sale.order.list.inherit.intelliwise.custom</field>
+        <field name="model">sale.order</field>
+        <field name="inherit_id" ref="sale.sale_order_tree" />
+        <field name="arch" type="xml">
+            <field name="partner_id" position="after">
+                <field name="so_source"/>
+            </field>
         </field>
     </record>
 

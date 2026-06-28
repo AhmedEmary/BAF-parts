@@ -5,6 +5,7 @@ from . import baf_pricing
 from . import baf_product_pricing
 from . import partner
 from . import auto_product
+from . import so_source
 from . import discount_code
 from . import baf_delivery_rule
 

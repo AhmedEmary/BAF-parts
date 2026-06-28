@@ -6,7 +6,10 @@
         <field name="inherit_id" ref="base.res_config_settings_view_form"/>
         <field name="arch" type="xml">
             <xpath expr="//form" position="inside">
-                <block title="Shipping Integrations" name="shipping_settings_container">
+                <app string="Shipping Integrations" name="shipping_custom"
+                     logo="/stock/static/description/icon.png"
+                     groups="base.group_system">
+                <block title="Carrier Accounts" name="shipping_settings_container">
                     <setting id="shipping_integration_settings" string="Carrier Accounts"
                              help="Configure multiple carrier accounts (FedEx, DHL, etc.)">
                         <field name="shipping_account_ids" class="w-100">
@@ -41,6 +44,7 @@
                         </field>
                     </setting>
                 </block>
+                </app>
             </xpath>
         </field>
     </record>
