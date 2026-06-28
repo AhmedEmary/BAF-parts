@@ -10,6 +10,14 @@ class SaleOrder(models.Model):
     _inherit = 'sale.order'
 
     b2b_so = fields.Char(string='B2B SO')
+    so_source = fields.Many2one(
+        'so.source',
+        string='SO Source',
+        default=lambda self: self.env.ref(
+            'general_system_custom.so_source_odoo_website',
+            raise_if_not_found=False,
+        ),
+    )
     shipping_method = fields.Selection(
         selection=[
             ('air', 'Air'),
