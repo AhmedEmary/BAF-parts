@@ -1,0 +1,824 @@
+{
+  "data": [
+    {
+      "cart_order_id": 4285747,
+      "order": "POE37671650626",
+      "date": "2026-06-25 17:41:58",
+      "status": 0,
+      "is_marketplace": false,
+      "positions": [
+        {
+          "id": 59363,
+          "article_type": "POE",
+          "alzura_id": "6706311",
+          "status": -1,
+          "quantity": 2,
+          "attributes": [
+            {
+              "key": "MANUFACTURER",
+              "value": "JAGUAR",
+              "generic_key": "manufacturer"
+            },
+            {
+              "key": "MANUFACTURER_ITEM_NUMBER",
+              "value": "T2H42447",
+              "generic_key": "manufacturer_item_number"
+            },
+            {
+              "key": "Markenschlüssel",
+              "value": "JAG",
+              "generic_key": "markenschlüssel"
+            },
+            {
+              "key": "Originalteilmarke",
+              "value": "Jaguar",
+              "generic_key": "originalteilmarke"
+            },
+            {
+              "key": "internal_x_origin",
+              "value": "tyre24-frontend",
+              "generic_key": "internal_x_origin"
+            },
+            {
+              "key": "internal_cart_item_source",
+              "value": "0",
+              "generic_key": "internal_cart_item_source"
+            },
+            {
+              "key": "OEN",
+              "value": "T2H42447",
+              "generic_key": "oen"
+            },
+            {
+              "key": "Artikelreferenz",
+              "value": "Enes",
+              "generic_key": "artikelreferenz"
+            },
+            {
+              "key": "itemSource",
+              "value": "0",
+              "generic_key": "itemsource"
+            }
+          ],
+          "price": {
+            "net": 43.7,
+            "net_converted": 43.7,
+            "gross": 52,
+            "gross_converted": 52,
+            "vat": 0.19,
+            "net_original": 43.7
+          },
+          "supplier_item_number": "T2H42447",
+          "position_name": "Spezialschraube",
+          "position_description": "JAGUAR"
+        }
+      ],
+      "sum": {
+        "net": 87.4,
+        "net_converted": 87.4,
+        "gross": 104.01,
+        "gross_converted": 104.01,
+        "vat": 0.19
+      },
+      "total_sum": {
+        "net": 87.4,
+        "net_converted": 87.4,
+        "gross": 104.01,
+        "gross_converted": 104.01,
+        "vat": 0.19
+      },
+      "deposit": {
+        "net": 0,
+        "net_converted": 0,
+        "gross": 0,
+        "gross_converted": 0,
+        "vat": 0.19
+      },
+      "reference_number": "",
+      "country": "de",
+      "comment": "<br />\n~ Versandart: Priority-Shipping!<br /> <br />Priorisierter Auftragsbearbeitung & Versand",
+      "buyer": {
+        "id": 70332,
+        "status_name": "Premium",
+        "recipient_code": "",
+        "address": {
+          "name": "Abduramani Nurij",
+          "name_additional": "Lona Speed Service ",
+          "street": "Eschauer Allee 12",
+          "city": "Goldscheuer",
+          "zip": "77694",
+          "country": "Deutschland"
+        },
+        "tax": {
+          "tax_number": "",
+          "sales_tax_identification_number": "DE250459671"
+        },
+        "bank": {
+          "bank": "Sparkasse Hanauerland",
+          "owner": "Nurij Abduramani",
+          "iban": "DE42 6645 1862 0000 1127 64",
+          "bic_swift": "SOLADES1KEL"
+        },
+        "credit_reform": {
+          "index": "3",
+          "limit": "",
+          "text": "ACHTUNG !!! NEUER ZUSATZ !!! (10/18)",
+          "check_date": "2014-11-20"
+        },
+        "cooperation": {
+          "number": "",
+          "name": "",
+          "show_name": false,
+          "show_number": false
+        },
+        "contact": {
+          "name": "Nurij Abduramani",
+          "firstname": "Nurij",
+          "lastname": "Abduramani",
+          "email": "https://supplier.alzura.com/de/de/user/historySendMessage/user/70332/category/POE/orderID/37671650626/orderType/POE",
+          "phone": "+4978549872295",
+          "fax": ""
+        }
+      },
+      "currency": {
+        "code_origin": "EUR",
+        "code_converted": "EUR",
+        "factor": 1
+      },
+      "shipping": {
+        "deliveryDate": "",
+        "priority": true,
+        "neutral": false,
+        "handling_fee": {
+          "net": 0,
+          "net_converted": 0,
+          "gross": 0,
+          "gross_converted": 0,
+          "vat": 0.19
+        },
+        "delivery_address": {
+          "use_alternative_address": false
+        },
+        "method": {
+          "id": 1,
+          "name": "Standardversand",
+          "price": {
+            "net": 0,
+            "net_converted": 0,
+            "gross": 0,
+            "gross_converted": 0,
+            "vat": 0.19
+          }
+        },
+        "tracking": []
+      },
+      "payment": {
+        "method": {
+          "id": 1,
+          "name": "SEPA-Lastschrift",
+          "text": "",
+          "price": {
+            "net": 0,
+            "net_converted": 0,
+            "gross": 0,
+            "gross_converted": 0,
+            "vat": 0.19
+          }
+        },
+        "price_additional": {
+          "net": 0,
+          "net_converted": 0,
+          "gross": 0,
+          "gross_converted": 0,
+          "vat": 0.19
+        }
+      },
+      "documents": [
+        {
+          "id": 9863944,
+          "type": "DEBIT_AGREEMENT",
+          "reference_number": "1012241170332205675",
+          "endpoint": "https://api-b2b.alzura.com/common/document?type=DEBIT_AGREEMENT&filter[id]=9863944&order=POE37671650626"
+        },
+        {
+          "id": 40602,
+          "type": "PRODUCT_OE_AGREEMENT",
+          "endpoint": "https://api-b2b.alzura.com/common/document?type=PRODUCT_OE_AGREEMENT&filter[id]=40602&order=POE37671650626"
+        }
+      ],
+      "tagging_counter": 3
+    },
+    {
+      "cart_order_id": 4288777,
+      "order": "POE33845250626",
+      "date": "2026-06-26 12:49:38",
+      "status": 0,
+      "is_marketplace": false,
+      "positions": [
+        {
+          "id": 59402,
+          "article_type": "POE",
+          "alzura_id": "6713760",
+          "status": -1,
+          "quantity": 1,
+          "attributes": [
+            {
+              "key": "MANUFACTURER",
+              "value": "JAGUAR",
+              "generic_key": "manufacturer"
+            },
+            {
+              "key": "MANUFACTURER_ITEM_NUMBER",
+              "value": "T2R23864",
+              "generic_key": "manufacturer_item_number"
+            },
+            {
+              "key": "Markenschlüssel",
+              "value": "JAG",
+              "generic_key": "markenschlüssel"
+            },
+            {
+              "key": "Originalteilmarke",
+              "value": "Jaguar",
+              "generic_key": "originalteilmarke"
+            },
+            {
+              "key": "internal_x_origin",
+              "value": "tyre24-frontend",
+              "generic_key": "internal_x_origin"
+            },
+            {
+              "key": "internal_cart_item_source",
+              "value": "0",
+              "generic_key": "internal_cart_item_source"
+            },
+            {
+              "key": "OEN",
+              "value": "T2R23864",
+              "generic_key": "oen"
+            },
+            {
+              "key": "itemSource",
+              "value": "0",
+              "generic_key": "itemsource"
+            }
+          ],
+          "price": {
+            "net": 20.52,
+            "net_converted": 20.52,
+            "gross": 24.42,
+            "gross_converted": 24.42,
+            "vat": 0.19,
+            "net_original": 17.53
+          },
+          "supplier_item_number": "T2R23864",
+          "position_name": "Batterie",
+          "position_description": "JAGUAR"
+        }
+      ],
+      "sum": {
+        "net": 20.52,
+        "net_converted": 20.52,
+        "gross": 24.42,
+        "gross_converted": 24.42,
+        "vat": 0.19
+      },
+      "total_sum": {
+        "net": 24.42,
+        "net_converted": 24.42,
+        "gross": 29.06,
+        "gross_converted": 29.06,
+        "vat": 0.19
+      },
+      "deposit": {
+        "net": 0,
+        "net_converted": 0,
+        "gross": 0,
+        "gross_converted": 0,
+        "vat": 0.19
+      },
+      "reference_number": "",
+      "country": "de",
+      "comment": "",
+      "buyer": {
+        "id": 99269,
+        "status_name": "Basic",
+        "recipient_code": "",
+        "address": {
+          "name": "Norbert Schnepp",
+          "name_additional": "KFZ Technik",
+          "street": "Markt 18",
+          "city": "Titz-Rödingen",
+          "zip": "52445",
+          "country": "Deutschland"
+        },
+        "tax": {
+          "tax_number": "",
+          "sales_tax_identification_number": "DE187937572"
+        },
+        "bank": {
+          "bank": "Sparkasse  Düren",
+          "owner": "Norbert Schnepp",
+          "iban": "DE47 3955 0110 0004 0031 33",
+          "bic_swift": "SDUEDE33XXX"
+        },
+        "credit_reform": {
+          "index": "3",
+          "limit": "",
+          "text": "",
+          "check_date": "2011-05-18"
+        },
+        "cooperation": {
+          "number": "",
+          "name": "",
+          "show_name": false,
+          "show_number": false
+        },
+        "contact": {
+          "name": "Norbert Schnepp",
+          "firstname": "Norbert",
+          "lastname": "Schnepp",
+          "email": "https://supplier.alzura.com/de/de/user/historySendMessage/user/99269/category/POE/orderID/33845250626/orderType/POE",
+          "phone": "+49 2463 6307",
+          "fax": ""
+        }
+      },
+      "currency": {
+        "code_origin": "EUR",
+        "code_converted": "EUR",
+        "factor": 1
+      },
+      "shipping": {
+        "deliveryDate": "",
+        "priority": false,
+        "neutral": false,
+        "handling_fee": {
+          "net": 0,
+          "net_converted": 0,
+          "gross": 0,
+          "gross_converted": 0,
+          "vat": 0.19
+        },
+        "delivery_address": {
+          "use_alternative_address": false
+        },
+        "method": {
+          "id": 1,
+          "name": "Standardversand",
+          "price": {
+            "net": 3.9,
+            "net_converted": 3.9,
+            "gross": 4.64,
+            "gross_converted": 4.64,
+            "vat": 0.19
+          }
+        },
+        "tracking": []
+      },
+      "payment": {
+        "method": {
+          "id": 1,
+          "name": "SEPA-Lastschrift",
+          "text": "",
+          "price": {
+            "net": 0,
+            "net_converted": 0,
+            "gross": 0,
+            "gross_converted": 0,
+            "vat": 0.19
+          }
+        },
+        "price_additional": {
+          "net": 0,
+          "net_converted": 0,
+          "gross": 0,
+          "gross_converted": 0,
+          "vat": 0.19
+        }
+      },
+      "documents": [
+        {
+          "id": 10358830,
+          "type": "DEBIT_AGREEMENT",
+          "reference_number": "2606261299269205675",
+          "endpoint": "https://api-b2b.alzura.com/common/document?type=DEBIT_AGREEMENT&filter[id]=10358830&order=POE33845250626"
+        },
+        {
+          "id": 44771,
+          "type": "PRODUCT_OE_AGREEMENT",
+          "endpoint": "https://api-b2b.alzura.com/common/document?type=PRODUCT_OE_AGREEMENT&filter[id]=44771&order=POE33845250626"
+        }
+      ],
+      "tagging_counter": 3
+    },
+    {
+      "cart_order_id": 4291571,
+      "order": "POE12204490626",
+      "date": "2026-06-27 12:41:34",
+      "status": 0,
+      "is_marketplace": false,
+      "positions": [
+        {
+          "id": 59446,
+          "article_type": "POE",
+          "alzura_id": "6804826",
+          "status": -1,
+          "quantity": 1,
+          "attributes": [
+            {
+              "key": "MANUFACTURER",
+              "value": "JAGUAR",
+              "generic_key": "manufacturer"
+            },
+            {
+              "key": "MANUFACTURER_ITEM_NUMBER",
+              "value": "JDE38595",
+              "generic_key": "manufacturer_item_number"
+            },
+            {
+              "key": "Markenschlüssel",
+              "value": "JAG",
+              "generic_key": "markenschlüssel"
+            },
+            {
+              "key": "Originalteilmarke",
+              "value": "Jaguar",
+              "generic_key": "originalteilmarke"
+            },
+            {
+              "key": "internal_x_origin",
+              "value": "tyre24-frontend",
+              "generic_key": "internal_x_origin"
+            },
+            {
+              "key": "internal_cart_item_source",
+              "value": "0",
+              "generic_key": "internal_cart_item_source"
+            },
+            {
+              "key": "OEN",
+              "value": "JDE38595",
+              "generic_key": "oen"
+            },
+            {
+              "key": "itemSource",
+              "value": "0",
+              "generic_key": "itemsource"
+            }
+          ],
+          "price": {
+            "net": 32.23,
+            "net_converted": 32.23,
+            "gross": 38.35,
+            "gross_converted": 38.35,
+            "vat": 0.19,
+            "net_original": 32.23
+          },
+          "supplier_item_number": "JDE38595",
+          "position_name": "Oleinfullverschl",
+          "position_description": "JAGUAR"
+        }
+      ],
+      "sum": {
+        "net": 32.23,
+        "net_converted": 32.23,
+        "gross": 38.35,
+        "gross_converted": 38.35,
+        "vat": 0.19
+      },
+      "total_sum": {
+        "net": 32.23,
+        "net_converted": 32.23,
+        "gross": 38.35,
+        "gross_converted": 38.35,
+        "vat": 0.19
+      },
+      "deposit": {
+        "net": 0,
+        "net_converted": 0,
+        "gross": 0,
+        "gross_converted": 0,
+        "vat": 0.19
+      },
+      "reference_number": "",
+      "country": "de",
+      "comment": "<br />\n~ Versandart: Priority-Shipping!<br /> <br />Priorisierter Auftragsbearbeitung & Versand",
+      "buyer": {
+        "id": 322358,
+        "status_name": "Premium",
+        "recipient_code": "",
+        "address": {
+          "name": "Autofit Jung GmbH",
+          "name_additional": "Zweigstelle",
+          "street": "Borsigstr. 15",
+          "city": "Lübbecke",
+          "zip": "32312",
+          "country": "Deutschland"
+        },
+        "tax": {
+          "tax_number": "",
+          "sales_tax_identification_number": "DE367116843"
+        },
+        "bank": {
+          "bank": "Volkanksbank Plus eG",
+          "owner": "Autofit Jung GmbH",
+          "iban": "DE56 4909 2650 1028 3500 00",
+          "bic_swift": "GENODEM1LUB"
+        },
+        "credit_reform": {
+          "index": "2,7-2,9",
+          "limit": "",
+          "text": "---Crifbürgel: Score: 2,9/Firma und Anschrift bekannt/Wir schätzen das Ausfallrisiko mittel ein",
+          "check_date": "2024-02-20"
+        },
+        "cooperation": {
+          "number": "",
+          "name": "",
+          "show_name": false,
+          "show_number": false
+        },
+        "contact": {
+          "name": "Nafiye Avci",
+          "firstname": "Nafiye",
+          "lastname": "Avci",
+          "email": "https://supplier.alzura.com/de/de/user/historySendMessage/user/322358/category/POE/orderID/12204490626/orderType/POE",
+          "phone": "+4915234020153",
+          "fax": ""
+        }
+      },
+      "currency": {
+        "code_origin": "EUR",
+        "code_converted": "EUR",
+        "factor": 1
+      },
+      "shipping": {
+        "deliveryDate": "2026-06-30 12:41:34",
+        "priority": true,
+        "neutral": false,
+        "handling_fee": {
+          "net": 0,
+          "net_converted": 0,
+          "gross": 0,
+          "gross_converted": 0,
+          "vat": 0.19
+        },
+        "delivery_address": {
+          "use_alternative_address": false
+        },
+        "method": {
+          "id": 1,
+          "name": "Standardversand",
+          "price": {
+            "net": 0,
+            "net_converted": 0,
+            "gross": 0,
+            "gross_converted": 0,
+            "vat": 0.19
+          }
+        },
+        "tracking": []
+      },
+      "payment": {
+        "method": {
+          "id": 1,
+          "name": "SEPA-Lastschrift",
+          "text": "",
+          "price": {
+            "net": 0,
+            "net_converted": 0,
+            "gross": 0,
+            "gross_converted": 0,
+            "vat": 0.19
+          }
+        },
+        "price_additional": {
+          "net": 0,
+          "net_converted": 0,
+          "gross": 0,
+          "gross_converted": 0,
+          "vat": 0.19
+        }
+      },
+      "documents": [
+        {
+          "id": 10014581,
+          "type": "DEBIT_AGREEMENT",
+          "reference_number": "04062516322358205675",
+          "endpoint": "https://api-b2b.alzura.com/common/document?type=DEBIT_AGREEMENT&filter[id]=10014581&order=POE12204490626"
+        },
+        {
+          "id": 44794,
+          "type": "PRODUCT_OE_AGREEMENT",
+          "endpoint": "https://api-b2b.alzura.com/common/document?type=PRODUCT_OE_AGREEMENT&filter[id]=44794&order=POE12204490626"
+        }
+      ],
+      "tagging_counter": 4
+    },
+    {
+      "cart_order_id": 4291601,
+      "order": "POE17106620626",
+      "date": "2026-06-27 12:54:18",
+      "status": 0,
+      "is_marketplace": false,
+      "positions": [
+        {
+          "id": 59447,
+          "article_type": "POE",
+          "alzura_id": "8441484",
+          "status": -1,
+          "quantity": 1,
+          "attributes": [
+            {
+              "key": "MANUFACTURER",
+              "value": "JAGUAR",
+              "generic_key": "manufacturer"
+            },
+            {
+              "key": "MANUFACTURER_ITEM_NUMBER",
+              "value": "JDE41598",
+              "generic_key": "manufacturer_item_number"
+            },
+            {
+              "key": "Markenschlüssel",
+              "value": "JAG",
+              "generic_key": "markenschlüssel"
+            },
+            {
+              "key": "Originalteilmarke",
+              "value": "Jaguar",
+              "generic_key": "originalteilmarke"
+            },
+            {
+              "key": "internal_x_origin",
+              "value": "tyre24-frontend",
+              "generic_key": "internal_x_origin"
+            },
+            {
+              "key": "internal_cart_item_source",
+              "value": "0",
+              "generic_key": "internal_cart_item_source"
+            },
+            {
+              "key": "OEN",
+              "value": "JDE41598",
+              "generic_key": "oen"
+            },
+            {
+              "key": "itemSource",
+              "value": "0",
+              "generic_key": "itemsource"
+            }
+          ],
+          "price": {
+            "net": 31.98,
+            "net_converted": 31.98,
+            "gross": 38.06,
+            "gross_converted": 38.06,
+            "vat": 0.19,
+            "net_original": 28.99
+          },
+          "supplier_item_number": "JDE41598",
+          "position_name": "ANSCHLUSSROHR",
+          "position_description": "JAGUAR"
+        }
+      ],
+      "sum": {
+        "net": 31.98,
+        "net_converted": 31.98,
+        "gross": 38.06,
+        "gross_converted": 38.06,
+        "vat": 0.19
+      },
+      "total_sum": {
+        "net": 31.98,
+        "net_converted": 31.98,
+        "gross": 38.06,
+        "gross_converted": 38.06,
+        "vat": 0.19
+      },
+      "deposit": {
+        "net": 0,
+        "net_converted": 0,
+        "gross": 0,
+        "gross_converted": 0,
+        "vat": 0.19
+      },
+      "reference_number": "",
+      "country": "de",
+      "comment": "<br />\n~ Versandart: Priority-Shipping!<br /> <br />Priorisierter Auftragsbearbeitung & Versand",
+      "buyer": {
+        "id": 322358,
+        "status_name": "Premium",
+        "recipient_code": "",
+        "address": {
+          "name": "Autofit Jung GmbH",
+          "name_additional": "Zweigstelle",
+          "street": "Borsigstr. 15",
+          "city": "Lübbecke",
+          "zip": "32312",
+          "country": "Deutschland"
+        },
+        "tax": {
+          "tax_number": "",
+          "sales_tax_identification_number": "DE367116843"
+        },
+        "bank": {
+          "bank": "Volkanksbank Plus eG",
+          "owner": "Autofit Jung GmbH",
+          "iban": "DE56 4909 2650 1028 3500 00",
+          "bic_swift": "GENODEM1LUB"
+        },
+        "credit_reform": {
+          "index": "2,7-2,9",
+          "limit": "",
+          "text": "---Crifbürgel: Score: 2,9/Firma und Anschrift bekannt/Wir schätzen das Ausfallrisiko mittel ein",
+          "check_date": "2024-02-20"
+        },
+        "cooperation": {
+          "number": "",
+          "name": "",
+          "show_name": false,
+          "show_number": false
+        },
+        "contact": {
+          "name": "Nafiye Avci",
+          "firstname": "Nafiye",
+          "lastname": "Avci",
+          "email": "https://supplier.alzura.com/de/de/user/historySendMessage/user/322358/category/POE/orderID/17106620626/orderType/POE",
+          "phone": "+4915234020153",
+          "fax": ""
+        }
+      },
+      "currency": {
+        "code_origin": "EUR",
+        "code_converted": "EUR",
+        "factor": 1
+      },
+      "shipping": {
+        "deliveryDate": "",
+        "priority": true,
+        "neutral": false,
+        "handling_fee": {
+          "net": 0,
+          "net_converted": 0,
+          "gross": 0,
+          "gross_converted": 0,
+          "vat": 0.19
+        },
+        "delivery_address": {
+          "use_alternative_address": false
+        },
+        "method": {
+          "id": 1,
+          "name": "Standardversand",
+          "price": {
+            "net": 0,
+            "net_converted": 0,
+            "gross": 0,
+            "gross_converted": 0,
+            "vat": 0.19
+          }
+        },
+        "tracking": []
+      },
+      "payment": {
+        "method": {
+          "id": 1,
+          "name": "SEPA-Lastschrift",
+          "text": "",
+          "price": {
+            "net": 0,
+            "net_converted": 0,
+            "gross": 0,
+            "gross_converted": 0,
+            "vat": 0.19
+          }
+        },
+        "price_additional": {
+          "net": 0,
+          "net_converted": 0,
+          "gross": 0,
+          "gross_converted": 0,
+          "vat": 0.19
+        }
+      },
+      "documents": [
+        {
+          "id": 10014581,
+          "type": "DEBIT_AGREEMENT",
+          "reference_number": "04062516322358205675",
+          "endpoint": "https://api-b2b.alzura.com/common/document?type=DEBIT_AGREEMENT&filter[id]=10014581&order=POE17106620626"
+        },
+        {
+          "id": 44794,
+          "type": "PRODUCT_OE_AGREEMENT",
+          "endpoint": "https://api-b2b.alzura.com/common/document?type=PRODUCT_OE_AGREEMENT&filter[id]=44794&order=POE17106620626"
+        }
+      ],
+      "tagging_counter": 4
+    }
+  ],
+  "meta": {
+    "count": 4
+  }
+}

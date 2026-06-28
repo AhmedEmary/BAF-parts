@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+    <record id="res_config_settings_view_alzura" model="ir.ui.view">
+        <field name="name">res.config.settings.view.alzura</field>
+        <field name="model">res.config.settings</field>
+        <field name="inherit_id" ref="base.res_config_settings_view_form"/>
+        <field name="arch" type="xml">
+            <form position="inside">
+                <app string="B2B Integrations" name="alzura_integration"
+                     logo="/sale_management/static/description/icon.png"
+                     groups="base.group_system">
+
+                    <block title="Alzura B2B API Credentials">
+
+                        <setting string="Alzura ID"
+                                 help="Your Alzura B2B account ID">
+                            <field name="alzura_id" placeholder="e.g. 12345"/>
+                        </setting>
+
+                        <setting string="Password"
+                                 help="Password is never stored — used only to fetch the token">
+                            <field name="alzura_password" password="True" placeholder="Enter password"/>
+                        </setting>
+
+                        <setting string="Get Token">
+                            <button name="action_get_alzura_token"
+                                    string="Get Token"
+                                    type="object"
+                                    class="btn-primary"
+                                    noSaveDialog="true"/>
+                        </setting>
+
+                        <setting string="Country"
+                                 help="ISO 3166-1 alpha-2 lowercase code sent in the request header (e.g. de)">
+                            <field name="alzura_country" placeholder="de"/>
+                        </setting>
+
+                    </block>
+
+                    <block title="Orders">
+
+                        <setting string="Fetch Orders"
+                                 help="Import the latest orders from Alzura now. Also runs automatically twice a day.">
+                            <button name="action_fetch_alzura_orders"
+                                    string="Fetch Orders Now"
+                                    type="object"
+                                    class="btn-primary"
+                                    invisible="alzura_token_status == 'none'"
+                                    noSaveDialog="true"/>
+                        </setting>
+
+                    </block>
+
+                    <block title="Token Status"> 
+
+                        <setting string="Status">
+                            <field name="alzura_token_status"
+                                   widget="badge"
+                                   decoration-success="alzura_token_status == 'valid'"
+                                   decoration-warning="alzura_token_status == 'expired'"
+                                   decoration-danger="alzura_token_status == 'none'"
+                                   readonly="1"/>
+                        </setting>
+
+                        <setting string="Expires On">
+                            <field name="alzura_token_expiry" readonly="1"/>
+                        </setting>
+
+                        <setting string="Delete Token"
+                                 help="Remove the stored Alzura token">
+                            <button name="action_delete_alzura_token"
+                                    string="Delete Token"
+                                    type="object"
+                                    class="btn-secondary"
+                                    confirm="Are you sure you want to delete the Alzura token?"
+                                    invisible="alzura_token_status == 'none'"
+                                    noSaveDialog="true"/>
+                        </setting>
+
+                    </block>
+                </app>
+            </form>
+        </field>
+    </record>
+</odoo>
