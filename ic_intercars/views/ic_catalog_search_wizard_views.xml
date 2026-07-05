@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- Search form + inline results -->
+    <record id="view_ic_catalog_search_wizard_form" model="ir.ui.view">
+        <field name="name">ic.catalog.search.wizard.form</field>
+        <field name="model">ic.catalog.search.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Search Inter Cars Catalog (Live)">
+                <sheet>
+                    <group>
+                        <group>
+                            <field name="backend_id"/>
+                            <field name="search_type" widget="radio"/>
+                            <field name="search_value"
+                                   placeholder="e.g. ADDFFF or OP 520"/>
+                        </group>
+                        <group>
+                            <field name="language"/>
+                            <field name="page_size"/>
+                            <field name="fetch_price"/>
+                            <field name="fetch_stock"/>
+                        </group>
+                    </group>
+                    <div>
+                        <button name="action_search" type="object"
+                                string="Search Inter Cars"
+                                class="btn-primary"
+                                icon="fa-search"/>
+                        <span class="ms-2 text-muted"
+                              invisible="not result_count">
+                            <field name="result_count" nolabel="1"/>
+                            <t> result(s)</t>
+                        </span>
+                    </div>
+                    <field name="search_summary" nolabel="1" readonly="1"
+                           invisible="not search_summary"/>
+
+                    <group string="Results" invisible="not result_ids">
+                        <field name="result_ids" nolabel="1">
+                            <list create="0" delete="0">
+                                <field name="tow_kod"/>
+                                <field name="ic_index"/>
+                                <field name="manufacturer"/>
+                                <field name="short_description"/>
+                                <field name="customer_price_net"
+                                       sum="Total"
+                                       optional="show"/>
+                                <field name="list_price_net"
+                                       optional="hide"/>
+                                <field name="currency_code" optional="hide"/>
+                                <field name="availability"
+                                       optional="show"/>
+                                <field name="tec_doc" optional="hide"/>
+                                <field name="generic_article_id"
+                                       optional="hide"/>
+                                <field name="barcodes" optional="hide"/>
+                                <field name="has_price_data" invisible="1"/>
+                                <field name="has_stock_data" invisible="1"/>
+                                <button name="action_create_product"
+                                        type="object" icon="fa-plus"
+                                        string="Create Product"/>
+                                <button name="action_view_local_cache"
+                                        type="object" icon="fa-database"
+                                        string="Cache row"/>
+                            </list>
+                        </field>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_ic_catalog_search_wizard" model="ir.actions.act_window">
+        <field name="name">Search IC Catalog (Live)</field>
+        <field name="res_model">ic.catalog.search.wizard</field>
+        <field name="view_mode">form</field>
+        <field name="target">new</field>
+    </record>
+
+    <!-- Menu — right next to the CSV import + local cache browser -->
+    <menuitem id="menu_ic_catalog_search"
+              name="Search IC Catalog (Live)"
+              parent="purchase.menu_purchase_config"
+              action="action_ic_catalog_search_wizard"
+              sequence="80"/>
+
+</odoo>

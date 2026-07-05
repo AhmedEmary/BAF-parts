@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo noupdate="1">
+    <!-- Customer-visible label for materialised IC parts. Shown as a
+         badge on the product image in the shop grid and product page.
+         noupdate so shops can restyle it without -u reverting. -->
+    <record id="ribbon_aftermarket" model="product.ribbon" forcecreate="1">
+        <field name="name">Aftermarket</field>
+        <field name="bg_color">#6c757d</field>
+        <field name="text_color">#FFFFFF</field>
+        <field name="position">left</field>
+        <field name="style">tag</field>
+        <field name="assign">manual</field>
+    </record>
+</odoo>
