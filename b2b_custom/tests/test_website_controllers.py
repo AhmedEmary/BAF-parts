@@ -53,12 +53,16 @@ class TestWebsiteControllers(HttpCase):
             "id": 1
         }
         
+        # A website=True public route 404s on a cold anonymous session when the
+        # DB has several domainless websites (website resolution is ambiguous).
+        # Authenticating binds the session to a website, like test_02 does.
+        self.authenticate('b2b_user', 'b2b_user')
         response = self.url_open(
-            '/shop/update_custom_fields', 
-            data=json.dumps(payload), 
+            '/shop/update_custom_fields',
+            data=json.dumps(payload),
             headers={'Content-Type': 'application/json'}
         )
-        
+
         # Verify the endpoint doesn't crash (returns 200 OK)
         self.assertEqual(response.status_code, 200)
         

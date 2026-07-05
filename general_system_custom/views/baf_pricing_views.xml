@@ -77,6 +77,7 @@
         <field name="arch" type="xml">
             <list editable="bottom">
                 <field name="table_type"/>
+                <field name="partner_id"/>
                 <field name="column_key"/>
                 <field name="discount_code"/>
                 <field name="discount_pct" string="Discount %"/>
@@ -106,6 +107,7 @@
         <field name="model">baf.discount.line</field>
         <field name="arch" type="xml">
             <search>
+                <field name="partner_id"/>
                 <field name="column_key"/>
                 <field name="discount_code"/>
                 <filter string="Purchase" name="purchase" domain="[('table_type','=','purchase')]"/>
@@ -185,23 +187,17 @@
         <field name="arch" type="xml">
             <xpath expr="//notebook" position="inside">
                 <page string="BAF Pricing" name="baf_pricing">
-                    <group string="Supplier Route">
-                        <field name="supplier_route"/>
+                    <group string="BAF Discount">
                         <field name="baf_brand_family" readonly="1"/>
                         <field name="baf_discount_code"
-                               invisible="supplier_route == 'eu_direct'"
                                string="Discount Code"/>
                         <field name="baf_column_key"
-                               invisible="supplier_route == 'eu_direct'"
                                readonly="1"
                                string="Resolved Column Key"/>
                     </group>
                     <group string="BMW / MINI specifics">
                         <field name="baf_type_code" string="Type Code (1–9)"/>
                         <field name="baf_mod" string="Mod"/>
-                        <field name="baf_sb_surcharge_override"
-                               invisible="baf_mod != 'sb'"
-                               string="SB Surcharge Override % (0 = use default 5.2%)"/>
                     </group>
                 </page>
             </xpath>

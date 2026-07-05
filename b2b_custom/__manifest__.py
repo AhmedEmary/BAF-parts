@@ -3,7 +3,7 @@
     'summary': "This is a custom sale module for B2B companies",
     'version': '1.0',
     'category': 'Sales/Sales',
-    'depends': ['contacts', 'general_system_custom', 'website_sale', 'mail', 'portal', 'auth_signup'],
+    'depends': ['contacts','general_system_custom', 'website_sale', 'mail', 'portal', 'auth_signup'],
     'installable': True,
     'data': [
         'security/baf_b2b_security.xml',
@@ -25,7 +25,6 @@
         'views/checkout_template.xml',
         'views/sale_order.xml',
         'views/mass_product_import_view.xml',
-        'views/mass_vendor_price_import_view.xml',
         'views/product_mass_update_view.xml',
     ],
     'author': 'Ahmed Elamery',

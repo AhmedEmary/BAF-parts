@@ -39,7 +39,6 @@ FUZZY_MAP = {
     'baf_disc_code': ['discount code', 'disc code', 'discount_code', 'baf_discount_code', 'rabattcode'],
     'baf_type_code': ['type code', 'type_code', 'baf_type_code', 'type'],
     'baf_mod':       ['mod', 'baf_mod', 'motorrad', 'motorcycle'],
-    'supplier_route':['supplier route', 'supplier_route', 'route'],
     'origin':        ['origin', 'origine', 'country', 'country_code', 'origin_country', 'coo'],
     'hs_code':       ['hs code', 'hscode', 'hs_code', 'tariff'],
     'surcharge':     ['surcharge', 'fee', 'core charge'],
@@ -222,7 +221,6 @@ class MassProductImport(models.TransientModel):
             'baf_disc_idx': col_map.get('baf_disc_code'),
             'baf_type_idx': col_map.get('baf_type_code'),
             'baf_mod_idx': col_map.get('baf_mod'),
-            'route_idx': col_map.get('supplier_route'),
             'origin_idx': col_map.get('origin'),
             'hs_code_idx': col_map.get('hs_code'),
             'surcharge_idx': col_map.get('surcharge'),
@@ -275,10 +273,6 @@ class MassProductImport(models.TransientModel):
         if baf_mod == 'sb':
             return 'sb'
         return 'car'
-
-    def _normalize_supplier_route(self, route):
-        route = str(route or 'de_table').lower()
-        return route if route in ('de_table', 'eu_direct') else 'de_table'
 
     def _resolve_brand_id(self, brand_name, brand_cache):
         brand_key = brand_name.lower()
@@ -359,7 +353,6 @@ class MassProductImport(models.TransientModel):
         baf_disc = self._get_cell_value(row, indices['baf_disc_idx'], '0') or '0'
         baf_type = self._parse_int(self._get_cell_value(row, indices['baf_type_idx'])) or 0
         baf_mod = self._normalize_baf_mod(self._get_cell_value(row, indices['baf_mod_idx'], 'car'))
-        route = self._normalize_supplier_route(self._get_cell_value(row, indices['route_idx'], 'de_table'))
         default_code = self._compute_default_code(brand_name, sku)
         computed_col_key, computed_family = resolve_baf_brand_info(brand_name, baf_type, baf_mod)
 
@@ -405,7 +398,6 @@ class MassProductImport(models.TransientModel):
             'baf_disc': baf_disc,
             'baf_type': baf_type,
             'baf_mod': baf_mod,
-            'route': route,
             'computed_col_key': computed_col_key,
             'computed_family': computed_family,
             'is_storable': is_storable,
@@ -432,23 +424,22 @@ class MassProductImport(models.TransientModel):
             payload['baf_disc'],       # 16. baf_discount_code
             payload['baf_type'],       # 17. baf_type_code
             payload['baf_mod'],        # 18. baf_mod
-            payload['route'],          # 19. supplier_route
-            payload['computed_col_key'],   # 20. baf_column_key
-            payload['computed_family'],    # 21. baf_brand_family
-            payload['origin_id'],      # 22. origin
-            payload['hs_code'],        # 23. hs_code
-            payload['surcharge'],      # 24. surcharge
-            payload['weight'],         # 25. weight
-            payload['height'],         # 26. height
-            payload['width'],          # 27. width
-            payload['length'],         # 28. length
-            payload['volume'],         # 29. volume
-            payload['replaced_by_id'], # 30. replaced_by_id
-            'order',                   # 31. invoice_policy
-            fields.Datetime.now(),     # 32. publish_date
+            payload['computed_col_key'],   # 19. baf_column_key
+            payload['computed_family'],    # 20. baf_brand_family
+            payload['origin_id'],      # 21. origin
+            payload['hs_code'],        # 22. hs_code
+            payload['surcharge'],      # 23. surcharge
+            payload['weight'],         # 24. weight
+            payload['height'],         # 25. height
+            payload['width'],          # 26. width
+            payload['length'],         # 27. length
+            payload['volume'],         # 28. volume
+            payload['replaced_by_id'], # 29. replaced_by_id
+            'order',                   # 30. invoice_policy
+            fields.Datetime.now(),     # 31. publish_date
         )
         if ctx['has_is_published']:
-            template_tuple += (payload['is_published'],)  # 33. is_published
+            template_tuple += (payload['is_published'],)  # 32. is_published
         if ctx['has_allow_out_of_stock']:
             template_tuple += (True,)  # allow_out_of_stock_order
         return template_tuple
@@ -470,7 +461,7 @@ class MassProductImport(models.TransientModel):
                         type, is_storable, uom_id, categ_id, active, service_tracking,
                         tracking, base_unit_count,
                         sale_ok, purchase_ok,
-                        baf_discount_code, baf_type_code, baf_mod, supplier_route,
+                        baf_discount_code, baf_type_code, baf_mod,
                         baf_column_key, baf_brand_family,
                         origin, hs_code, surcharge, weight,
                         height, width, length, volume,
@@ -486,7 +477,6 @@ class MassProductImport(models.TransientModel):
                         baf_discount_code= EXCLUDED.baf_discount_code,
                         baf_type_code    = EXCLUDED.baf_type_code,
                         baf_mod          = EXCLUDED.baf_mod,
-                        supplier_route   = EXCLUDED.supplier_route,
                         baf_column_key   = EXCLUDED.baf_column_key,
                         baf_brand_family = EXCLUDED.baf_brand_family,
                         origin           = EXCLUDED.origin,
@@ -658,7 +648,7 @@ class MassProductImport(models.TransientModel):
                 type, is_storable, uom_id, categ_id, active, service_tracking,
                 tracking, base_unit_count,
                 sale_ok, purchase_ok,
-                baf_discount_code, baf_type_code, baf_mod, supplier_route,
+                baf_discount_code, baf_type_code, baf_mod,
                 baf_column_key, baf_brand_family,
                 origin, hs_code, surcharge, weight,
                 height, width, length, volume,
@@ -691,7 +681,6 @@ class MassProductImport(models.TransientModel):
             '0',
             0,
             'car',
-            'de_table',
             column_key,
             family,
             None,
@@ -868,7 +857,6 @@ class MassProductImportMapping(models.TransientModel):
         ('baf_disc_code', 'BAF Discount Code #'),
         ('baf_type_code', 'BAF Type Code (1-9)'),
         ('baf_mod',       'BAF Mod (car / motorcycle / sb)'),
-        ('supplier_route','Supplier Route (de_table / eu_direct)'),
         ('origin',        'Origin (Country Code)'),
         ('replaced_by',   'Replaced By (SKU of replacement product)'),
         ('is_storable',   'Track Inventory'),

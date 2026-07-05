@@ -78,13 +78,13 @@ class TestBafPricing(TransactionCase):
         })
 
         discount_lines = [
-            {'table_type': 'purchase', 'column_key': 'SUP1_BMW_T12', 'discount_code': '10', 'discount_pct': 20.0},
-            {'table_type': 'purchase', 'column_key': 'SUP2_BMW_T12', 'discount_code': '10', 'discount_pct': 20.0},  # SUP2 gets same 20% — SB surcharge only applies for SUP1
-            {'table_type': 'purchase', 'column_key': 'SUP1_BMW_T39', 'discount_code': '10', 'discount_pct': 30.0},
-            {'table_type': 'purchase', 'column_key': 'SUP3_MOTO', 'discount_code': '10', 'discount_pct': 40.0},
-            {'table_type': 'sales', 'column_key': 'BMW_T12_GR1', 'discount_code': '10', 'discount_pct': 5.0},
-            {'table_type': 'sales', 'column_key': 'BMW_T39_GR1', 'discount_code': '10', 'discount_pct': 7.0},
-            {'table_type': 'sales', 'column_key': 'BMW_T12_MOTO', 'discount_code': '10', 'discount_pct': 8.0},
+            {'table_type': 'purchase', 'column_key': 'SUP1_BMW_T12', 'discount_code': 'ZZ10', 'discount_pct': 20.0},
+            {'table_type': 'purchase', 'column_key': 'SUP2_BMW_T12', 'discount_code': 'ZZ10', 'discount_pct': 20.0},  # SUP2 gets same 20% — SB surcharge only applies for SUP1
+            {'table_type': 'purchase', 'column_key': 'SUP1_BMW_T39', 'discount_code': 'ZZ10', 'discount_pct': 30.0},
+            {'table_type': 'purchase', 'column_key': 'SUP3_MOTO', 'discount_code': 'ZZ10', 'discount_pct': 40.0},
+            {'table_type': 'sales', 'column_key': 'BMW_T12_GR1', 'discount_code': 'ZZ10', 'discount_pct': 5.0},
+            {'table_type': 'sales', 'column_key': 'BMW_T39_GR1', 'discount_code': 'ZZ10', 'discount_pct': 7.0},
+            {'table_type': 'sales', 'column_key': 'BMW_T12_MOTO', 'discount_code': 'ZZ10', 'discount_pct': 8.0},
         ]
         for vals in discount_lines:
             self.DiscountLine.create(vals)
@@ -95,10 +95,9 @@ class TestBafPricing(TransactionCase):
             'brand': brand.id,
             'sku': sku,
             'list_price': 100.0,
-            'baf_discount_code': '10',
+            'baf_discount_code': 'ZZ10',
             'baf_type_code': 1,
             'baf_mod': 'car',
-            'supplier_route': 'de_table',
             'surcharge': 0.0,
         }
         vals.update(extra_vals)
@@ -129,44 +128,16 @@ class TestBafPricing(TransactionCase):
         # 0 / missing falls back to T12
         self.assertEqual(resolve_baf_brand_info('BMW', 0, 'car'), ('BMW_T12', 'bmw_mini'))
 
-    def test_02_discount_lookup_returns_match_or_zero(self):
+    def test_02_discount_lookup_returns_match_or_none(self):
         self.assertEqual(
-            self.DiscountLine.get_discount_pct('purchase', 'SUP1_BMW_T12', '10'),
+            self.DiscountLine.get_discount_pct('purchase', 'SUP1_BMW_T12', 'ZZ10'),
             20.0,
         )
-        self.assertEqual(
-            self.DiscountLine.get_discount_pct('sales', 'BMW_T12_GR9', '10'),
-            0.0,
+        # Miss now returns None (not 0.0) so callers can distinguish
+        # "no row" from a genuine 0% row.
+        self.assertIsNone(
+            self.DiscountLine.get_discount_pct('sales', 'BMW_T12_GR9', 'ZZ10'),
         )
-
-    def test_03_purchase_price_uses_t12_and_t39_tables(self):
-        product_t12 = self._create_product(self.brand_bmw, 'P-T12', baf_type_code=1)
-        product_t39 = self._create_product(self.brand_bmw, 'P-T39', baf_type_code=3)
-
-        self.assertAlmostEqual(product_t12.baf_get_purchase_price('SUP1'), 80.0)
-        self.assertAlmostEqual(product_t39.baf_get_purchase_price('SUP1'), 70.0)
-
-    def test_04_purchase_price_motorcycle_uses_sup3_moto(self):
-        product = self._create_product(self.brand_bmw, 'P-MOTO', baf_mod='motorcycle', baf_type_code=1)
-        self.assertAlmostEqual(product.baf_get_purchase_price('SUP1'), 60.0)
-        self.assertAlmostEqual(product.baf_get_purchase_price('SUP3'), 60.0)
-
-    def test_05_purchase_price_sb_uses_default_and_override_surcharge(self):
-        default_sb = self._create_product(self.brand_bmw, 'P-SB-DEFAULT', baf_mod='sb')
-        override_sb = self._create_product(
-            self.brand_bmw,
-            'P-SB-OVERRIDE',
-            baf_mod='sb',
-            baf_sb_surcharge_override=10.0,
-        )
-
-        self.assertAlmostEqual(default_sb.baf_get_purchase_price('SUP1'), 75.84, places=2)
-        self.assertAlmostEqual(override_sb.baf_get_purchase_price('SUP1'), 72.0, places=2)
-        self.assertAlmostEqual(default_sb.baf_get_purchase_price('SUP2'), 80.0, places=2)
-
-    def test_06_purchase_price_eu_direct_returns_none(self):
-        product = self._create_product(self.brand_bmw, 'P-EU', supplier_route='eu_direct')
-        self.assertIsNone(product.baf_get_purchase_price('SUP1'))
 
     def test_07_sales_price_guest_and_unrelated_group_fallback_to_upe(self):
         product = self._create_product(self.brand_bmw, 'S-GUEST', surcharge=3.0)
@@ -234,23 +205,6 @@ class TestBafPricing(TransactionCase):
         self.assertEqual(details['pricing_method'], 'markup_pct')
         self.assertAlmostEqual(details['price'], 120.0)
         self.assertEqual(details['discount_pct'], 20.0)
-
-    def test_12_product_variant_wrappers_delegate_to_template(self):
-        product_tmpl = self._create_product(self.brand_bmw, 'WRAP01', surcharge=2.0)
-        variant = product_tmpl.product_variant_id
-
-        self.assertAlmostEqual(
-            variant.baf_get_purchase_price('SUP1'),
-            product_tmpl.baf_get_purchase_price('SUP1'),
-        )
-        self.assertAlmostEqual(
-            variant.baf_get_sales_price(self.partner_bmw),
-            product_tmpl.baf_get_sales_price(self.partner_bmw),
-        )
-        self.assertEqual(
-            variant.baf_get_sales_price_details(self.partner_bmw),
-            product_tmpl.baf_get_sales_price_details(self.partner_bmw),
-        )
 
     def test_13_partner_write_cannot_add_two_groups_in_same_family(self):
         with self.assertRaises(ValidationError):

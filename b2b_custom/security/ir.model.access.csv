@@ -1,6 +1,4 @@
 id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
 access_mass_product_import,mass.product.import,model_mass_product_import,base.group_user,1,1,1,1
 access_mass_product_import_mapping,mass.product.import.mapping,model_mass_product_import_mapping,base.group_user,1,1,1,1
-access_mass_vendor_price_import,mass.vendor.price.import,model_mass_vendor_price_import,base.group_user,1,1,1,1
-access_mass_vendor_price_import_mapping,mass.vendor.price.import.mapping,model_mass_vendor_price_import_mapping,base.group_user,1,1,1,1
 access_product_mass_update,product.mass.update,model_product_mass_update,base.group_user,1,1,1,1

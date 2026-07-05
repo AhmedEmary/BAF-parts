@@ -148,6 +148,14 @@ class BafDiscountLine(models.Model):
         index=True,
     )
 
+    partner_id = fields.Many2one(
+        'res.partner',
+        string='Vendor',
+        index=True,
+        ondelete='cascade',
+        help="Vendor this purchase row belongs to. Empty for global sales rows.",
+    )
+
     column_key = fields.Char(
         string='Column Key',
         required=True,
@@ -176,14 +184,17 @@ class BafDiscountLine(models.Model):
     )
 
     @api.model
-    def get_discount_pct(self, table_type, column_key, discount_code):
+    def get_discount_pct(self, table_type, column_key, discount_code, partner=None):
         """
-        Convenience lookup used by the pricing engine.
-        Returns the discount % (float) or 0.0 if not found.
+        Lookup used by the pricing engine.
+        Returns the discount % (float), or None when no matching row exists
+        (so 'vendor cannot price this part' is distinct from a genuine 0% row).
+        Purchase lookups pass `partner`; sales lookups leave it None (global rows).
         """
         record = self.search([
             ('table_type',    '=', table_type),
             ('column_key',    '=', column_key),
             ('discount_code', '=', str(discount_code).strip()),
+            ('partner_id',    '=', partner.id if partner else False),
         ], limit=1)
-        return record.discount_pct if record else 0.0
+        return record.discount_pct if record else None
