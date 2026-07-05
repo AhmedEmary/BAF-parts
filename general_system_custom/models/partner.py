@@ -25,6 +25,12 @@ class ResPartner(models.Model):
         help="If checked, the Customer Name column will be included in the PO Excel export sent to this vendor."
     )
 
+    baf_is_vendor = fields.Boolean(
+        string='Is a Vendor',
+        help="Tick to mark this contact as a purchase vendor and show the "
+             "Vendor Pricing tab (method + per-vendor pricing data).",
+    )
+
     baf_purchase_method = fields.Selection(
         selection=[
             ('matrix', 'Matrix Table'),
@@ -137,6 +143,26 @@ class ResPartner(models.Model):
                 next_number += 1
         return partners
 
+    def write(self, vals):
+        # Unticking "Is a Vendor" drops this contact's saved per-vendor pricing
+        # (matrix rows, discount code values, direct prices) and its method/file.
+        clearing = self.filtered('baf_is_vendor') if vals.get('baf_is_vendor') is False else self.browse()
+        res = super().write(vals)
+        if clearing:
+            clearing._baf_wipe_vendor_pricing()
+            super(ResPartner, clearing).write({
+                'baf_purchase_method': False,
+                'baf_pricing_file': False,
+                'baf_pricing_filename': False,
+            })
+        return res
+
+    def _baf_wipe_vendor_pricing(self):
+        """Delete this contact's per-vendor pricing across all three stores."""
+        self.baf_purchase_line_ids.unlink()
+        self.baf_code_value_ids.unlink()
+        self.baf_supplierinfo_ids.unlink()
+
     @api.depends('vat', 'country_id')
     def _compute_is_b2b_eu_vat(self):
         eu_countries = self.env.ref('base.europe', raise_if_not_found=False)
@@ -177,9 +203,7 @@ class ResPartner(models.Model):
         # Full replace: drop this vendor's existing per-vendor pricing across
         # all three stores (so switching method leaves nothing stale), then
         # load only what the uploaded file contains.
-        self.baf_purchase_line_ids.unlink()
-        self.baf_code_value_ids.unlink()
-        self.baf_supplierinfo_ids.unlink()
+        self._baf_wipe_vendor_pricing()
 
         importer = {
             'matrix': self._baf_import_matrix,
