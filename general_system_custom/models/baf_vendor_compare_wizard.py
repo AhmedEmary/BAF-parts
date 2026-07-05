@@ -43,7 +43,6 @@ class BafVendorPriceCompare(models.TransientModel):
         for cand in best['candidates']:
             line_vals.append((0, 0, {
                 'vendor_id': cand['vendor'].id,
-                'supplier_code': cand['vendor'].baf_supplier_code or '',
                 'method': cand['method'] or False,
                 'column_key': cand['column_key'] or '',
                 'discount_pct': cand['discount_pct'] or 0.0,
@@ -81,11 +80,11 @@ class BafVendorPriceCompareLine(models.TransientModel):
 
     wizard_id = fields.Many2one('baf.vendor.price.compare', required=True, ondelete='cascade')
     vendor_id = fields.Many2one('res.partner', string='Vendor', readonly=True)
-    supplier_code = fields.Char(string='Code', readonly=True)
     method = fields.Selection(
         selection=[
-            ('discount_table', 'Discount Table'),
-            ('supplierinfo',   'Supplier Pricelist'),
+            ('matrix', 'Matrix Table'),
+            ('codes',  'Discount Codes'),
+            ('direct', 'Direct Prices'),
         ],
         string='Pricing Method',
         readonly=True,

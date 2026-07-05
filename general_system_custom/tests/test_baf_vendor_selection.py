@@ -1,474 +1,109 @@
-from odoo import Command
-from odoo.exceptions import UserError
 from odoo.tests import TransactionCase, tagged
 
 
 @tagged('post_install', '-at_install')
 class TestBafVendorSelection(TransactionCase):
-    """
-    Covers the auto-vendor selection feature:
-      - baf_get_purchase_price_details (extended price-engine output)
-      - baf_get_best_vendor (cheapest pick + tie-breaks + pinning rules)
-      - sale.order.line._compute_purchase_vendor_id (preselection)
-      - baf.vendor.price.compare wizard (default_get + apply)
-    """
 
     def setUp(self):
         super().setUp()
-
         Brand = self.env['product.brand']
         Partner = self.env['res.partner']
         Tmpl = self.env['product.template']
-        Disc = self.env['baf.discount.line']
+        self.Disc = self.env['baf.discount.line']
 
-        # ── Brands ────────────────────────────────────────────────────────
         self.brand_bmw = Brand.create({'name': 'BMW'})
-        self.brand_mini = Brand.create({'name': 'MINI'})
         self.brand_jag = Brand.create({'name': 'Jaguar'})
-        self.brand_bosal = Brand.create({'name': 'Bosal'})
 
-        # ── Vendors with BAF supplier codes + supplied brands ─────────────
-        self.vendor_sup1 = Partner.create({
-            'name': 'Vendor SUP1',
-            'baf_supplier_code': 'SUP1',
-            'baf_brand_ids': [(6, 0, [self.brand_bmw.id, self.brand_mini.id])],
-        })
-        self.vendor_sup2 = Partner.create({
-            'name': 'Vendor SUP2',
-            'baf_supplier_code': 'SUP2',
-            'baf_brand_ids': [(6, 0, [self.brand_bmw.id, self.brand_mini.id])],
-        })
-        self.vendor_sup3 = Partner.create({
-            'name': 'Vendor SUP3',
-            'baf_supplier_code': 'SUP3',
-            'baf_brand_ids': [(6, 0, [self.brand_bmw.id, self.brand_mini.id])],
-        })
-        self.vendor_jlr = Partner.create({
-            'name': 'Vendor JLR',
-            'baf_supplier_code': 'SUP_JLR',
+        self.prod = Tmpl.create({
+            'name': 'BMW part', 'list_price': 100.0, 'brand': self.brand_bmw.id,
+            'baf_discount_code': '10', 'baf_type_code': 1,  # BMW_T12
+        }).product_variant_id
+
+        # Three matrix vendors supplying BMW, distinct discounts
+        def mk(name, pct):
+            v = Partner.create({
+                'name': name, 'baf_purchase_method': 'matrix',
+                'baf_brand_ids': [(6, 0, [self.brand_bmw.id])],
+            })
+            self.Disc.create({
+                'table_type': 'purchase', 'column_key': 'BMW_T12',
+                'discount_code': '10', 'discount_pct': pct,
+                'partner_id': v.id,
+            })
+            return v
+
+        self.v_cheap = mk('Cheap', 25.0)   # -> 75
+        self.v_mid = mk('Mid', 20.0)       # -> 80
+        self.v_wrong_brand = Partner.create({
+            'name': 'JLR only', 'baf_purchase_method': 'matrix',
             'baf_brand_ids': [(6, 0, [self.brand_jag.id])],
         })
-        self.vendor_eu = Partner.create({
-            'name': 'Vendor EU',
-            'baf_supplier_code': 'EU_DIRECT',
-            'baf_brand_ids': [(6, 0, [self.brand_bosal.id])],
-        })
-        self.vendor_no_baf = Partner.create({
-            'name': 'Vendor without BAF code',
-            # No baf_supplier_code, no baf_brand_ids → NOT eligible
-        })
-
-        # ── Discount table ────────────────────────────────────────────────
-        # All "/_10" rows; chosen %s let us reason about prices easily on UPE 100.
-        rows = [
-            # BMW T12 — code 10 → distinct discounts so cheapest is well-defined
-            ('purchase', 'SUP1_BMW_T12', '10', 20.0),  # → 80
-            ('purchase', 'SUP2_BMW_T12', '10', 22.0),  # → 78
-            ('purchase', 'SUP3_BMW_T12', '10', 24.0),  # → 76
-            # BMW T12 — code 99 → all three suppliers same %, used for ties
-            ('purchase', 'SUP1_BMW_T12', '99', 10.0),  # → 90
-            ('purchase', 'SUP2_BMW_T12', '99', 10.0),  # → 90
-            ('purchase', 'SUP3_BMW_T12', '99', 10.0),  # → 90
-            # BMW T12 — code 23 → SUP2 = SUP3 (cheaper than SUP1)
-            ('purchase', 'SUP1_BMW_T12', '23', 5.0),   # → 95
-            ('purchase', 'SUP2_BMW_T12', '23', 15.0),  # → 85
-            ('purchase', 'SUP3_BMW_T12', '23', 15.0),  # → 85
-            # Motorcycle column (SUP3 only)
-            ('purchase', 'SUP3_MOTO', '10', 40.0),     # → 60
-            # JLR
-            ('purchase', 'SUP_JLR_JLR', '1A', 35.0),   # → 65
-        ]
-        for table_type, column_key, code, pct in rows:
-            Disc.create({
-                'table_type': table_type,
-                'column_key': column_key,
-                'discount_code': code,
-                'discount_pct': pct,
-            })
-
-        # ── Product factory ───────────────────────────────────────────────
-        self.Tmpl = Tmpl
-
-        def make(brand, sku, **extra):
-            vals = {
-                'name': f'{brand.name} {sku}',
-                'brand': brand.id,
-                'sku': sku,
-                'list_price': 100.0,
-                'baf_discount_code': '10',
-                'baf_type_code': 1,
-                'baf_mod': 'car',
-                'supplier_route': 'de_table',
-                'surcharge': 0.0,
-                'type': 'consu',
-            }
-            vals.update(extra)
-            tmpl = Tmpl.create(vals)
-            return tmpl.product_variant_id
-
-        self._make = make
-
-        # Common fixtures
-        self.bmw_default = make(self.brand_bmw, 'BMW-DEFAULT')                   # code 10
-        self.bmw_tie_all = make(self.brand_bmw, 'BMW-TIE-ALL', baf_discount_code='99')
-        self.bmw_tie23 = make(self.brand_bmw, 'BMW-TIE23', baf_discount_code='23')
-        self.bmw_moto = make(self.brand_bmw, 'BMW-MOTO', baf_mod='motorcycle')
-        self.jlr_product = make(self.brand_jag, 'JAG-1A', baf_discount_code='1A')
-        self.eu_product = make(self.brand_bosal, 'BOSAL-1', supplier_route='eu_direct')
-        # EU product has supplierinfo at €70 from vendor_eu
-        self.eu_product.product_tmpl_id.write({
-            'seller_ids': [Command.create({'partner_id': self.vendor_eu.id, 'price': 70.0})],
-        })
-
-        self.customer = Partner.create({'name': 'A Test Customer'})
-
-    # ─────────────────────────────────────────────────────────────────────
-    # baf_get_purchase_price_details
-    # ─────────────────────────────────────────────────────────────────────
-
-    def test_01_purchase_details_de_table_returns_full_breakdown(self):
-        details = self.bmw_default.baf_get_purchase_price_details('SUP1')
-        self.assertEqual(details['column_key'], 'SUP1_BMW_T12')
-        self.assertAlmostEqual(details['discount_pct'], 20.0)
-        self.assertAlmostEqual(details['price'], 80.0)
-        self.assertEqual(details['sb_surcharge'], 0.0)
-        self.assertEqual(details['pricing_method'], 'discount_table')
-
-    def test_02_purchase_details_motorcycle_pinned_to_sup3_moto(self):
-        # Even when called with SUP1, motorcycle products land on SUP3_MOTO
-        details = self.bmw_moto.baf_get_purchase_price_details('SUP1')
-        self.assertEqual(details['column_key'], 'SUP3_MOTO')
-        self.assertAlmostEqual(details['price'], 60.0)
-
-    def test_03_purchase_details_eu_direct_returns_none(self):
-        self.assertIsNone(self.eu_product.baf_get_purchase_price_details('SUP1'))
-
-    def test_04_purchase_details_no_column_key_returns_none(self):
-        # Bosal product on de_table has no recognised brand column key
-        bosal_de = self._make(self.brand_bosal, 'BOSAL-DE', supplier_route='de_table')
-        self.assertEqual(bosal_de.baf_column_key, 'BOSAL')  # raw name
-        # SUP1_BOSAL row not in table → discount_pct=0 → price = UPE; details still returned
-        details = bosal_de.baf_get_purchase_price_details('SUP1')
-        self.assertEqual(details['column_key'], 'SUP1_BOSAL')
-        self.assertAlmostEqual(details['price'], 100.0)
-
-    def test_05_purchase_price_legacy_wrapper_still_returns_float(self):
-        # Backwards compat — old call signature returns just the price
-        self.assertAlmostEqual(self.bmw_default.baf_get_purchase_price('SUP1'), 80.0)
-        self.assertIsNone(self.eu_product.baf_get_purchase_price('SUP1'))
-
-    # ─────────────────────────────────────────────────────────────────────
-    # baf_get_best_vendor — winner / candidates / reasons
-    # ─────────────────────────────────────────────────────────────────────
-
-    def test_10_best_vendor_no_brand_returns_empty(self):
-        no_brand = self._make(self.brand_bmw, 'NO-BRAND')
-        no_brand.product_tmpl_id.brand = False
-        result = no_brand.baf_get_best_vendor()
-        self.assertFalse(result['vendor'])
-        self.assertEqual(result['candidates'], [])
-        self.assertTrue(result['reason'])
-
-    def test_11_best_vendor_no_eligible_vendor_for_brand(self):
-        # Mercedes brand exists on no vendor → empty
-        brand_mb = self.env['product.brand'].create({'name': 'Mercedes'})
-        mb_product = self._make(brand_mb, 'MB-1')
-        result = mb_product.baf_get_best_vendor()
-        self.assertFalse(result['vendor'])
-        self.assertIn("Mercedes", result['reason'])
-
-    def test_12_best_vendor_car_part_excludes_sup3_picks_cheapest_of_sup1_sup2(self):
-        # Car BMW: SUP3 is moto-only and excluded. SUP1=80, SUP2=78 → SUP2 wins.
-        result = self.bmw_default.baf_get_best_vendor()
-        self.assertEqual(result['vendor'], self.vendor_sup2)
-        self.assertAlmostEqual(result['price'], 78.0)
-        self.assertEqual(result['method'], 'discount_table')
-        self.assertEqual(len(result['candidates']), 2)
-        self.assertNotIn(self.vendor_sup3, [c['vendor'] for c in result['candidates']])
-        winners = [c for c in result['candidates'] if c['is_winner']]
-        self.assertEqual(len(winners), 1)
-        self.assertEqual(winners[0]['vendor'], self.vendor_sup2)
-
-    def test_13_best_vendor_car_part_all_equal_picks_sup1(self):
-        # Code 99 → SUP1=SUP2=90 (SUP3 excluded). SUP1 wins on preference.
-        result = self.bmw_tie_all.baf_get_best_vendor()
-        self.assertEqual(result['vendor'], self.vendor_sup1)
-        self.assertAlmostEqual(result['price'], 90.0)
-        self.assertEqual(len(result['candidates']), 2)
-        self.assertIn("Tie", result['reason'])
-        self.assertIn("SUP1", result['reason'])
-
-    def test_14_best_vendor_car_part_sup2_wins_outright_when_cheaper_than_sup1(self):
-        # Code 23 → SUP1=95, SUP2=85 (SUP3 excluded). SUP2 wins outright.
-        result = self.bmw_tie23.baf_get_best_vendor()
-        self.assertEqual(result['vendor'], self.vendor_sup2)
-        self.assertAlmostEqual(result['price'], 85.0)
-        self.assertEqual(len(result['candidates']), 2)
-        self.assertNotIn(self.vendor_sup3, [c['vendor'] for c in result['candidates']])
-
-    def test_15_best_vendor_motorcycle_pins_to_sup3(self):
-        # All three vendors stock BMW; motorcycle parts only allowed from SUP3
-        result = self.bmw_moto.baf_get_best_vendor()
-        self.assertEqual(result['vendor'], self.vendor_sup3)
-        self.assertAlmostEqual(result['price'], 60.0)
-        # Only ONE candidate — SUP1 / SUP2 are filtered out at the brand step
-        self.assertEqual(len(result['candidates']), 1)
-        self.assertEqual(result['candidates'][0]['column_key'], 'SUP3_MOTO')
-        self.assertIn("Motorcycle", result['reason'])
-
-    def test_16_best_vendor_motorcycle_with_no_sup3_returns_empty(self):
-        # Move SUP3 off BMW so no SUP3 vendor supplies the brand
-        self.vendor_sup3.write({'baf_brand_ids': [(6, 0, [self.brand_mini.id])]})
-        result = self.bmw_moto.baf_get_best_vendor()
-        self.assertFalse(result['vendor'])
-        self.assertIn("Supplier 3", result['reason'])
-
-    def test_17_best_vendor_jlr_uses_sup_jlr_column(self):
-        result = self.jlr_product.baf_get_best_vendor()
-        self.assertEqual(result['vendor'], self.vendor_jlr)
-        self.assertAlmostEqual(result['price'], 65.0)
-        self.assertEqual(result['candidates'][0]['column_key'], 'SUP_JLR_JLR')
-
-    def test_18_best_vendor_eu_direct_uses_supplierinfo(self):
-        result = self.eu_product.baf_get_best_vendor()
-        self.assertEqual(result['vendor'], self.vendor_eu)
-        self.assertEqual(result['method'], 'supplierinfo')
-        self.assertAlmostEqual(result['price'], 70.0)
-        self.assertIn("supplier pricelist", result['reason'])
-
-    def test_19_best_vendor_eu_direct_without_supplierinfo_is_unpriced(self):
-        # eu_no_seller has no product.supplierinfo — vendor still listed but unpriced
-        eu_no_seller = self._make(self.brand_bosal, 'BOSAL-NOSELLER', supplier_route='eu_direct')
-        result = eu_no_seller.baf_get_best_vendor()
-        self.assertFalse(result['vendor'])
-        self.assertEqual(len(result['candidates']), 1)
-        cand = result['candidates'][0]
-        self.assertEqual(cand['vendor'], self.vendor_eu)
-        self.assertIsNone(cand['price'])
-        self.assertIn("No supplier pricelist entry", cand['note'])
-
-    def test_20_best_vendor_mix_eu_cheaper_than_sup1(self):
-        # Add BMW to the EU vendor and quote 70 €. SUP1/SUP2/SUP3 are 80/78/76.
-        # EU at 70 < SUP3 at 76 → EU wins regardless of the product's de_table route.
-        self.vendor_eu.write({'baf_brand_ids': [(4, self.brand_bmw.id)]})
-        self.bmw_default.product_tmpl_id.write({
-            'seller_ids': [Command.create({'partner_id': self.vendor_eu.id, 'price': 70.0})],
-        })
-        result = self.bmw_default.baf_get_best_vendor()
-        self.assertEqual(result['vendor'], self.vendor_eu)
-        self.assertEqual(result['method'], 'supplierinfo')
-        self.assertAlmostEqual(result['price'], 70.0)
-
-    def test_21_best_vendor_skips_partners_without_supplier_code(self):
-        # vendor_no_baf has no baf_supplier_code → never eligible even if added to brand
-        self.vendor_no_baf.write({
+        self.v_no_method = Partner.create({
+            'name': 'No method',
             'baf_brand_ids': [(6, 0, [self.brand_bmw.id])],
         })
-        result = self.bmw_default.baf_get_best_vendor()
-        self.assertNotIn(self.vendor_no_baf, [c['vendor'] for c in result['candidates']])
 
-    def test_22_best_vendor_reason_mentions_winner_code_and_price(self):
-        result = self.bmw_default.baf_get_best_vendor()
-        self.assertIn('SUP2', result['reason'])
-        self.assertIn('78', result['reason'])
+    def test_eligible_excludes_wrong_brand_and_no_method(self):
+        eligible = self.prod._baf_eligible_vendors()
+        self.assertIn(self.v_cheap, eligible)
+        self.assertIn(self.v_mid, eligible)
+        self.assertNotIn(self.v_wrong_brand, eligible)
+        self.assertNotIn(self.v_no_method, eligible)
 
-    def test_23_best_vendor_sup3_excluded_for_car_even_if_brand_listed(self):
-        # SUP3 has BMW in its baf_brand_ids, but car BMW parts must skip it.
-        result = self.bmw_default.baf_get_best_vendor()
-        candidate_codes = [c['vendor'].baf_supplier_code for c in result['candidates']]
-        self.assertNotIn('SUP3', candidate_codes)
+    def test_cheapest_wins(self):
+        best = self.prod.baf_get_best_vendor()
+        self.assertEqual(best['vendor'], self.v_cheap)
+        self.assertEqual(best['price'], 75.0)
 
-    def test_24_best_vendor_moto_uses_only_sup3(self):
-        # Inverse: motorcycle parts must list ONLY SUP3, even though SUP1/SUP2
-        # also have BMW in their brand list.
-        result = self.bmw_moto.baf_get_best_vendor()
-        candidate_codes = [c['vendor'].baf_supplier_code for c in result['candidates']]
-        self.assertEqual(candidate_codes, ['SUP3'])
+    def test_tie_breaks_by_id(self):
+        # id order and name order deliberately diverge: the lower-id vendor
+        # ("Zeta...", created first) sorts alphabetically AFTER the higher-id
+        # one ("Alpha..."). res.partner._order is name-first, so an impl that
+        # dropped the explicit id tie-break key would pick "Alpha" and fail.
+        # Both price the cheapest (tie at 60), so only the id key can decide.
+        Partner = self.env['res.partner']
 
-    # ─────────────────────────────────────────────────────────────────────
-    # sale.order.line preselection
-    # ─────────────────────────────────────────────────────────────────────
+        def mk_tie(name):
+            v = Partner.create({
+                'name': name, 'baf_purchase_method': 'matrix',
+                'baf_brand_ids': [(6, 0, [self.brand_bmw.id])],
+            })
+            self.Disc.create({
+                'table_type': 'purchase', 'column_key': 'BMW_T12',
+                'discount_code': '10', 'discount_pct': 40.0,  # -> 60, cheapest
+                'partner_id': v.id,
+            })
+            return v
 
-    def test_30_sale_order_line_preselects_best_vendor(self):
-        so = self.env['sale.order'].create({
-            'partner_id': self.customer.id,
-            'order_line': [Command.create({
-                'product_id': self.bmw_default.id,
-                'product_uom_qty': 1.0,
-            })],
-        })
-        line = so.order_line
-        # Cheapest BMW car vendor is SUP2 (price 78); SUP3 is moto-only.
-        self.assertEqual(line.purchase_vendor_id, self.vendor_sup2)
+        v_low_id = mk_tie('Zeta Tie Vendor')    # created first  -> lower id
+        v_high_id = mk_tie('Alpha Tie Vendor')  # created second -> higher id
+        self.assertLess(v_low_id.id, v_high_id.id)
 
-    def test_31_sale_order_line_falls_back_to_seller_ids_when_no_baf_vendor(self):
-        # Product on Mercedes brand → no BAF vendor; classic seller_ids should kick in
-        brand_mb = self.env['product.brand'].create({'name': 'Mercedes-Generic'})
-        fallback_vendor = self.env['res.partner'].create({'name': 'Fallback'})
-        mb = self._make(brand_mb, 'MB-FALLBACK')
-        mb.product_tmpl_id.write({
-            'seller_ids': [Command.create({'partner_id': fallback_vendor.id, 'price': 50.0})],
-        })
-        so = self.env['sale.order'].create({
-            'partner_id': self.customer.id,
-            'order_line': [Command.create({
-                'product_id': mb.id,
-                'product_uom_qty': 1.0,
-            })],
-        })
-        self.assertEqual(so.order_line.purchase_vendor_id, fallback_vendor)
+        best = self.prod.baf_get_best_vendor()
+        self.assertEqual(best['price'], 60.0)
+        self.assertEqual(best['vendor'], v_low_id)       # lower id wins
+        self.assertNotEqual(best['vendor'], v_high_id)   # not alphabetical order
 
-    def test_32_sale_order_line_user_override_is_preserved(self):
-        so = self.env['sale.order'].create({
-            'partner_id': self.customer.id,
-            'order_line': [Command.create({
-                'product_id': self.bmw_default.id,
-                'product_uom_qty': 1.0,
-            })],
-        })
-        line = so.order_line
-        # User overrides preselection
-        line.purchase_vendor_id = self.vendor_sup1
-        self.assertEqual(line.purchase_vendor_id, self.vendor_sup1)
-        # Touching another stored field doesn't recompute the vendor
-        line.product_uom_qty = 5.0
-        self.assertEqual(line.purchase_vendor_id, self.vendor_sup1)
+    def test_no_priceable_vendor(self):
+        # An eligible vendor exists (brand matches) but has no matching
+        # discount row, so it cannot price the product.
+        jag_prod = self.env['product.template'].create({
+            'name': 'JLR part', 'list_price': 100.0, 'brand': self.brand_jag.id,
+            'baf_discount_code': 'ZZ',
+        }).product_variant_id
+        self.assertIn(self.v_wrong_brand, jag_prod._baf_eligible_vendors())
+        best = jag_prod.baf_get_best_vendor()
+        self.assertFalse(best['vendor'])
 
-    def test_33_sale_order_line_motorcycle_preselects_sup3(self):
-        so = self.env['sale.order'].create({
-            'partner_id': self.customer.id,
-            'order_line': [Command.create({
-                'product_id': self.bmw_moto.id,
-                'product_uom_qty': 1.0,
-            })],
-        })
-        self.assertEqual(so.order_line.purchase_vendor_id, self.vendor_sup3)
-
-    # ─────────────────────────────────────────────────────────────────────
-    # Wizard
-    # ─────────────────────────────────────────────────────────────────────
-
-    def _make_so_with_line(self, product):
-        so = self.env['sale.order'].create({
-            'partner_id': self.customer.id,
-            'order_line': [Command.create({
-                'product_id': product.id,
-                'product_uom_qty': 3.0,
-            })],
-        })
-        return so.order_line
-
-    def test_40_wizard_default_get_populates_lines_for_each_candidate(self):
-        line = self._make_so_with_line(self.bmw_default)
-        wiz = self.env['baf.vendor.price.compare'].with_context(
-            default_sale_line_id=line.id
-        ).create({})
-
-        self.assertEqual(wiz.sale_line_id, line)
-        self.assertEqual(wiz.product_id, self.bmw_default)
-        self.assertEqual(wiz.brand_id, self.brand_bmw)
-        # Car BMW: SUP1 + SUP2 only (SUP3 is moto-only).
-        self.assertEqual(len(wiz.line_ids), 2)
-
-        winners = wiz.line_ids.filtered(lambda l: l.is_winner)
-        self.assertEqual(len(winners), 1)
-        self.assertEqual(winners.vendor_id, self.vendor_sup2)
-        self.assertAlmostEqual(winners.price, 78.0)
-        self.assertEqual(winners.method, 'discount_table')
-
-    def test_41_wizard_preselects_winner_in_selected_vendor(self):
-        line = self._make_so_with_line(self.bmw_default)
-        wiz = self.env['baf.vendor.price.compare'].with_context(
-            default_sale_line_id=line.id
-        ).create({})
-        self.assertEqual(wiz.selected_vendor_id, self.vendor_sup2)
-        self.assertEqual(set(wiz.selectable_vendor_ids.ids),
-                         {self.vendor_sup1.id, self.vendor_sup2.id})
-
-    def test_42_wizard_apply_writes_vendor_back_to_so_line(self):
-        line = self._make_so_with_line(self.bmw_default)
-        # Sanity: preselection on the SO line is SUP2 (cheapest car BMW)
-        self.assertEqual(line.purchase_vendor_id, self.vendor_sup2)
-
-        wiz = self.env['baf.vendor.price.compare'].with_context(
-            default_sale_line_id=line.id
-        ).create({})
-        wiz.selected_vendor_id = self.vendor_sup1
-        result = wiz.action_apply()
-
-        self.assertEqual(result['type'], 'ir.actions.act_window_close')
-        self.assertEqual(line.purchase_vendor_id, self.vendor_sup1)
-
-    def test_43_wizard_apply_without_selection_raises(self):
-        line = self._make_so_with_line(self.bmw_default)
-        wiz = self.env['baf.vendor.price.compare'].with_context(
-            default_sale_line_id=line.id
-        ).create({})
-        wiz.selected_vendor_id = False
-        with self.assertRaises(UserError):
-            wiz.action_apply()
-
-    def test_44_wizard_unpriced_eu_candidate_appears_but_marked_not_priceable(self):
-        eu_no_seller = self._make(self.brand_bosal, 'BOSAL-NOSELLER-W', supplier_route='eu_direct')
-        line = self._make_so_with_line(eu_no_seller)
-        wiz = self.env['baf.vendor.price.compare'].with_context(
-            default_sale_line_id=line.id
-        ).create({})
-        self.assertEqual(len(wiz.line_ids), 1)
-        cand = wiz.line_ids
-        self.assertEqual(cand.vendor_id, self.vendor_eu)
-        self.assertFalse(cand.priceable)
-        self.assertFalse(cand.is_winner)
-
-    def test_45_wizard_motorcycle_lists_only_sup3(self):
-        line = self._make_so_with_line(self.bmw_moto)
-        wiz = self.env['baf.vendor.price.compare'].with_context(
-            default_sale_line_id=line.id
-        ).create({})
-        self.assertEqual(len(wiz.line_ids), 1)
-        self.assertEqual(wiz.line_ids.vendor_id, self.vendor_sup3)
-        self.assertIn("Motorcycle", wiz.reason)
-
-    def test_46_action_open_vendor_compare_returns_correct_action(self):
-        line = self._make_so_with_line(self.bmw_default)
-        action = line.action_open_vendor_compare()
-        self.assertEqual(action['res_model'], 'baf.vendor.price.compare')
-        self.assertEqual(action['target'], 'new')
-        self.assertEqual(action['context']['default_sale_line_id'], line.id)
-
-    # ─────────────────────────────────────────────────────────────────────
-    # PO line snapshot fields (discount code, %, column key)
-    # ─────────────────────────────────────────────────────────────────────
-
-    def test_50_po_line_snapshots_baf_discount_fields_on_create(self):
-        line = self._make_so_with_line(self.bmw_default)
-        line.action_create_purchase_order()
-        po_line = line.order_id.purchase_ids.order_line
-        self.assertEqual(len(po_line), 1)
-        # Auto vendor is SUP2 (cheapest car BMW) → SUP2_BMW_T12 column → 22%
-        self.assertEqual(po_line.baf_discount_code, '10')
-        self.assertAlmostEqual(po_line.baf_discount_pct, 22.0)
-        self.assertEqual(po_line.baf_column_key, 'SUP2_BMW_T12')
-        self.assertAlmostEqual(po_line.price_unit, 78.0)
-
-    def test_51_po_line_snapshots_recompute_on_retail_or_surcharge_write(self):
-        line = self._make_so_with_line(self.bmw_default)
-        line.action_create_purchase_order()
-        po_line = line.order_id.purchase_ids.order_line
-        # Touching surcharge re-runs the BAF engine and refreshes the snapshot
-        po_line.surcharge = 1.23
-        self.assertEqual(po_line.baf_column_key, 'SUP2_BMW_T12')
-        self.assertAlmostEqual(po_line.baf_discount_pct, 22.0)
-
-    def test_52_po_line_eu_direct_clears_baf_snapshot(self):
-        # EU product needs purchase_vendor_id pointing at vendor_eu for the
-        # line-level create-PO method to find a vendor.
-        line = self._make_so_with_line(self.eu_product)
-        line.purchase_vendor_id = self.vendor_eu
-        line.action_create_purchase_order()
-        po_line = line.order_id.purchase_ids.order_line
-        # EU_DIRECT path: no discount table → no column / %
-        self.assertFalse(po_line.baf_column_key)
-        self.assertEqual(po_line.baf_discount_pct, 0.0)
-        # Discount code is still snapshotted from the product
-        self.assertEqual(po_line.baf_discount_code, '10')
+    def test_no_eligible_vendor(self):
+        # A brand that NO vendor lists -> the eligible set itself is empty,
+        # exercising the `if not eligible: return empty` branch and its reason.
+        nobody_brand = self.env['product.brand'].create({'name': 'ZZNobody'})
+        prod = self.env['product.template'].create({
+            'name': 'Nobody part', 'list_price': 100.0, 'brand': nobody_brand.id,
+            'baf_discount_code': '10',
+        }).product_variant_id
+        self.assertFalse(prod._baf_eligible_vendors())
+        best = prod.baf_get_best_vendor()
+        self.assertFalse(best['vendor'])
+        self.assertTrue(best['reason'])

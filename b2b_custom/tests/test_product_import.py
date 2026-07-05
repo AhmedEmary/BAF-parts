@@ -138,10 +138,10 @@ class TestMassProductImport(TransactionCase):
         self.assertEqual(old_product.replaced_by_id, replacement_products)
 
     def test_06_import_dimensions_origin_and_normalized_defaults(self):
-        """Dimensions/origin import correctly and invalid mod/route fallback safely."""
+        """Dimensions/origin import correctly and invalid mod falls back safely."""
         self._run_import(
-            "sku,brand,product name,price,weight,height,width,length,origin,hs code,surcharge,discount code,type code,mod,supplier route\n"
-            "DIM001,BOSCH,#NV,200,5.5,10.1,20.2,30.3,IT,8409,12.5,10,2,invalid_mod,invalid_route"
+            "sku,brand,product name,price,weight,height,width,length,origin,hs code,surcharge,discount code,type code,mod\n"
+            "DIM001,BOSCH,#NV,200,5.5,10.1,20.2,30.3,IT,8409,12.5,10,2,invalid_mod"
         )
 
         product = self.env['product.template'].search([('default_code', '=', 'BOS_DIM001')], limit=1)
@@ -150,7 +150,6 @@ class TestMassProductImport(TransactionCase):
         self.assertEqual(product.origin.code, 'IT')
         self.assertEqual(product.hs_code, '8409')
         self.assertEqual(product.baf_mod, 'car')
-        self.assertEqual(product.supplier_route, 'de_table')
         self.assertAlmostEqual(product.weight, 5.5)
         self.assertAlmostEqual(product.height, 10.1)
         self.assertAlmostEqual(product.width, 20.2)
