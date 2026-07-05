@@ -4,6 +4,9 @@ import os
 from unittest.mock import patch
 
 from odoo.tests.common import TransactionCase, tagged
+from odoo.tools import mute_logger
+
+_SO_LOGGER = "odoo.addons.alzura_integration.models.sale_order"
 
 FIXTURE = os.path.join(os.path.dirname(__file__), "fixtures", "latest_orders.json")
 
@@ -40,6 +43,20 @@ class TestAlzuraImport(TransactionCase):
         cls.company = cls.env.company
         cls.SaleOrder = cls.env["sale.order"]
         cls.alzura_source = cls.env.ref("alzura_integration.so_source_alzura")
+
+        # Every fixture position states vat 0.19. A bare test database has no
+        # 19 % sale tax, which would push every import through the fallback
+        # path (and its per-line warning); real databases always carry one.
+        cls.base_tax = cls.env["account.tax"].create(
+            {
+                "name": "Alzura Base VAT 19",
+                "amount": 19.0,
+                "amount_type": "percent",
+                "type_tax_use": "sale",
+                "company_id": cls.company.id,
+            }
+        )
+        cls.company.account_sale_tax_id = cls.base_tax
 
         # One product per fixture SKU so positions resolve. Services keep the
         # test free of warehouse/stock setup while still allowing confirmation.
@@ -315,6 +332,7 @@ class TestAlzuraImport(TransactionCase):
             self.assertEqual(line.tax_ids, chosen, "line %s" % line.name)
         self.assertNotIn(first, order.order_line.tax_ids)
 
+    @mute_logger(_SO_LOGGER)
     def test_missing_tax_rate_falls_back_to_product_default(self):
         # No 19 % sale tax available: the import must still succeed rather
         # than invent accounting configuration. Archived instead of deleted,

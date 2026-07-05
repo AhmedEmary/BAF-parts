@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo noupdate="1">
+    <!-- Every IC product is filed here, so aftermarket parts are
+         separable from the OEM catalog in reports and filters. -->
+    <record id="product_categ_aftermarket" model="product.category"
+            forcecreate="1">
+        <field name="name">Aftermarket</field>
+    </record>
+</odoo>
