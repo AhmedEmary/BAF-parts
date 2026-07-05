@@ -186,8 +186,7 @@ class SaleOrderLine(models.Model):
             pol_vals_list = []
             for line in so_lines:
                 # Use BAF purchase price engine
-                supplier_code = getattr(vendor, 'baf_supplier_code', 'SUP1') or 'SUP1'
-                details = line.product_id.baf_get_purchase_price_details(supplier_code=supplier_code)
+                details = line.product_id.baf_get_purchase_price_details(vendor)
                 if details:
                     final_cost = details['price']
                     discount_pct = details['discount_pct']

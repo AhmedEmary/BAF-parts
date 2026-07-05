@@ -42,6 +42,31 @@ class PurchaseOrderLine(models.Model):
             spoken_for = max(line.qty_received, line.qty_split)
             line.qty_open = max(0.0, line.product_qty - spoken_for)
 
+    @api.depends('product_qty', 'product_uom_id', 'company_id',
+                 'order_id.partner_id', 'product_id')
+    def _compute_price_unit_and_date_planned_and_name(self):
+        # Odoo's core compute reprices the line from the vendor pricelist /
+        # standard cost and would overwrite the BAF discounted price. Run it
+        # first, then make the per-vendor BAF price authoritative for any line
+        # the engine can price (matrix / codes / direct).
+        super()._compute_price_unit_and_date_planned_and_name()
+        for line in self:
+            if not line.product_id or line.invoice_lines:
+                continue
+            line.baf_discount_code = line.product_id.baf_discount_code or False
+            details = line.product_id.baf_get_purchase_price_details(
+                line.order_id.partner_id
+            )
+            if details:
+                line.price_unit = details['price']
+                line.baf_discount_pct = details['discount_pct']
+                line.baf_column_key = details['column_key']
+            else:
+                # Vendor gives no discount for this product -> full retail (UPE).
+                line.price_unit = line.product_id.list_price
+                line.baf_discount_pct = 0.0
+                line.baf_column_key = False
+
     @api.onchange('product_id')
     def _onchange_product_id_custom(self):
         if not self.product_id:
@@ -51,7 +76,7 @@ class PurchaseOrderLine(models.Model):
         self.baf_discount_code = self.product_id.baf_discount_code or False
 
         details = self.product_id.baf_get_purchase_price_details(
-            supplier_code=self._get_supplier_code()
+            self.order_id.partner_id
         )
 
         # Retail is always the product's list price — never the sale order
@@ -64,28 +89,17 @@ class PurchaseOrderLine(models.Model):
             self.baf_discount_pct = details['discount_pct']
             self.baf_column_key = details['column_key']
         else:
-            # EU direct — keep whatever the vendor pricelist resolved
+            # No BAF discount for this vendor -> full retail (UPE).
+            self.price_unit = self.product_id.list_price
             self.baf_discount_pct = 0.0
             self.baf_column_key = False
-
-    def _get_supplier_code(self):
-        """
-        Resolve the BAF supplier code ('SUP1', 'SUP2', 'SUP3') from the
-        vendor on the purchase order. Extend this method to map vendor IDs
-        to supplier codes as needed.
-        """
-        vendor = self.order_id.partner_id if self.order_id else False
-        if not vendor:
-            return 'SUP1'
-        # Default mapping — customise by adding vendor-specific logic here
-        return getattr(vendor, 'baf_supplier_code', 'SUP1') or 'SUP1'
 
     def write(self, vals):
         res = super().write(vals)
         if 'retail_price' in vals or 'surcharge' in vals:
             for line in self:
                 details = line.product_id.baf_get_purchase_price_details(
-                    supplier_code=line._get_supplier_code()
+                    line.order_id.partner_id
                 )
                 if details:
                     line.price_unit = details['price']

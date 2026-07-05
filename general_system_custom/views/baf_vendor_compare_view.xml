@@ -27,7 +27,6 @@
                               decoration-success="is_winner == True"
                               decoration-muted="priceable == False">
                             <field name="vendor_id"/>
-                            <field name="supplier_code"/>
                             <field name="method"/>
                             <field name="column_key" optional="show"/>
                             <field name="discount_pct" optional="show"/>

@@ -13,6 +13,8 @@ class BafDiscountImportWizard(models.TransientModel):
     file_data = fields.Binary('File')
     file_name = fields.Char('File Name')
 
+    # Global SALES-matrix import only. Per-vendor purchase pricing is uploaded
+    # inline on the contact (res.partner.action_import_vendor_pricing_file).
     format_type = fields.Selection([
         ('full_template', 'Full Master Template (all brands)'),
         ('bmw_mini', 'BMW & MINI Matrix'),
@@ -356,3 +358,4 @@ class BafDiscountImportWizard(models.TransientModel):
             self._ensure_group(column_key, suffix, counters, brand_family='mercedes')
 
         return counters['created'], counters['updated'], counters['groups_created']
+

@@ -119,7 +119,7 @@ class PurchaseOrder(models.Model):
 
         headers.extend([
             "Brand", "SKU", "Quantity", "Retail",
-            "Discount 1", "Discount 2", "Surcharge", "Unit Net", "Total"
+            "Surcharge", "Unit Net", "Total"
         ])
 
         ws_std = wb.active

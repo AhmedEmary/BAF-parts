@@ -40,8 +40,6 @@ class ProductTemplate(models.Model):
     origin = fields.Many2one(string='Origin', comodel_name='res.country')
     hs_code = fields.Char(string='HS Code')
     surcharge = fields.Monetary(string='Surcharge')
-    disc_code_1 = fields.Many2one('discount.code', string='Disc Code 1')
-    disc_code_2 = fields.Many2one('discount.code', string='Disc Code 2')
     # ── Physical dimensions (cm) ──────────────────────────────────────────────
     height = fields.Float(string='Height (cm)', digits=(10, 4),
                           help="Product height in centimetres.")
