@@ -3,7 +3,7 @@
     'summary': "This is a custom sale module for B2B companies",
     'version': '1.0',
     'category': 'Sales/Sales',
-    'depends': ['contacts','general_system_custom', 'website_sale', 'mail', 'portal', 'auth_signup'],
+    'depends': ['general_system_custom', 'website_sale', 'mail', 'portal', 'auth_signup', 'contacts'],
     'installable': True,
     'data': [
         'security/baf_b2b_security.xml',

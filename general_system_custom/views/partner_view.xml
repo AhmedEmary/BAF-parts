@@ -28,6 +28,9 @@
             <xpath expr="//page[@name='sales_purchases']" position="inside">
                 <separator string="BAF Webshop &amp; Pricing"/>
                 <group>
+                    <field name="baf_is_vendor"/>
+                </group>
+                <group>
                     <group string="Pricing Groups">
                         <field name="sales_group_ids"
                                widget="many2many_tags"
@@ -46,7 +49,7 @@
             </xpath>
 
             <xpath expr="//page[@name='sales_purchases']" position="after">
-                <page string="Vendor Pricing" invisible="supplier_rank == 0">
+                <page string="Vendor Pricing" invisible="not baf_is_vendor">
                     <group>
                         <field name="baf_purchase_method"/>
                         <field name="baf_brand_ids" widget="many2many_tags"/>

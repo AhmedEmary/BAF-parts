@@ -8,19 +8,25 @@ class PurchaseOrderLine(models.Model):
     surcharge = fields.Monetary(string='Surcharge', currency_field='currency_id')
 
     # ── BAF pricing breakdown (snapshot of how price_unit was derived) ───────
+    # Computed + stored (editable) so they persist reliably through create and
+    # order confirmation. Setting them as side-effects of the price_unit compute
+    # did not persist (Odoo only flushes the field a compute owns).
     baf_discount_code = fields.Char(
         string='Discount Code',
+        compute='_compute_baf_pricing_snapshot', store=True, readonly=False,
         help="Discount code that was used to look up this line's purchase price. "
              "Snapshotted from the product when the line was created.",
     )
     baf_discount_pct = fields.Float(
         string='Discount %',
         digits=(6, 4),
+        compute='_compute_baf_pricing_snapshot', store=True, readonly=False,
         help="Discount percentage applied from the BAF discount table.",
     )
     baf_column_key = fields.Char(
         string='Column Key',
-        help="Full discount-table column key used (e.g. SUP1_BMW_T12).",
+        compute='_compute_baf_pricing_snapshot', store=True, readonly=False,
+        help="Discount-table column key used (e.g. BMW_T12).",
     )
 
     # Inbound reconciliation
@@ -42,6 +48,22 @@ class PurchaseOrderLine(models.Model):
             spoken_for = max(line.qty_received, line.qty_split)
             line.qty_open = max(0.0, line.product_qty - spoken_for)
 
+    @api.depends('product_id', 'order_id.partner_id')
+    def _compute_baf_pricing_snapshot(self):
+        """Record how this line's purchase price was derived (code / % / column)
+        for the vendor on the order. Own compute so the values persist."""
+        for line in self:
+            product = line.product_id
+            if not product:
+                line.baf_discount_code = False
+                line.baf_discount_pct = 0.0
+                line.baf_column_key = False
+                continue
+            details = product.baf_get_purchase_price_details(line.order_id.partner_id)
+            line.baf_discount_code = product.baf_discount_code or False
+            line.baf_discount_pct = details['discount_pct'] if details else 0.0
+            line.baf_column_key = details['column_key'] if details else False
+
     @api.depends('product_qty', 'product_uom_id', 'company_id',
                  'order_id.partner_id', 'product_id')
     def _compute_price_unit_and_date_planned_and_name(self):
@@ -53,56 +75,18 @@ class PurchaseOrderLine(models.Model):
         for line in self:
             if not line.product_id or line.invoice_lines:
                 continue
-            line.baf_discount_code = line.product_id.baf_discount_code or False
             details = line.product_id.baf_get_purchase_price_details(
                 line.order_id.partner_id
             )
-            if details:
-                line.price_unit = details['price']
-                line.baf_discount_pct = details['discount_pct']
-                line.baf_column_key = details['column_key']
-            else:
-                # Vendor gives no discount for this product -> full retail (UPE).
-                line.price_unit = line.product_id.list_price
-                line.baf_discount_pct = 0.0
-                line.baf_column_key = False
+            # BAF price wins; no discount for this vendor -> full retail (UPE).
+            line.price_unit = details['price'] if details else line.product_id.list_price
 
     @api.onchange('product_id')
     def _onchange_product_id_custom(self):
         if not self.product_id:
             return
-
-        self.surcharge = self.product_id.surcharge
-        self.baf_discount_code = self.product_id.baf_discount_code or False
-
-        details = self.product_id.baf_get_purchase_price_details(
-            self.order_id.partner_id
-        )
-
         # Retail is always the product's list price — never the sale order
         # price_unit, since the SO line may carry a customer-specific discount
         # that must not flow into the purchase cost calculation.
+        self.surcharge = self.product_id.surcharge
         self.retail_price = self.product_id.list_price
-
-        if details:
-            self.price_unit = details['price']
-            self.baf_discount_pct = details['discount_pct']
-            self.baf_column_key = details['column_key']
-        else:
-            # No BAF discount for this vendor -> full retail (UPE).
-            self.price_unit = self.product_id.list_price
-            self.baf_discount_pct = 0.0
-            self.baf_column_key = False
-
-    def write(self, vals):
-        res = super().write(vals)
-        if 'retail_price' in vals or 'surcharge' in vals:
-            for line in self:
-                details = line.product_id.baf_get_purchase_price_details(
-                    line.order_id.partner_id
-                )
-                if details:
-                    line.price_unit = details['price']
-                    line.baf_discount_pct = details['discount_pct']
-                    line.baf_column_key = details['column_key']
-        return res
