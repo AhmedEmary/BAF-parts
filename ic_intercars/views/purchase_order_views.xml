@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="view_purchase_order_form_ic" model="ir.ui.view">
+        <field name="name">purchase.order.form.ic</field>
+        <field name="model">purchase.order</field>
+        <field name="inherit_id" ref="purchase.purchase_order_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//sheet" position="inside">
+                <group string="Inter Cars"
+                       invisible="not is_ic_dropship">
+                    <field name="is_ic_dropship" invisible="1"/>
+                    <field name="ic_requisition_id"/>
+                    <field name="ic_requisition_uuid"/>
+                    <field name="ic_requisition_status"/>
+                </group>
+            </xpath>
+        </field>
+    </record>
+
+</odoo>

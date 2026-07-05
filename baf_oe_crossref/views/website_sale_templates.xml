@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!--
+        Aftermarket equivalents block — rendered as the last section of
+        the product-details column on the OEM product page. Anchor is
+        #o_wsale_product_details_content inside #product_details (the
+        current Odoo 19 skin, still used by the BAF theme).
+    -->
+    <template id="product_aftermarket_equivalents"
+              inherit_id="website_sale.product"
+              name="BAF: Aftermarket equivalents block">
+        <xpath expr="//div[@id='o_wsale_product_details_content']"
+               position="inside">
+            <div class="o_wsale_product_details_content_section
+                        baf_ic_equivalents mt-4"
+                 t-if="product._baf_website_enable_aftermarket()">
+                <t t-set="cards" t-value="product.sudo().baf_ic_equivalents()"/>
+                <t t-if="cards">
+                    <h4 class="mb-3">Aftermarket alternatives</h4>
+                    <div class="row row-cols-1 row-cols-md-2 g-3
+                                baf_ic_equivalents_grid">
+                        <t t-foreach="cards" t-as="card">
+                            <div class="col">
+                                <div class="card h-100 baf_ic_equivalent_card"
+                                     t-att-data-ic-sku="card['ic_sku']">
+                                    <div class="card-body">
+                                        <div class="d-flex justify-content-between align-items-start">
+                                            <div>
+                                                <span class="fw-bold" t-esc="card['brand']"/>
+                                                <div class="text-muted small"
+                                                     t-esc="card['article_number']"/>
+                                            </div>
+                                            <span
+                                                t-attf-class="badge #{'bg-success' if card['is_oem'] else 'bg-secondary'}"
+                                                t-esc="'Original (OEM)' if card['is_oem'] else 'Aftermarket'"/>
+                                        </div>
+                                        <p class="mt-2 mb-2" t-esc="card['short_description']"/>
+                                        <div class="d-flex justify-content-between align-items-end">
+                                            <div>
+                                                <div class="h5 mb-0">
+                                                    <span t-esc="'%.2f' % card['sale_price']"/>
+                                                    <small class="text-muted"
+                                                           t-esc="card['currency_code']"/>
+                                                </div>
+                                                <small class="text-muted"
+                                                       t-esc="card['availability_label']"/>
+                                            </div>
+                                            <t t-if="card['is_oem']">
+                                                <button type="button"
+                                                        t-attf-class="btn btn-primary baf_ic_add_oem_btn"
+                                                        t-att-data-product-id="card.get('oem_product_id')">
+                                                    Add to cart
+                                                </button>
+                                            </t>
+                                            <t t-else="">
+                                                <button type="button"
+                                                        class="btn btn-outline-primary baf_ic_add_aftermarket_btn"
+                                                        t-att-data-template-id="product.id"
+                                                        t-att-data-ic-sku="card['ic_sku']">
+                                                    Add to cart
+                                                </button>
+                                            </t>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </t>
+                    </div>
+                </t>
+            </div>
+        </xpath>
+    </template>
+
+</odoo>

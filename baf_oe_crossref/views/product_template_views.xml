@@ -1,0 +1,124 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="view_product_template_form_ic_seed" model="ir.ui.view">
+        <field name="name">product.template.form.ic.seed</field>
+        <field name="model">product.template</field>
+        <field name="inherit_id" ref="ic_intercars.view_product_template_form_ic"/>
+        <field name="arch" type="xml">
+            <xpath expr="//page[@name='ic_intercars_page']" position="inside">
+                <group string="OEM → IC Seed Mapping">
+                    <field name="ic_seed_sku"/>
+                    <field name="ic_seed_index"/>
+                    <field name="ic_seed_category_id"/>
+                </group>
+                <group string="Aftermarket Alternatives (curated links)">
+                    <field name="oe_link_ids" nolabel="1" colspan="2"
+                           context="{'default_oem_template_id': id,
+                                     'default_source': 'manual'}">
+                        <list editable="bottom">
+                            <field name="sequence" widget="handle"/>
+                            <field name="ic_sku"/>
+                            <field name="ic_brand"/>
+                            <field name="ic_description"/>
+                            <field name="aftermarket_template_id"
+                                   readonly="1"/>
+                            <field name="source"/>
+                            <button name="action_open_ic_product"
+                                    type="object" icon="fa-database"
+                                    title="IC cache row"/>
+                        </list>
+                    </field>
+                </group>
+                <group string="This product substitutes (aftermarket side)">
+                    <field name="aftermarket_link_ids" nolabel="1"
+                           colspan="2" readonly="1">
+                        <list>
+                            <field name="oem_template_id"/>
+                            <field name="ic_sku"/>
+                            <field name="source"/>
+                        </list>
+                    </field>
+                </group>
+            </xpath>
+            <xpath expr="//div[@name='button_box']" position="inside">
+                <button name="action_view_oe_links" type="object"
+                        class="oe_stat_button" icon="fa-random"
+                        invisible="not oe_link_count">
+                    <field name="oe_link_count" widget="statinfo"
+                           string="Aftermarket"/>
+                </button>
+                <button name="action_view_aftermarket_links" type="object"
+                        class="oe_stat_button" icon="fa-cogs"
+                        invisible="not aftermarket_link_count">
+                    <field name="aftermarket_link_count" widget="statinfo"
+                           string="Substitutes"/>
+                </button>
+            </xpath>
+        </field>
+    </record>
+
+    <!-- Search filter: "Has IC aftermarket alternatives" (index-hit on ic_seed_sku).
+         Also exposes ic_seed_sku as a searchable field so admins can look up
+         "which templates map to IC SKU X". -->
+    <record id="view_product_template_search_ic" model="ir.ui.view">
+        <field name="name">product.template.search.ic</field>
+        <field name="model">product.template</field>
+        <field name="inherit_id" ref="product.product_template_search_view"/>
+        <field name="arch" type="xml">
+            <xpath expr="//search" position="inside">
+                <field name="ic_seed_sku" string="IC Seed SKU"/>
+                <filter name="has_ic_aftermarket"
+                        string="Has IC Aftermarket"
+                        domain="[('ic_seed_sku', '!=', False),
+                                 ('ic_seed_sku', '!=', '')]"/>
+                <filter name="no_ic_aftermarket"
+                        string="No IC Aftermarket"
+                        domain="['|', ('ic_seed_sku', '=', False),
+                                     ('ic_seed_sku', '=', '')]"/>
+            </xpath>
+        </field>
+    </record>
+
+    <!-- Dedicated action + menu — one click to the 1,907 auto-mapped templates. -->
+    <record id="action_product_template_with_ic_aftermarket"
+            model="ir.actions.act_window">
+        <field name="name">Products with IC Aftermarket</field>
+        <field name="res_model">product.template</field>
+        <field name="view_mode">list,form</field>
+        <field name="domain">[('ic_seed_sku', '!=', False),
+                              ('ic_seed_sku', '!=', '')]</field>
+        <field name="context">{'search_default_has_ic_aftermarket': 1}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                No BAF template is mapped to an Inter Cars aftermarket
+                equivalent yet.
+            </p>
+            <p>
+                Import the ProductInformation CSV from
+                Purchase → Configuration → Inter Cars → Import
+                ProductInformation CSV — the wizard auto-populates
+                <b>IC Seed SKU</b> on every template whose SKU matches
+                an IC identifier.
+            </p>
+        </field>
+    </record>
+
+    <menuitem id="menu_product_template_with_ic_aftermarket"
+              name="Products with IC Aftermarket"
+              parent="purchase.menu_purchase_config"
+              action="action_product_template_with_ic_aftermarket"
+              sequence="83"/>
+
+    <record id="view_product_public_category_ic" model="ir.ui.view">
+        <field name="name">product.public.category.form.ic</field>
+        <field name="model">product.public.category</field>
+        <field name="inherit_id" ref="website_sale.product_public_category_form_view"/>
+        <field name="arch" type="xml">
+            <field name="sequence" position="after">
+                <field name="enable_aftermarket_search"/>
+            </field>
+        </field>
+    </record>
+
+</odoo>

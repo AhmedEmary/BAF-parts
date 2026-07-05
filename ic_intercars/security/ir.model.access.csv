@@ -1,0 +1,9 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_ic_backend_user,ic.backend user,model_ic_backend,purchase.group_purchase_user,1,0,0,0
+access_ic_backend_manager,ic.backend manager,model_ic_backend,purchase.group_purchase_manager,1,1,1,1
+access_ic_product_info_user,ic.product.info user,model_ic_product_info,base.group_user,1,0,0,0
+access_ic_product_info_manager,ic.product.info manager,model_ic_product_info,purchase.group_purchase_manager,1,1,1,1
+access_ic_csv_import_wizard,ic.csv.import.wizard,model_ic_csv_import_wizard,purchase.group_purchase_manager,1,1,1,1
+access_ic_catalog_search_wizard,ic.catalog.search.wizard,model_ic_catalog_search_wizard,purchase.group_purchase_user,1,1,1,1
+access_ic_catalog_search_result,ic.catalog.search.result,model_ic_catalog_search_result,purchase.group_purchase_user,1,1,1,1
+access_ic_assign_to_baf_wizard,ic.assign.to.baf.wizard,model_ic_assign_to_baf_wizard,purchase.group_purchase_manager,1,1,1,1

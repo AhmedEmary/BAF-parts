@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="view_baf_oe_link_list" model="ir.ui.view">
+        <field name="name">baf.oe.link.list</field>
+        <field name="model">baf.oe.link</field>
+        <field name="arch" type="xml">
+            <list string="OEM ↔ Aftermarket Links" editable="bottom">
+                <field name="oem_template_id"/>
+                <field name="ic_sku"/>
+                <field name="ic_brand"/>
+                <field name="ic_description"/>
+                <field name="aftermarket_template_id" readonly="1"/>
+                <field name="source"/>
+                <field name="sequence" widget="handle"/>
+                <button name="action_open_ic_product" type="object"
+                        icon="fa-database" title="IC cache row"/>
+                <button name="action_open_aftermarket_product" type="object"
+                        icon="fa-cube" title="Open aftermarket product"
+                        invisible="not aftermarket_template_id"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_baf_oe_link_form" model="ir.ui.view">
+        <field name="name">baf.oe.link.form</field>
+        <field name="model">baf.oe.link</field>
+        <field name="arch" type="xml">
+            <form string="OEM ↔ Aftermarket Link">
+                <sheet>
+                    <widget name="web_ribbon" title="Archived"
+                            bg_color="text-bg-danger"
+                            invisible="active"/>
+                    <group>
+                        <group string="OEM Side">
+                            <field name="oem_template_id"/>
+                        </group>
+                        <group string="Inter Cars Side">
+                            <field name="ic_sku"/>
+                            <field name="ic_brand"/>
+                            <field name="ic_description"/>
+                            <field name="ic_tec_doc"/>
+                            <field name="aftermarket_template_id"/>
+                        </group>
+                    </group>
+                    <group>
+                        <field name="source"/>
+                        <field name="sequence"/>
+                        <field name="active"/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_baf_oe_link_search" model="ir.ui.view">
+        <field name="name">baf.oe.link.search</field>
+        <field name="model">baf.oe.link</field>
+        <field name="arch" type="xml">
+            <search string="Links">
+                <field name="oem_template_id"/>
+                <field name="ic_sku"/>
+                <filter name="manual" string="Manual"
+                        domain="[('source','=','manual')]"/>
+                <filter name="auto" string="Auto"
+                        domain="[('source','=','auto')]"/>
+                <filter name="shop" string="Shop"
+                        domain="[('source','=','shop')]"/>
+                <separator/>
+                <filter name="materialised" string="Materialised"
+                        domain="[('aftermarket_template_id','!=',False)]"/>
+                <filter name="archived" string="Archived (rejected)"
+                        domain="[('active','=',False)]"/>
+                <filter name="by_oem" string="OEM Product"
+                        context="{'group_by':'oem_template_id'}"/>
+                <filter name="by_source" string="Source"
+                        context="{'group_by':'source'}"/>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_baf_oe_link" model="ir.actions.act_window">
+        <field name="name">OEM ↔ Aftermarket Links</field>
+        <field name="res_model">baf.oe.link</field>
+        <field name="view_mode">list,form</field>
+        <field name="search_view_id" ref="view_baf_oe_link_search"/>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                No cross-reference links yet.
+            </p>
+            <p>
+                Links are created automatically by the CSV import
+                (Purchase → Configuration → Inter Cars → Import
+                ProductInformation CSV), or add one manually: pick an
+                OEM product and type the Inter Cars SKU that
+                substitutes it.
+            </p>
+        </field>
+    </record>
+
+    <menuitem id="menu_baf_oe_link"
+              name="OEM ↔ Aftermarket Links"
+              parent="purchase.menu_purchase_config"
+              action="action_baf_oe_link"
+              sequence="84"/>
+
+</odoo>

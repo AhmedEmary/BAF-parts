@@ -1,0 +1,8 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_ic_article_cache_public,ic.article.cache public read,model_ic_article_cache,base.group_public,1,0,0,0
+access_ic_article_cache_portal,ic.article.cache portal read,model_ic_article_cache,base.group_portal,1,0,0,0
+access_ic_article_cache_user,ic.article.cache user read,model_ic_article_cache,base.group_user,1,1,1,1
+access_baf_oe_link_public,baf.oe.link public read,model_baf_oe_link,base.group_public,1,0,0,0
+access_baf_oe_link_portal,baf.oe.link portal read,model_baf_oe_link,base.group_portal,1,0,0,0
+access_baf_oe_link_user,baf.oe.link user read,model_baf_oe_link,base.group_user,1,0,0,0
+access_baf_oe_link_purchase,baf.oe.link purchase manage,model_baf_oe_link,purchase.group_purchase_user,1,1,1,1
