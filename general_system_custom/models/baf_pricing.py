@@ -79,6 +79,14 @@ class BafSalesGroup(models.Model):
         string='Customers in this group',
     )
 
+    discount_line_ids = fields.One2many(
+        'baf.discount.line',
+        'group_id',
+        string='Discount Codes',
+        help="The discount codes and percentages that make up this group. "
+             "Deleting the group deletes these lines.",
+    )
+
     def _is_moto_group(self):
         """A group is the 'moto tier' of its brand family when its column
         suffix is MOTO (e.g. BMW_MINI_MOTO). Detected from the existing
@@ -154,6 +162,15 @@ class BafDiscountLine(models.Model):
         index=True,
         ondelete='cascade',
         help="Vendor this purchase row belongs to. Empty for global sales rows.",
+    )
+
+    group_id = fields.Many2one(
+        'baf.sales.group',
+        string='Sales Group',
+        index=True,
+        ondelete='cascade',
+        help="Sales group this row belongs to. Empty for purchase rows. "
+             "Deleting the group deletes its lines.",
     )
 
     column_key = fields.Char(

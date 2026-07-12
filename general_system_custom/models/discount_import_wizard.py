@@ -1,5 +1,7 @@
 import base64
 import io
+import re
+
 import openpyxl
 import xlrd
 from odoo import models, fields, api, _
@@ -8,76 +10,38 @@ from odoo.exceptions import UserError
 
 class BafDiscountImportWizard(models.TransientModel):
     _name = 'baf.discount.import.wizard'
-    _description = 'Import Matrix Discount Tables'
+    _description = 'Import Sales Discount Matrix Tables'
 
     file_data = fields.Binary('File')
     file_name = fields.Char('File Name')
 
-    # Global SALES-matrix import only. Per-vendor purchase pricing is uploaded
-    # inline on the contact (res.partner.action_import_vendor_pricing_file).
+    # SALES-ONLY matrix import. This wizard loads the global sales discount
+    # tiers (customer groups x brand/type columns) and creates the matching
+    # baf.sales.group records. Purchase pricing is NOT handled here: it is
+    # per-vendor and uploaded inline on each contact
+    # (res.partner.action_import_vendor_pricing_file).
+    #
+    # Group columns are detected from the sheet header, so any number of groups
+    # works (2, 5, ...). A group is any column whose header names a group tier:
+    #   "SALE PRICE GR1" / "GR8" / "SALES GR3" -> GR1 / GR8 / GR3
+    #   "GR_MOTORCYCLE" / anything with MOTO    -> MOTO
+    # JLR & Mercedes use one column per group; BMW/MINI uses 4 type sub-columns
+    # per group (BMW_T12, BMW_T39, MINI_T12, MINI_T39) starting at the group's
+    # header column.
     format_type = fields.Selection([
-        ('full_template', 'Full Master Template (all brands)'),
         ('bmw_mini', 'BMW & MINI Matrix'),
         ('jlr', 'Land Rover & Jaguar Matrix'),
         ('mercedes', 'Mercedes Matrix'),
-    ], string="File Format", required=True, default='full_template')
+    ], string="File Format", required=True, default='bmw_mini')
 
-    # ─── Sheet names in the master template ─────────────────────────────
+    # ─── Sheet names in the templates ───────────────────────────────────
     _SHEET_BMW_MINI = 'BMW-MINI-MOTORRAD'
     _SHEET_JLR = 'JLR'
     _SHEET_MERCEDES = 'MERCEDES'
 
-    # ─── BMW / MINI sheet column layout ─────────────────────────────────
-    # Row 0 : section header (PURCHAGES BMW-MINI | Purchages Motocycle |
-    #                         SALE PRICE GR1 | GR2 | GR3 | GR4 | GR_MOTORCYCLE)
-    # Row 1 : BMW T12 | BMW T39 | MINI T12 | MINI T39 (per section).
-    #         T12 column = product type codes 1, 2, 4, 6, 8.
-    #         T39 column = product type codes 3, 5, 7, 9.
-    # Row 2 : DC | Supplier1 | Supplier2 | ...   (purchase side only)
-    # Row 3+: data rows, col 0 = discount code, then values
-    _BMW_MINI_PURCHASE_COLS = [
-        (1,  'SUP1_BMW_T12'),
-        (2,  'SUP2_BMW_T12'),
-        (3,  'SUP1_BMW_T39'),
-        (4,  'SUP2_BMW_T39'),
-        (5,  'SUP1_MINI_T12'),
-        (6,  'SUP2_MINI_T12'),
-        (7,  'SUP1_MINI_T39'),
-        (8,  'SUP2_MINI_T39'),
-        (9,  'SUP3_MOTO'),
-    ]
-    _BMW_MINI_SALES_SECTIONS = [
-        (10, 'GR1'),
-        (14, 'GR2'),
-        (18, 'GR3'),
-        (22, 'GR4'),
-        (26, 'MOTO'),
-    ]
+    # BMW/MINI: fixed 4 type sub-columns per group (the number of GROUPS is
+    # variable; the number of types within a group is not).
     _BMW_MINI_SALES_SUBCOLS = ('BMW_T12', 'BMW_T39', 'MINI_T12', 'MINI_T39')
-
-    # ─── JLR sheet layout ───────────────────────────────────────────────
-    # Row 0 : DC | GR8 | GR7 | GR6 | GR5 | GR4 | GR3 | GR2 | GR1
-    # GR4 doubles as the purchase column AND a sales tier; its percentage
-    # is written to both tables so JLR_GR4 is usable as a customer group too.
-    _JLR_COLS = [
-        # (col_idx, table_type, column_key, group_suffix-or-None)
-        (1, 'sales',    'JLR_GR8', 'GR8'),
-        (2, 'sales',    'JLR_GR7', 'GR7'),
-        (3, 'sales',    'JLR_GR6', 'GR6'),
-        (4, 'sales',    'JLR_GR5', 'GR5'),
-        (5, 'purchase', 'JLR_GR4', None),
-        (5, 'sales',    'JLR_GR4', 'GR4'),
-        (6, 'sales',    'JLR_GR3', 'GR3'),
-        (7, 'sales',    'JLR_GR2', 'GR2'),
-        (8, 'sales',    'JLR_GR1', 'GR1'),
-    ]
-
-    # ─── MERCEDES sheet layout ──────────────────────────────────────────
-    # Row 0 : DC | Purchages | SALES GR1
-    _MERCEDES_COLS = [
-        (1, 'purchase', 'MERCEDES_PURCHASE', None),
-        (2, 'sales',    'MERCEDES_GR1',      'GR1'),
-    ]
 
     # ────────────────────────────────────────────────────────────────
     # Action entry points
@@ -89,32 +53,13 @@ class BafDiscountImportWizard(models.TransientModel):
 
         sheets = self._read_workbook(self.file_name or '', self.file_data)
 
-        created = 0
-        updated = 0
-        groups_created = 0
-
-        if self.format_type == 'full_template':
-            for sheet_name, importer in (
-                (self._SHEET_BMW_MINI, self._import_bmw_mini),
-                (self._SHEET_JLR,      self._import_jlr),
-                (self._SHEET_MERCEDES, self._import_mercedes),
-            ):
-                rows = self._pick_sheet(sheets, sheet_name, required=False)
-                if rows is None:
-                    continue
-                c, u, g = importer(rows)
-                created += c
-                updated += u
-                groups_created += g
-        elif self.format_type == 'bmw_mini':
-            rows = self._pick_sheet(sheets, self._SHEET_BMW_MINI, required=True)
-            created, updated, groups_created = self._import_bmw_mini(rows)
-        elif self.format_type == 'jlr':
-            rows = self._pick_sheet(sheets, self._SHEET_JLR, required=True)
-            created, updated, groups_created = self._import_jlr(rows)
-        elif self.format_type == 'mercedes':
-            rows = self._pick_sheet(sheets, self._SHEET_MERCEDES, required=True)
-            created, updated, groups_created = self._import_mercedes(rows)
+        importer, sheet_name = {
+            'bmw_mini': (self._import_bmw_mini, self._SHEET_BMW_MINI),
+            'jlr':      (self._import_jlr,      self._SHEET_JLR),
+            'mercedes': (self._import_mercedes, self._SHEET_MERCEDES),
+        }[self.format_type]
+        rows = self._pick_sheet(sheets, sheet_name, required=True)
+        created, updated, groups_created = importer(rows)
 
         return {
             'type': 'ir.actions.client',
@@ -130,11 +75,12 @@ class BafDiscountImportWizard(models.TransientModel):
         }
 
     def action_download_template(self):
-        """Return an action that downloads the master Excel template."""
+        """Download the Excel template for the selected brand format."""
         self.ensure_one()
         return {
             'type': 'ir.actions.act_url',
-            'url': '/general_system_custom/discount_matrix_template',
+            'url': '/general_system_custom/discount_matrix_template?format_type=%s'
+                   % (self.format_type or 'bmw_mini'),
             'target': 'self',
         }
 
@@ -217,7 +163,33 @@ class BafDiscountImportWizard(models.TransientModel):
         except ValueError:
             return None
 
-    def _upsert_line(self, table_type, column_key, discount_code, pct, counters):
+    @staticmethod
+    def _group_suffix(cell):
+        """Map a header cell to a group suffix, or None if it isn't a group.
+        'SALE PRICE GR1'->GR1, 'GR8'->GR8, 'GR_MOTORCYCLE'/'MOTO'->MOTO."""
+        text = str(cell or '').strip().upper()
+        if not text:
+            return None
+        if 'MOTO' in text or 'MOTORRAD' in text or 'MOTORCYCLE' in text:
+            return 'MOTO'
+        m = re.search(r'GR[\s_]*0*(\d+)', text)
+        return ('GR' + m.group(1)) if m else None
+
+    def _detect_group_columns(self, rows):
+        """Find the header row and its group columns. Returns
+        (header_index, [(col_index, suffix), ...]); ([] if none found).
+        The header is the first row (col 0 skipped) that names any group."""
+        for idx, row in enumerate(rows):
+            cols = [
+                (c, self._group_suffix(cell))
+                for c, cell in enumerate(row)
+                if c >= 1 and self._group_suffix(cell)
+            ]
+            if cols:
+                return idx, cols
+        return None, []
+
+    def _upsert_line(self, table_type, column_key, discount_code, pct, counters, group=None):
         DiscountLine = self.env['baf.discount.line']
         existing = DiscountLine.search([
             ('table_type', '=', table_type),
@@ -225,8 +197,13 @@ class BafDiscountImportWizard(models.TransientModel):
             ('discount_code', '=', discount_code),
         ], limit=1)
         if existing:
+            vals = {}
             if existing.discount_pct != pct:
-                existing.discount_pct = pct
+                vals['discount_pct'] = pct
+            if group and existing.group_id != group:
+                vals['group_id'] = group.id
+            if vals:
+                existing.write(vals)
             counters['updated'] += 1
         else:
             DiscountLine.create({
@@ -234,6 +211,7 @@ class BafDiscountImportWizard(models.TransientModel):
                 'column_key': column_key,
                 'discount_code': discount_code,
                 'discount_pct': pct,
+                'group_id': group.id if group else False,
             })
             counters['created'] += 1
 
@@ -254,38 +232,42 @@ class BafDiscountImportWizard(models.TransientModel):
             if vals:
                 existing.write(vals)
             return existing
-        Group.create({
+        group = Group.create({
             'name': name,
             'pricing_method': 'table_lookup',
             'group_column_suffix': suffix,
             'brand_family': brand_family,
         })
         counters['groups_created'] += 1
+        return group
 
     # ────────────────────────────────────────────────────────────────
-    # BMW / MINI importer
+    # BMW / MINI importer (variable group count; 4 type sub-cols per group)
     # ────────────────────────────────────────────────────────────────
 
     def _import_bmw_mini(self, rows):
         counters = {'created': 0, 'updated': 0, 'groups_created': 0}
 
-        for row in rows:
-            if not row:
-                continue
-            first = str(row[0]).strip()
-            if not first.isdigit():
-                continue
-            discount_code = first  # stored as Char
+        header_idx, group_cols = self._detect_group_columns(rows)
+        if not group_cols:
+            raise UserError(_(
+                "No group columns found. The header must name each group, "
+                "e.g. 'SALE PRICE GR1', 'GR_MOTORCYCLE'."))
 
-            for col_idx, column_key in self._BMW_MINI_PURCHASE_COLS:
-                if col_idx >= len(row):
-                    continue
-                pct = self._parse_float(row[col_idx])
-                if pct is None:
-                    continue
-                self._upsert_line('purchase', column_key, discount_code, pct, counters)
+        # One sales group per detected section, shared across BMW/MINI/T12/T39.
+        groups = {
+            suffix: self._ensure_group(f"BMW_MINI_{suffix}", suffix, counters,
+                                       brand_family='bmw_mini')
+            for _base_col, suffix in group_cols
+        }
 
-            for base_col, suffix in self._BMW_MINI_SALES_SECTIONS:
+        for i, row in enumerate(rows):
+            if i == header_idx or not row:
+                continue
+            code = str(row[0]).strip()
+            if not code.isdigit():  # BMW/MINI codes are numeric
+                continue
+            for base_col, suffix in group_cols:
                 for offset, sub in enumerate(self._BMW_MINI_SALES_SUBCOLS):
                     col_idx = base_col + offset
                     if col_idx >= len(row):
@@ -293,69 +275,50 @@ class BafDiscountImportWizard(models.TransientModel):
                     pct = self._parse_float(row[col_idx])
                     if pct is None:
                         continue
-                    self._upsert_line('sales', f"{sub}_{suffix}", discount_code, pct, counters)
-
-        # One sales group per section, shared across BMW/MINI/T12/T39.
-        for _base_col, suffix in self._BMW_MINI_SALES_SECTIONS:
-            self._ensure_group(f"BMW_MINI_{suffix}", suffix, counters, brand_family='bmw_mini')
+                    self._upsert_line('sales', f"{sub}_{suffix}", code, pct,
+                                      counters, group=groups[suffix])
 
         return counters['created'], counters['updated'], counters['groups_created']
 
     # ────────────────────────────────────────────────────────────────
-    # JLR importer
+    # JLR / MERCEDES importers (variable group count; one column per group)
     # ────────────────────────────────────────────────────────────────
+
+    def _import_single_col(self, rows, brand_prefix, brand_family):
+        counters = {'created': 0, 'updated': 0, 'groups_created': 0}
+
+        header_idx, group_cols = self._detect_group_columns(rows)
+        if not group_cols:
+            raise UserError(_(
+                "No group columns found. The header must name each group, "
+                "e.g. 'GR1', 'SALES GR2'."))
+
+        groups = {
+            suffix: self._ensure_group(f"{brand_prefix}_{suffix}", suffix, counters,
+                                       brand_family=brand_family)
+            for _col_idx, suffix in group_cols
+        }
+
+        for i, row in enumerate(rows):
+            if i == header_idx or not row:
+                continue
+            dc = str(row[0]).strip()
+            if not dc or dc.upper() == 'DC':
+                continue
+            for col_idx, suffix in group_cols:
+                if col_idx >= len(row):
+                    continue
+                pct = self._parse_float(row[col_idx])
+                if pct is None:
+                    continue
+                self._upsert_line('sales', f"{brand_prefix}_{suffix}", dc, pct,
+                                  counters, group=groups[suffix])
+
+        return counters['created'], counters['updated'], counters['groups_created']
 
     def _import_jlr(self, rows):
-        counters = {'created': 0, 'updated': 0, 'groups_created': 0}
-
-        for row in rows:
-            if not row:
-                continue
-            dc = str(row[0]).strip()
-            if not dc or dc.upper() == 'DC':
-                continue
-
-            for col_idx, table_type, column_key, _suffix in self._JLR_COLS:
-                if col_idx >= len(row):
-                    continue
-                pct = self._parse_float(row[col_idx])
-                if pct is None:
-                    continue
-                self._upsert_line(table_type, column_key, dc, pct, counters)
-
-        for _col_idx, table_type, column_key, suffix in self._JLR_COLS:
-            if table_type != 'sales':
-                continue
-            self._ensure_group(column_key, suffix, counters, brand_family='jlr')
-
-        return counters['created'], counters['updated'], counters['groups_created']
-
-    # ────────────────────────────────────────────────────────────────
-    # MERCEDES importer
-    # ────────────────────────────────────────────────────────────────
+        return self._import_single_col(rows, 'JLR', 'jlr')
 
     def _import_mercedes(self, rows):
-        counters = {'created': 0, 'updated': 0, 'groups_created': 0}
-
-        for row in rows:
-            if not row:
-                continue
-            dc = str(row[0]).strip()
-            if not dc or dc.upper() == 'DC':
-                continue
-
-            for col_idx, table_type, column_key, _suffix in self._MERCEDES_COLS:
-                if col_idx >= len(row):
-                    continue
-                pct = self._parse_float(row[col_idx])
-                if pct is None:
-                    continue
-                self._upsert_line(table_type, column_key, dc, pct, counters)
-
-        for _col_idx, table_type, column_key, suffix in self._MERCEDES_COLS:
-            if table_type != 'sales':
-                continue
-            self._ensure_group(column_key, suffix, counters, brand_family='mercedes')
-
-        return counters['created'], counters['updated'], counters['groups_created']
+        return self._import_single_col(rows, 'MERCEDES', 'mercedes')
 

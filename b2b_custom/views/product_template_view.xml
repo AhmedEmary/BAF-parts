@@ -197,6 +197,49 @@
                 });
             </script>
         </xpath>
-        
+
+    </template>
+
+    <!-- Alternative direct vendors shown under the product on its page -->
+    <template id="product_alt_vendors" inherit_id="website_sale.product">
+        <xpath expr="//div[hasclass('o_wsale_product_details_content_section_cta')]" position="after">
+            <t t-set="baf_alt"
+               t-value="product.sudo()._baf_alternative_vendor_display(request.env.user.partner_id)"/>
+            <div t-if="baf_alt['options']"
+                 class="o_wsale_product_details_content_section mb-4 baf-alt-vendors">
+                <h6 class="mb-2">Alternative vendors</h6>
+                <div class="small text-muted mb-2">
+                    Default price:
+                    <span t-out="baf_alt['default_price']"
+                          t-options="{'widget': 'monetary', 'display_currency': website.currency_id}"/>
+                </div>
+                <ul class="list-unstyled mb-0">
+                    <li t-foreach="baf_alt['options']" t-as="opt"
+                        class="d-flex align-items-center gap-2 mb-1 small">
+                        <span class="fw-bold" t-out="opt['price']"
+                              t-options="{'widget': 'monetary', 'display_currency': website.currency_id}"/>
+                        <span class="text-muted">
+                            <t t-out="' - '"/><t t-out="opt['delivery_label']"/>
+                        </span>
+                        <input type="number" min="1" value="1"
+                               class="form-control form-control-sm ms-auto"
+                               style="width: 72px;"
+                               t-att-id="'baf_qty_%s' % opt['vendor_id']"/>
+                        <!-- Button, not a link: the product page is itself a form
+                             and HTML forbids nested forms, and a GET link would
+                             make this cart write reachable cross-site. The click is
+                             handled by the baf_alt_vendor_cart interaction, which
+                             goes through the standard cart service so the customer
+                             gets the usual cart notification. -->
+                        <button type="button" class="btn btn-sm btn-outline-primary baf-alt-add"
+                                t-att-data-product-template-id="product.id"
+                                t-att-data-product-id="product_variant.id"
+                                t-att-data-vendor-id="opt['vendor_id']">
+                            Add to cart
+                        </button>
+                    </li>
+                </ul>
+            </div>
+        </xpath>
     </template>
 </odoo>

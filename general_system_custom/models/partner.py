@@ -52,6 +52,48 @@ class ResPartner(models.Model):
              "products whose Mod is 'sb'. Leave 0 to disable.",
     )
 
+    baf_direct_sale_markup_pct = fields.Float(
+        string='Sales Markup % (Direct)',
+        help="For the 'direct' method only: extra percentage added on top of "
+             "this vendor's direct purchase price to obtain the sales price. "
+             "Must be >= 0.",
+    )
+
+    @api.constrains('baf_direct_sale_markup_pct')
+    def _check_baf_direct_sale_markup_pct(self):
+        for partner in self:
+            if partner.baf_direct_sale_markup_pct < 0:
+                raise ValidationError(_("Sales Markup % (Direct) cannot be negative."))
+
+    baf_delivery_weeks = fields.Integer(
+        string='Delivery Time Frame',
+        help="Lower bound N of the delivery time frame, entered as a single "
+             "number and read as an 'N to N+1 weeks' range (e.g. 2 -> '2-3 "
+             "weeks'). Drives auto-vendor selection: the vendor with the "
+             "shortest delivery wins, ties break by price. Leave 0/empty to "
+             "rank this vendor as slowest.",
+    )
+
+    baf_delivery_weeks_upper = fields.Integer(
+        string='Delivery Upper Bound',
+        compute='_compute_baf_delivery_weeks_upper',
+        help="Auto-calculated upper bound (N+1) of the delivery time frame.",
+    )
+
+    @api.depends('baf_delivery_weeks')
+    def _compute_baf_delivery_weeks_upper(self):
+        for partner in self:
+            weeks = partner.baf_delivery_weeks
+            partner.baf_delivery_weeks_upper = weeks + 1 if weeks and weeks > 0 else 0
+
+    @api.constrains('baf_delivery_weeks')
+    def _check_baf_delivery_weeks(self):
+        # 0/empty means "no delivery time frame" (ranked slowest). The smallest
+        # real frame is 1 -> "1-2 weeks"; negatives are meaningless.
+        for partner in self:
+            if partner.baf_delivery_weeks < 0:
+                raise ValidationError(_("Delivery Time Frame cannot be negative."))
+
     baf_purchase_line_ids = fields.One2many(
         'baf.discount.line', 'partner_id',
         string='Matrix Purchase Lines',
@@ -95,6 +137,18 @@ class ResPartner(models.Model):
             "(for example one BMW/MINI group and one JLR group)."
         ),
     )
+
+    def _baf_effective_sales_groups(self):
+        """Sales groups that price this partner. A child contact with its own
+        groups uses them (the company's are ignored); a child with none
+        inherits its parent company's groups."""
+        self.ensure_one()
+        if self.sales_group_ids:
+            return self.sales_group_ids
+        company = self.commercial_partner_id
+        if company and company != self:
+            return company.sales_group_ids
+        return self.sales_group_ids
 
     visible_brand_ids = fields.Many2many(
         'product.brand',
@@ -146,7 +200,8 @@ class ResPartner(models.Model):
     def write(self, vals):
         # Unticking "Is a Vendor" drops this contact's saved per-vendor pricing
         # (matrix rows, discount code values, direct prices) and its method/file.
-        clearing = self.filtered('baf_is_vendor') if vals.get('baf_is_vendor') is False else self.browse()
+        untick = 'baf_is_vendor' in vals and not vals['baf_is_vendor']
+        clearing = self.filtered('baf_is_vendor') if untick else self.browse()
         res = super().write(vals)
         if clearing:
             clearing._baf_wipe_vendor_pricing()
@@ -154,6 +209,9 @@ class ResPartner(models.Model):
                 'baf_purchase_method': False,
                 'baf_pricing_file': False,
                 'baf_pricing_filename': False,
+                'baf_delivery_weeks': 0,
+                'baf_direct_sale_markup_pct': 0.0,
+                'baf_sb_surcharge_pct': 0.0,
             })
         return res
 

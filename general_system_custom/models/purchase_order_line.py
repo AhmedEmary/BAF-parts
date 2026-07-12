@@ -53,6 +53,10 @@ class PurchaseOrderLine(models.Model):
         """Record how this line's purchase price was derived (code / % / column)
         for the vendor on the order. Own compute so the values persist."""
         for line in self:
+            # price_unit is frozen once invoiced; freeze the snapshot with it,
+            # or it would end up describing a price the line never charged.
+            if line.invoice_lines:
+                continue
             product = line.product_id
             if not product:
                 line.baf_discount_code = False

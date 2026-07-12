@@ -9,6 +9,42 @@ from openpyxl.styles import Font
 class SaleOrder(models.Model):
     _inherit = 'sale.order'
 
+    # ── Cart: keep a product's default line separate from per-vendor lines ────
+    def _baf_alt_vendor_for(self, product_id, kwargs):
+        """The chosen alternative vendor id, but only if that vendor can
+        actually price THIS product; otherwise False (treat as a default add).
+
+        Odoo splats one kwargs dict across the main product AND every linked
+        combo/optional product in `add_to_cart`, so a vendor vetted for the main
+        product would otherwise be stamped onto linked products it may not even
+        supply. Re-check per product rather than trusting the caller.
+        """
+        alt = kwargs.get('baf_alt_vendor_id')
+        if not alt:
+            return False
+        product = self.env['product.product'].browse(int(product_id))
+        vendor = self.env['res.partner'].browse(int(alt))
+        if product._baf_alt_vendor_unit_price(vendor) is None:
+            return False
+        return vendor.id
+
+    def _cart_find_product_line(self, product_id, uom_id, **kwargs):
+        """Segregate cart lines by chosen alternative vendor so a default add
+        never merges into a per-vendor line (and vice versa)."""
+        lines = super()._cart_find_product_line(product_id, uom_id, **kwargs)
+        alt = self._baf_alt_vendor_for(product_id, kwargs)
+        if alt:
+            return lines.filtered(lambda l: l.baf_alt_vendor_id.id == alt)
+        return lines.filtered(lambda l: not l.baf_alt_vendor_id)
+
+    def _prepare_order_line_values(self, product_id, quantity, uom_id, **kwargs):
+        """Stamp the chosen alternative vendor onto a newly created cart line."""
+        values = super()._prepare_order_line_values(product_id, quantity, uom_id, **kwargs)
+        alt = self._baf_alt_vendor_for(product_id, kwargs)
+        if alt:
+            values['baf_alt_vendor_id'] = alt
+        return values
+
     b2b_so = fields.Char(string='B2B SO')
     so_source = fields.Many2one(
         'so.source',

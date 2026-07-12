@@ -54,7 +54,7 @@ class SaleOrderLine(models.Model):
              "quantity updates.",
     )
 
-    @api.depends('product_id', 'order_id.partner_id', 'product_uom_qty')
+    @api.depends('product_id', 'order_id.partner_id', 'product_uom_qty', 'baf_alt_vendor_id')
     def _compute_baf_price(self):
         for line in self:
             if not line.product_id:
@@ -81,6 +81,11 @@ class SaleOrderLine(models.Model):
             line.price_unit = details['price']
             line.baf_applied_column_key = details['column_key']
             line.baf_applied_discount_pct = details['discount_pct']
+            # Customer-chosen alternative direct vendor: price = direct + markup.
+            if line.baf_alt_vendor_id:
+                alt_price = product._baf_alt_vendor_unit_price(line.baf_alt_vendor_id)
+                if alt_price is not None:
+                    line.price_unit = alt_price
             line.discount = 0.0
 
     def _compute_price_unit(self):

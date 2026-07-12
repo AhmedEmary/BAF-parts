@@ -16,22 +16,29 @@ except ImportError:
 
 
 class BafDiscountTemplateDownload(http.Controller):
-    """Serves the master discount-matrix import template (all brand sheets)."""
+    """Serves the discount-matrix import template for a single brand format."""
 
     @http.route(
         '/general_system_custom/discount_matrix_template',
         type='http', auth='user',
     )
-    def download_discount_matrix_template(self, **kw):
+    def download_discount_matrix_template(self, format_type=None, **kw):
         if not openpyxl:
+            return request.not_found()
+
+        builders = {
+            'bmw_mini': self._build_bmw_mini_sheet,
+            'jlr':      self._build_jlr_sheet,
+            'mercedes': self._build_mercedes_sheet,
+        }
+        builder = builders.get(format_type)
+        if not builder:
             return request.not_found()
 
         wb = openpyxl.Workbook()
         wb.remove(wb.active)
-
-        self._build_bmw_mini_sheet(wb)
-        self._build_jlr_sheet(wb)
-        self._build_mercedes_sheet(wb)
+        builder(wb)
+        filename = 'discount_matrix_%s_template.xlsx' % format_type
 
         output = BytesIO()
         wb.save(output)
@@ -43,7 +50,7 @@ class BafDiscountTemplateDownload(http.Controller):
             data,
             headers=[
                 ('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'),
-                ('Content-Disposition', 'attachment; filename="discount_matrix_template.xlsx"'),
+                ('Content-Disposition', 'attachment; filename="%s"' % filename),
             ],
         )
 
@@ -59,42 +66,28 @@ class BafDiscountTemplateDownload(http.Controller):
     def _build_bmw_mini_sheet(self, wb):
         ws = wb.create_sheet('BMW-MINI-MOTORRAD')
 
-        # Row 1: section headers
+        # Row 1: section headers. Sales only — DC then GR1..GR4, MOTO.
+        # Section bases (1-indexed): B=2, F=6, J=10, N=14, R=18.
         self._bold_header(ws, 'A1', 'DC')
-        self._bold_header(ws, 'B1', 'PURCHAGES BMW-MINI')
-        self._bold_header(ws, 'J1', 'Purchages Motocycle')
-        for col, label in (('K1', 'SALE PRICE GR1'), ('O1', 'SALE PRICE GR2'),
-                           ('S1', 'SALE PRICE GR3'), ('W1', 'SALE PRICE GR4'),
-                           ('AA1', 'GR_MOTORCYCLE')):
+        for col, label in (('B1', 'SALE PRICE GR1'), ('F1', 'SALE PRICE GR2'),
+                           ('J1', 'SALE PRICE GR3'), ('N1', 'SALE PRICE GR4'),
+                           ('R1', 'GR_MOTORCYCLE')):
             self._bold_header(ws, col, label)
 
-        # Row 2: type sub-headers
+        # Row 2: type sub-headers per section.
         # T12 column covers type codes 1, 2, 4, 6, 8; T39 covers 3, 5, 7, 9.
-        bmw_mini_subs = ['BMW T12 (1,2,4,6,8)', 'BMW T39 (3,5,7,9)',
-                         'MINI T12 (1,2,4,6,8)', 'MINI T39 (3,5,7,9)']
-        # Purchase: SUP1/SUP2 pairs per type (8 cols starting at B), then SUP3 moto at J
-        purchase_row2 = ['BMW T12 (1,2,4,6,8)', 'BMW T12 (1,2,4,6,8)',
-                         'BMW T39 (3,5,7,9)',  'BMW T39 (3,5,7,9)',
-                         'MINI T12 (1,2,4,6,8)', 'MINI T12 (1,2,4,6,8)',
-                         'MINI T39 (3,5,7,9)', 'MINI T39 (3,5,7,9)', 'MOTO']
-        for offset, val in enumerate(purchase_row2):
-            ws.cell(row=2, column=2 + offset, value=val).font = Font(bold=True)
-        # Sales sections: 4 sub-cols each, base cols 11, 15, 19, 23, 27 (1-indexed)
-        for base_col in (11, 15, 19, 23, 27):
+        bmw_mini_subs = ['BMW TA 1-2-4-6-8', 'BMW TA 3-5-7-9',
+                         'MINI TA 1-2-4-6-8', 'MINI TA 3-5-7-9']
+        for base_col in (2, 6, 10, 14, 18):
             for i, sub in enumerate(bmw_mini_subs):
                 ws.cell(row=2, column=base_col + i, value=sub).font = Font(bold=True)
 
-        # Row 3: supplier sub-labels for purchase columns
-        purchase_row3 = ['Supplier1', 'Supplier2'] * 4 + ['Supplier3']
-        for offset, val in enumerate(purchase_row3):
-            ws.cell(row=3, column=2 + offset, value=val).font = Font(bold=True)
-
-        # Sample data row to make the format obvious (row 4: discount code 10)
-        ws['A4'] = '10'
+        # Sample data row to make the format obvious (row 3: discount code 10)
+        ws['A3'] = '10'
 
     def _build_jlr_sheet(self, wb):
         ws = wb.create_sheet('JLR')
-        headers = ['DC', 'GR8', 'GR7', 'GR6', 'GR5', 'GR4 (Purchase + Sales)',
+        headers = ['DC', 'GR8', 'GR7', 'GR6', 'GR5', 'GR4',
                    'GR3', 'GR2', 'GR1']
         for idx, label in enumerate(headers, start=1):
             ws.cell(row=1, column=idx, value=label).font = Font(bold=True)
@@ -103,7 +96,7 @@ class BafDiscountTemplateDownload(http.Controller):
 
     def _build_mercedes_sheet(self, wb):
         ws = wb.create_sheet('MERCEDES')
-        headers = ['DC', 'Purchages', 'SALES GR1']
+        headers = ['DC', 'SALES GR1', 'SALES GR2', 'SALES GR3']
         for idx, label in enumerate(headers, start=1):
             ws.cell(row=1, column=idx, value=label).font = Font(bold=True)
         ws['A2'] = 'M03'

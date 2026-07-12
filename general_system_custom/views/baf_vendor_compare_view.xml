@@ -28,6 +28,7 @@
                               decoration-muted="priceable == False">
                             <field name="vendor_id"/>
                             <field name="method"/>
+                            <field name="delivery_frame" string="Delivery Time Frame"/>
                             <field name="column_key" optional="show"/>
                             <field name="discount_pct" optional="show"/>
                             <field name="sb_surcharge" optional="hide"/>
@@ -35,6 +36,7 @@
                             <field name="is_winner" widget="boolean_toggle" readonly="1"/>
                             <field name="note" optional="show"/>
                             <field name="priceable" column_invisible="1"/>
+                            <field name="delivery_rank" column_invisible="1"/>
                         </list>
                     </field>
                     <field name="selectable_vendor_ids" invisible="1" widget="many2many_tags"/>

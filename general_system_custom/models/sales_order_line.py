@@ -28,7 +28,13 @@ class SaleOrderLine(models.Model):
     reserved_qty = fields.Float(string='Reserved Qty', default=0.0, store=True, copy=False)
     percentage_reserved = fields.Float(string='Percentage Completed', compute='_compute_percentage_reserved', store=True, aggregator="avg")
     qty_to_purchase = fields.Float(string='Qty to Purchase', compute='_compute_qty_to_purchase', store=True)
-    purchase_vendor_id = fields.Many2one('res.partner', string='PO Vendor', compute='_compute_purchase_vendor_id', store=True, readonly=False)
+    purchase_vendor_id = fields.Many2one('res.partner', string='Selected Vendor', compute='_compute_purchase_vendor_id', store=True, readonly=False)
+    baf_alt_vendor_id = fields.Many2one(
+        'res.partner', string='Chosen Alternative Vendor', copy=False,
+        help="Set when the customer picks an alternative direct vendor on the "
+             "portal. Drives the Selected Vendor and the line price "
+             "(direct + markup). Empty = default (best-price vendor).",
+    )
     brand_id = fields.Many2one('product.brand', related='product_id.brand', store=True, string="Brand", readonly=True)
     purchased_qty = fields.Float(string='Purchased Qty', compute='_compute_purchased_qty', store=True)
     unshipped_qty = fields.Float(string='Unshipped Qty', compute='_compute_unshipped_qty', store=True)
@@ -85,9 +91,13 @@ class SaleOrderLine(models.Model):
         for line in self:
             line.unshipped_qty = line.product_uom_qty - line.qty_invoiced
 
-    @api.depends('product_id')
+    @api.depends('product_id', 'baf_alt_vendor_id')
     def _compute_purchase_vendor_id(self):
         for line in self:
+            # A customer-chosen alternative wins over the auto best-vendor.
+            if line.baf_alt_vendor_id:
+                line.purchase_vendor_id = line.baf_alt_vendor_id
+                continue
             if not line.product_id:
                 line.purchase_vendor_id = False
                 continue

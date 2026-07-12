@@ -4,7 +4,12 @@
         <field name="name">baf.discount.import.wizard.form</field>
         <field name="model">baf.discount.import.wizard</field>
         <field name="arch" type="xml">
-            <form string="Import Discount Matrix">
+            <form string="Import Sales Discount Matrix">
+                <div class="alert alert-warning" role="alert">
+                    <strong>Sales pricing only.</strong> This imports the customer
+                    sales discount tiers (groups x brand/type columns) and creates
+                    the matching sales groups.
+                </div>
                 <group>
                     <field name="format_type" widget="radio"/>
                     <field name="file_name" invisible="1"/>
@@ -27,14 +32,14 @@
     </record>
 
     <record id="action_baf_discount_import" model="ir.actions.act_window">
-        <field name="name">Import Matrix Discount Table</field>
+        <field name="name">Import Sales Matrix Discount Table</field>
         <field name="res_model">baf.discount.import.wizard</field>
         <field name="view_mode">form</field>
         <field name="target">new</field>
     </record>
 
     <menuitem id="menu_baf_discount_import"
-          name="Import Matrix Table"
+          name="Import Sales Matrix Table"
           parent="baf_pricing_menu_root"
           action="action_baf_discount_import"/>
 </odoo>

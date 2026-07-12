@@ -53,8 +53,21 @@
                     <group>
                         <field name="baf_purchase_method"/>
                         <field name="baf_brand_ids" widget="many2many_tags"/>
+                        <label for="baf_delivery_weeks" string="Delivery Time Frame"/>
+                        <div class="o_row">
+                            <field name="baf_delivery_weeks" nolabel="1" class="oe_inline"/>
+                            <span class="mx-1" invisible="baf_delivery_weeks &lt;= 0">-</span>
+                            <field name="baf_delivery_weeks_upper" nolabel="1" readonly="1"
+                                   class="oe_inline" invisible="baf_delivery_weeks &lt;= 0"/>
+                            <span class="ms-1" invisible="baf_delivery_weeks &lt;= 0">weeks</span>
+                            <span class="ms-1 text-muted" invisible="baf_delivery_weeks &gt; 0">
+                                No delivery time frame
+                            </span>
+                        </div>
                         <field name="baf_sb_surcharge_pct"
                                invisible="baf_purchase_method != 'matrix'"/>
+                        <field name="baf_direct_sale_markup_pct"
+                               invisible="baf_purchase_method != 'direct'"/>
                     </group>
                     <div invisible="not baf_purchase_method" class="mt-3">
                         <separator string="Import Pricing Data"/>
@@ -75,7 +88,8 @@
                                     invisible="not baf_pricing_file"/>
                         </div>
                     </div>
-                    <field name="baf_purchase_line_ids" invisible="baf_purchase_method != 'matrix'">
+                    <field name="baf_purchase_line_ids" invisible="baf_purchase_method != 'matrix'"
+                           context="{'default_table_type': 'purchase'}">
                         <list editable="bottom">
                             <field name="column_key"/>
                             <field name="discount_code"/>
