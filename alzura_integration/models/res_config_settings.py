@@ -16,6 +16,9 @@ class ResConfigSettings(models.TransientModel):
     alzura_id = fields.Char(string="Alzura ID")
     alzura_password = fields.Char(string="Alzura Password")
 
+    # UI-only toggle to reveal the credential inputs while connected.
+    alzura_show_credentials = fields.Boolean(default=False)
+
     alzura_country = fields.Char(
         related="company_id.alzura_country",
         string="Alzura Country",

@@ -29,6 +29,12 @@ Token is valid for 24 hours and must be refreshed before expiry.
         "data/alzura_cron.xml",
         "views/res_config_settings_views.xml",
     ],
+    "assets": {
+        "web.assets_backend": [
+            "alzura_integration/static/src/reveal_button/reveal_button.js",
+            "alzura_integration/static/src/reveal_button/reveal_button.xml",
+        ],
+    },
     "installable": True,
     "application": False,
     "license": "LGPL-3",
