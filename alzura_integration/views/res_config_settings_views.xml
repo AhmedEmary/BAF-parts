@@ -12,27 +12,59 @@
 
                     <block title="Alzura B2B API Credentials">
 
+                        <!-- Connected banner: reassurance text shown only while
+                             collapsed. The reveal button (custom widget) flips the
+                             boolean client-side, so the rows below show/hide instantly
+                             and it resets to collapsed on a fresh page open. -->
+                        <setting string="Connection"
+                                 invisible="alzura_token_status != 'valid' or alzura_show_credentials">
+                            <div class="text-success fw-bold mb-1">
+                                <i class="fa fa-check-circle me-1"/>Connected
+                            </div>
+                            <div class="text-muted mb-2">
+                                You have an active token — no need to enter your credentials again.
+                                <span invisible="not alzura_token_expiry">
+                                    Valid until
+                                    <field name="alzura_token_expiry" readonly="1" class="oe_inline"/>.
+                                </span>
+                            </div>
+                            <field name="alzura_show_credentials"
+                                   widget="alzura_reveal_button" nolabel="1"/>
+                        </setting>
+
+                        <!-- Credential inputs: shown when no/expired token, or when
+                             the user clicked "Update credentials". -->
                         <setting string="Alzura ID"
-                                 help="Your Alzura B2B account ID">
+                                 help="Your Alzura B2B account ID"
+                                 invisible="alzura_token_status == 'valid' and not alzura_show_credentials">
                             <field name="alzura_id" placeholder="e.g. 12345"/>
                         </setting>
 
                         <setting string="Password"
-                                 help="Password is never stored — used only to fetch the token">
+                                 help="Password is never stored — used only to fetch the token"
+                                 invisible="alzura_token_status == 'valid' and not alzura_show_credentials">
                             <field name="alzura_password" password="True" placeholder="Enter password"/>
                         </setting>
 
-                        <setting string="Get Token">
+                        <setting string="Country"
+                                 help="ISO 3166-1 alpha-2 lowercase code sent in the request header (e.g. de)"
+                                 invisible="alzura_token_status == 'valid' and not alzura_show_credentials">
+                            <field name="alzura_country" placeholder="de"/>
+                        </setting>
+
+                        <setting string="Get Token"
+                                 invisible="alzura_token_status == 'valid' and not alzura_show_credentials">
                             <button name="action_get_alzura_token"
                                     string="Get Token"
                                     type="object"
                                     class="btn-primary"
                                     noSaveDialog="true"/>
-                        </setting>
-
-                        <setting string="Country"
-                                 help="ISO 3166-1 alpha-2 lowercase code sent in the request header (e.g. de)">
-                            <field name="alzura_country" placeholder="de"/>
+                            <!-- Cancel re-authentication (only when a valid token
+                                 already exists to fall back to). Same widget, so it
+                                 shows "Cancel" here where the value is revealed. -->
+                            <field name="alzura_show_credentials"
+                                   widget="alzura_reveal_button" nolabel="1" class="ms-2"
+                                   invisible="alzura_token_status != 'valid'"/>
                         </setting>
 
                     </block>

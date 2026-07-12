@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+    <t t-name="alzura_integration.AlzuraRevealButton">
+        <button type="button" class="btn btn-secondary btn-sm" t-on-click="onClick">
+            <t t-if="isRevealed"><i class="fa fa-times me-1"/>Cancel</t>
+            <t t-else=""><i class="fa fa-pencil me-1"/>Update credentials</t>
+        </button>
+    </t>
+</templates>
