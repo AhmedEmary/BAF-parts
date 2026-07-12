@@ -3,6 +3,17 @@ import re
 from odoo import _, models, fields, api
 
 
+# Sort weight for a vendor with no delivery frame set: always last. An int (not
+# float('inf')) so the vendor-compare wizard can store it in an Integer column
+# and sort by the exact same value the ranking here uses.
+BAF_NO_DELIVERY_RANK = 9999
+
+
+def baf_delivery_rank(weeks):
+    """Delivery sort weight: real frames rank by week count, unset ranks last."""
+    return weeks if weeks and weeks > 0 else BAF_NO_DELIVERY_RANK
+
+
 # ── Brand family detection ───────────────────────────────────────────────────
 # Patterns are evaluated in order against an UPPERCASED, separator-normalized
 # brand label (hyphens / underscores / slashes replaced with spaces, runs of
@@ -249,6 +260,11 @@ class ProductTemplateBafPricing(models.Model):
                 'pricing_method': 'guest',
             }
 
+        # Effective pricing groups: a child company contact with no groups of
+        # its own inherits the parent company's groups; a child WITH its own
+        # groups uses them and ignores the company's.
+        sales_groups = partner._baf_effective_sales_groups()
+
         # B2B EU VAT tier ─────────────────────────────────────────────────────
         # Registered customers with a VAT number from an EU country get a flat
         # −5 % on JLR products when they don't already have a JLR pricing group
@@ -256,7 +272,7 @@ class ProductTemplateBafPricing(models.Model):
         if (
             product_family == 'jlr'
             and getattr(partner, 'is_b2b_eu_vat', False)
-            and not partner.sales_group_ids.filtered(
+            and not sales_groups.filtered(
                 lambda g: g.active and g.brand_family in ('jlr', 'all')
             )
         ):
@@ -268,7 +284,7 @@ class ProductTemplateBafPricing(models.Model):
             }
 
         # No pricing groups at all → full UPE
-        if not partner.sales_group_ids:
+        if not sales_groups:
             return {
                 'price': upe + surcharge,
                 'column_key': '',
@@ -283,7 +299,7 @@ class ProductTemplateBafPricing(models.Model):
         # column suffix == 'MOTO'. Wildcard groups (brand_family='all')
         # act as a catch-all when no exact match exists.
         is_moto_product = self.baf_mod == MOD_MOTORCYCLE and self.baf_brand_family == 'bmw_mini'
-        groups = partner.sales_group_ids.filtered(lambda g: g.active)
+        groups = sales_groups.filtered(lambda g: g.active)
         family_groups = groups.filtered(lambda g: g.brand_family == product_family)
         if is_moto_product:
             group = (
@@ -347,8 +363,87 @@ class ProductTemplateBafPricing(models.Model):
         """Backward-compatible wrapper returning just the price."""
         return self.baf_get_sales_price_details(partner=partner)['price']
 
+    # ── Alternative direct vendors (portal) ───────────────────────────────────
+
+    def _baf_alternative_direct_vendors(self, default_price):
+        """Alternative direct-vendor options for the portal, ordered by delivery
+        time ascending. Qualifying vendors use the 'direct' method and have a
+        delivery time frame (> 0) and a sales markup (> 0) set; their sales
+        price = direct price * (1 + markup%).
+
+        Selection: walk the delivery frames from fastest to slowest, keeping a
+        running best price that starts at `default_price`. In each frame take
+        the cheapest vendor, but keep it only if it is STRICTLY cheaper than the
+        best price kept so far (then it becomes the new best). Frames whose
+        cheapest isn't an improvement are dropped entirely.
+
+        Returns dicts (delivery-ascending):
+        {vendor_id, price, delivery_lower, delivery_label}."""
+        self.ensure_one()
+
+        by_weeks = {}  # weeks -> list of (price, vendor_id)
+        for vendor in self.seller_ids.mapped('partner_id'):
+            # Same eligibility + price as the sale-order line will charge, so
+            # what we advertise here can never differ from what we bill.
+            price = self._baf_alt_vendor_unit_price(vendor)
+            if price is None:
+                continue
+            by_weeks.setdefault(vendor.baf_delivery_weeks, []).append((price, vendor.id))
+
+        options = []
+        best_price = default_price
+        for weeks in sorted(by_weeks):
+            # cheapest in this frame (tie-break by lowest vendor id)
+            price, vendor_id = min(by_weeks[weeks])
+            if price < best_price:
+                options.append({
+                    'vendor_id': vendor_id,
+                    'price': price,
+                    'delivery_lower': weeks,
+                    'delivery_label': '%d-%d weeks' % (weeks, weeks + 1),
+                })
+                best_price = price
+        return options
+
+    def _baf_alternative_vendor_display(self, partner=None):
+        """Product-page data: the product's default sales price for `partner`
+        plus the alternative direct-vendor options (price + delivery frame)."""
+        self.ensure_one()
+        default_price = self.baf_get_sales_price(partner=partner)
+        return {
+            'default_price': default_price,
+            'options': self._baf_alternative_direct_vendors(default_price),
+        }
+
+    def _baf_alt_vendor_unit_price(self, vendor):
+        """Sales unit price for `vendor` via direct + markup, or None when the
+        vendor doesn't qualify / doesn't price this product."""
+        self.ensure_one()
+        if not vendor or vendor.baf_purchase_method != 'direct':
+            return None
+        brand = self.brand
+        if brand and brand not in vendor.baf_brand_ids:
+            return None
+        weeks = vendor.baf_delivery_weeks or 0
+        markup = vendor.baf_direct_sale_markup_pct or 0.0
+        if weeks <= 0 or markup <= 0:
+            return None
+        seller = self.seller_ids.filtered(lambda s: s.partner_id == vendor)[:1]
+        if not seller or not seller.price:
+            return None
+        return round(seller.price * (1.0 + markup / 100.0), 2)
+
+
 class ProductProductBafPricing(models.Model):
     _inherit = 'product.product'
+
+    def _baf_alternative_direct_vendors(self, default_price):
+        self.ensure_one()
+        return self.product_tmpl_id._baf_alternative_direct_vendors(default_price)
+
+    def _baf_alt_vendor_unit_price(self, vendor):
+        self.ensure_one()
+        return self.product_tmpl_id._baf_alt_vendor_unit_price(vendor)
 
     def baf_get_purchase_price(self, vendor):
         self.ensure_one()
@@ -382,10 +477,11 @@ class ProductProductBafPricing(models.Model):
 
     def baf_get_best_vendor(self):
         """
-        Auto-select the cheapest eligible vendor for this product.
-        Returns {vendor, price, method, reason, candidates}. A vendor that
-        cannot price the product is listed but excluded from the ranking.
-        Ties break by vendor id (ascending).
+        Auto-select the best eligible vendor for this product. Ranking is:
+        shortest delivery period first, then lowest price, then vendor id
+        (ascending). A vendor with no delivery period set (0/empty) is ranked
+        last (slowest). Returns {vendor, price, method, reason, candidates}. A
+        vendor that cannot price the product is listed but excluded from ranking.
         """
         self.ensure_one()
         empty = {'vendor': self.env['res.partner'], 'price': 0.0,
@@ -408,6 +504,7 @@ class ProductProductBafPricing(models.Model):
                 'column_key': details['column_key'] if details else '',
                 'discount_pct': details['discount_pct'] if details else 0.0,
                 'sb_surcharge': details['sb_surcharge'] if details else 0.0,
+                'delivery_weeks': vendor.baf_delivery_weeks or 0,
                 'is_winner': False,
                 'note': '' if details else _("Vendor cannot price this product."),
             })
@@ -418,21 +515,34 @@ class ProductProductBafPricing(models.Model):
             empty['reason'] = _("No eligible vendor produced a usable price.")
             return empty
 
-        priced.sort(key=lambda c: (round(c['price'], 4), c['vendor'].id))
+        # Rank: shortest delivery first, then cheapest, then lowest id.
+        # A vendor with no delivery period (0/empty) sorts last (slowest).
+        priced.sort(key=lambda c: (baf_delivery_rank(c['delivery_weeks']),
+                                   round(c['price'], 4), c['vendor'].id))
         winner = priced[0]
         winner['is_winner'] = True
 
+        win_delivery = baf_delivery_rank(winner['delivery_weeks'])
         cheapest = round(winner['price'], 4)
-        ties = [c for c in priced if round(c['price'], 4) == cheapest]
+        ties = [
+            c for c in priced
+            if baf_delivery_rank(c['delivery_weeks']) == win_delivery
+            and round(c['price'], 4) == cheapest
+        ]
+        delivery_txt = (
+            _("%(a)d-%(b)d weeks") % {'a': winner['delivery_weeks'],
+                                      'b': winner['delivery_weeks'] + 1}
+            if win_delivery != BAF_NO_DELIVERY_RANK else _("no delivery period")
+        )
         if len(ties) > 1:
             reason = _(
-                "%(vendor)s wins at %(price).2f (tie with %(n)d others, lowest id chosen)."
-            ) % {'vendor': winner['vendor'].display_name,
+                "%(vendor)s wins (%(delivery)s, %(price).2f; tie with %(n)d others, lowest id chosen)."
+            ) % {'vendor': winner['vendor'].display_name, 'delivery': delivery_txt,
                  'price': winner['price'], 'n': len(ties) - 1}
         else:
             reason = _(
-                "%(vendor)s wins at %(price).2f via %(method)s%(col)s."
-            ) % {'vendor': winner['vendor'].display_name,
+                "%(vendor)s wins: %(delivery)s delivery, %(price).2f via %(method)s%(col)s."
+            ) % {'vendor': winner['vendor'].display_name, 'delivery': delivery_txt,
                  'price': winner['price'], 'method': winner['method'],
                  'col': (_(" (column %s)") % winner['column_key']) if winner['column_key'] else ''}
 

@@ -83,6 +83,13 @@
                         </t>
                     </div>
 
+                    <!-- Present (hidden) so website_sale's updateQuickReorderSidebar
+                         JS finds #quick_reorder_button on cart quantity change and
+                         doesn't crash. Remove d-none to expose the Quick Reorder UI. -->
+                    <div class="d-none">
+                        <t t-call="website_sale.quick_reorder_button"/>
+                    </div>
+
                     <div class="baf-original-cart-wrap">
                         <t t-call="website_sale.cart_lines"/>
                     </div>

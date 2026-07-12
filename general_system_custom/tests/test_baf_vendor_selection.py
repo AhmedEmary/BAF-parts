@@ -84,6 +84,41 @@ class TestBafVendorSelection(TransactionCase):
         self.assertEqual(best['vendor'], v_low_id)       # lower id wins
         self.assertNotEqual(best['vendor'], v_high_id)   # not alphabetical order
 
+    def test_shorter_delivery_beats_cheaper_price(self):
+        # v_cheap is 75 (blank delivery), v_mid is 80. Give v_mid a 1-week
+        # delivery: shortest delivery wins over price.
+        self.v_mid.baf_delivery_weeks = 1
+        best = self.prod.baf_get_best_vendor()
+        self.assertEqual(best['vendor'], self.v_mid)
+        self.assertEqual(best['price'], 80.0)
+
+    def test_same_delivery_breaks_by_price(self):
+        # Equal delivery period -> cheaper wins.
+        self.v_cheap.baf_delivery_weeks = 2
+        self.v_mid.baf_delivery_weeks = 2
+        best = self.prod.baf_get_best_vendor()
+        self.assertEqual(best['vendor'], self.v_cheap)
+        self.assertEqual(best['price'], 75.0)
+
+    def test_blank_delivery_ranks_last(self):
+        # v_cheap (75) has no delivery, v_mid (80) has a 3-week delivery.
+        # Any set period beats an unset one, so v_mid wins despite costing more.
+        self.v_mid.baf_delivery_weeks = 3
+        best = self.prod.baf_get_best_vendor()
+        self.assertEqual(best['vendor'], self.v_mid)
+
+    def test_all_blank_delivery_falls_back_to_price(self):
+        # Neither vendor has a delivery period -> pure price ranking (legacy).
+        best = self.prod.baf_get_best_vendor()
+        self.assertEqual(best['vendor'], self.v_cheap)
+        self.assertEqual(best['price'], 75.0)
+
+    def test_delivery_upper_bound(self):
+        self.v_cheap.baf_delivery_weeks = 2
+        self.assertEqual(self.v_cheap.baf_delivery_weeks_upper, 3)
+        self.v_cheap.baf_delivery_weeks = 0
+        self.assertEqual(self.v_cheap.baf_delivery_weeks_upper, 0)
+
     def test_no_priceable_vendor(self):
         # An eligible vendor exists (brand matches) but has no matching
         # discount row, so it cannot price the product.

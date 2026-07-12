@@ -1,8 +1,9 @@
 import io
 import xlsxwriter
 import logging
-from odoo import http
+from odoo import _, http
 from odoo.addons.website_sale.controllers import cart
+from odoo.exceptions import UserError
 from odoo.http import request, content_disposition
 # Import Cart from the correct path (Odoo 19 structure)
 try:
@@ -33,6 +34,36 @@ def _get_partner_allowed_families(partner):
     return allowed or ['jlr']
 
 class WebsiteSalePagination(Cart):
+
+    @http.route()
+    def add_to_cart(self, product_template_id, product_id, quantity=1, **kwargs):
+        """Ride the standard cart route so an alternative-vendor add gets the
+        same cart notification, cart-icon bump and tracking as a normal add.
+
+        `add_to_cart` forwards **kwargs straight into `_cart_add`, so
+        `baf_alt_vendor_id` reaches the sale.order overrides untouched — which
+        also means an untrusted client could name ANY partner and be charged
+        that vendor's direct price. Validate it here before it gets that far.
+        """
+        vendor_id = kwargs.pop('baf_alt_vendor_id', None)
+        if vendor_id:
+            product = request.env['product.product'].sudo().browse(int(product_id))
+            if not product.exists():
+                raise UserError(_("This product is no longer available."))
+            order = request.cart or request.website._create_cart()
+            partner = order.partner_id
+            default_price = product.baf_get_sales_price(
+                partner=partner.sudo()._origin if partner else None)
+            allowed = {
+                o['vendor_id']
+                for o in product._baf_alternative_direct_vendors(default_price)
+            }
+            if int(vendor_id) not in allowed:
+                raise UserError(
+                    _("This vendor is no longer available for this product."))
+            kwargs['baf_alt_vendor_id'] = int(vendor_id)
+        return super().add_to_cart(
+            product_template_id, product_id, quantity=quantity, **kwargs)
 
     @http.route([
         '/shop/cart',

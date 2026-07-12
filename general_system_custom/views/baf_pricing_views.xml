@@ -55,6 +55,17 @@
                                 </list>
                             </field>
                         </page>
+                        <page string="Discount Codes"
+                              invisible="pricing_method != 'table_lookup'">
+                            <field name="discount_line_ids"
+                                   context="{'default_table_type': 'sales'}">
+                                <list editable="bottom">
+                                    <field name="column_key"/>
+                                    <field name="discount_code"/>
+                                    <field name="discount_pct" string="Discount %"/>
+                                </list>
+                            </field>
+                        </page>
                     </notebook>
                 </sheet>
             </form>
@@ -78,6 +89,7 @@
             <list editable="bottom">
                 <field name="table_type"/>
                 <field name="partner_id"/>
+                <field name="group_id"/>
                 <field name="column_key"/>
                 <field name="discount_code"/>
                 <field name="discount_pct" string="Discount %"/>
@@ -93,6 +105,7 @@
                 <sheet>
                     <group>
                         <field name="table_type"/>
+                        <field name="group_id"/>
                         <field name="column_key"/>
                         <field name="discount_code"/>
                         <field name="discount_pct" string="Discount %"/>
@@ -108,6 +121,7 @@
         <field name="arch" type="xml">
             <search>
                 <field name="partner_id"/>
+                <field name="group_id"/>
                 <field name="column_key"/>
                 <field name="discount_code"/>
                 <filter string="Purchase" name="purchase" domain="[('table_type','=','purchase')]"/>
@@ -115,6 +129,7 @@
 
                 <separator/>
                 <filter string="Table Type" name="group_table_type" context="{'group_by':'table_type'}"/>
+                <filter string="Sales Group" name="group_sales_group" context="{'group_by':'group_id'}"/>
                 <filter string="Column Key" name="group_column_key" context="{'group_by':'column_key'}"/>
             </search>
         </field>

@@ -27,6 +27,11 @@
         'views/mass_product_import_view.xml',
         'views/product_mass_update_view.xml',
     ],
+    'assets': {
+        'web.assets_frontend': [
+            'b2b_custom/static/src/js/baf_alt_vendor_cart.js',
+        ],
+    },
     'author': 'Ahmed Elamery',
     'license': 'LGPL-3',
 }

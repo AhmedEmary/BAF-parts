@@ -1,6 +1,8 @@
 from odoo import _, models, fields, api
 from odoo.exceptions import UserError
 
+from .baf_product_pricing import baf_delivery_rank
+
 
 class BafVendorPriceCompare(models.TransientModel):
     _name = 'baf.vendor.price.compare'
@@ -41,12 +43,15 @@ class BafVendorPriceCompare(models.TransientModel):
 
         line_vals = []
         for cand in best['candidates']:
+            weeks = cand.get('delivery_weeks') or 0
             line_vals.append((0, 0, {
                 'vendor_id': cand['vendor'].id,
                 'method': cand['method'] or False,
                 'column_key': cand['column_key'] or '',
                 'discount_pct': cand['discount_pct'] or 0.0,
                 'sb_surcharge': cand['sb_surcharge'] or 0.0,
+                'delivery_weeks': weeks,
+                'delivery_rank': baf_delivery_rank(weeks),
                 'price': cand['price'] if cand['price'] is not None else 0.0,
                 'priceable': cand['price'] is not None,
                 'is_winner': cand['is_winner'],
@@ -76,7 +81,7 @@ class BafVendorPriceCompare(models.TransientModel):
 class BafVendorPriceCompareLine(models.TransientModel):
     _name = 'baf.vendor.price.compare.line'
     _description = 'BAF Vendor Price Comparison Line'
-    _order = 'is_winner desc, priceable desc, price asc'
+    _order = 'is_winner desc, priceable desc, delivery_rank asc, price asc'
 
     wizard_id = fields.Many2one('baf.vendor.price.compare', required=True, ondelete='cascade')
     vendor_id = fields.Many2one('res.partner', string='Vendor', readonly=True)
@@ -90,9 +95,21 @@ class BafVendorPriceCompareLine(models.TransientModel):
         readonly=True,
     )
     column_key = fields.Char(string='Table Column', readonly=True)
+    delivery_weeks = fields.Integer(string='Delivery (weeks)', readonly=True)
+    delivery_frame = fields.Char(
+        string='Delivery Time Frame',
+        compute='_compute_delivery_frame', readonly=True,
+    )
+    delivery_rank = fields.Integer(string='Delivery Rank', readonly=True)
     discount_pct = fields.Float(string='Discount %', readonly=True, digits=(6, 4))
     sb_surcharge = fields.Float(string='SB Surcharge %', readonly=True, digits=(6, 4))
     price = fields.Float(string='Net Price', readonly=True, digits='Product Price')
     priceable = fields.Boolean(string='Has Price', readonly=True)
     is_winner = fields.Boolean(string='Selected', readonly=True)
     note = fields.Char(string='Note', readonly=True)
+
+    @api.depends('delivery_weeks')
+    def _compute_delivery_frame(self):
+        for line in self:
+            w = line.delivery_weeks
+            line.delivery_frame = f"{w}-{w + 1}" if w and w > 0 else ''

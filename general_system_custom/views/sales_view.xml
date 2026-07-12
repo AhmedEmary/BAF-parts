@@ -71,6 +71,11 @@
                 <field name="coverage_percentage" widget="progressbar" optional="show" decoration-success="coverage_percentage == 100"/>
             </xpath>
 
+            <xpath expr="//field[@name='order_line']/list/field[@name='product_uom_qty']" position="after">
+                <field name="purchase_vendor_id" string="Selected Vendor" optional="show"
+                       domain="[('baf_purchase_method','!=',False)]"/>
+            </xpath>
+
         </field>
     </record>
 
