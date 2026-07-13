@@ -7,202 +7,325 @@
 
                 <div class="baf-account-page">
 
+                    <!-- HERO -->
                     <section class="baf-account-hero o_colored_level">
-                        <div class="baf-bg-grid"/>
-
                         <div class="container">
                             <div class="baf-account-hero-inner">
+
                                 <div class="baf-account-title">
-                                    <span class="baf-kicker">BAF Parts B2B</span>
+                                    <span class="baf-eyebrow">BAF Parts B2B Portal</span>
+
                                     <h1>Mein Konto</h1>
+
                                     <p>
-                                        Ihr zentraler Einkaufsbereich für Schnellbestellung, Preisdateien,
-                                        Warenkorb, Bestellungen und Kontoverwaltung.
+                                        Ihr zentraler Bereich für Bestellungen, Preisdateien,
+                                        Dokumente und die Verwaltung Ihres B2B-Kontos.
                                     </p>
                                 </div>
 
                                 <div class="baf-user-card">
-                                    <span>Angemeldet als</span>
+                                    <span class="baf-user-label">Angemeldet als</span>
+
                                     <strong>
                                         <t t-esc="request.env.user.name"/>
                                     </strong>
+
                                     <small>
                                         <t t-esc="request.env.user.partner_id.commercial_company_name or request.env.user.partner_id.name"/>
                                     </small>
                                 </div>
+
                             </div>
                         </div>
                     </section>
 
-                    <section class="baf-account-main o_colored_level">
+
+                    <!-- PRIMARY ACTIONS -->
+                    <section class="baf-account-primary o_colored_level">
                         <div class="container">
+
+                            <div class="baf-section-header">
+                                <div>
+                                    <span class="baf-eyebrow">Direktzugriff</span>
+                                    <h2>Was möchten Sie erledigen?</h2>
+                                </div>
+                            </div>
 
                             <div class="baf-primary-grid">
 
-                                <a href="/bestellsystem" class="baf-primary-card dark">
-                                    <div class="baf-card-top">
-                                        <span>01</span>
-                                        <div class="baf-card-icon baf-icon-order">⌕</div>
-                                    </div>
+                                <a href="/b2b" class="baf-primary-card baf-primary-card-main">
 
-                                    <div class="baf-card-content">
-                                        <div class="baf-card-label">
-                                            <span class="baf-mini-icon">+</span>
-                                            <span>Schnell bestellen</span>
-                                        </div>
+                                    <div class="baf-card-number">01</div>
 
-                                        <h2>Schnellbestellung</h2>
+                                    <div class="baf-card-body">
+                                        <span class="baf-card-category">
+                                            Bestellung
+                                        </span>
+
+                                        <h3>Schnellbestellung</h3>
+
                                         <p>
-                                            Teilenummern eingeben, Excel-Listen hochladen und Artikel direkt in den Warenkorb legen.
+                                            Teilenummern eingeben, Listen hochladen und Artikel
+                                            direkt für die Bestellung vorbereiten.
                                         </p>
                                     </div>
 
-                                    <strong>Bestellung starten</strong>
+                                    <div class="baf-card-footer">
+                                        <span>Bestellung starten</span>
+                                        <span class="baf-arrow">→</span>
+                                    </div>
+
                                 </a>
+
 
                                 <a href="/pricefile" class="baf-primary-card">
-                                    <div class="baf-card-top">
-                                        <span>02</span>
-                                        <div class="baf-card-icon baf-icon-download">↓</div>
-                                    </div>
 
-                                    <div class="baf-card-content">
-                                        <div class="baf-card-label">
-                                            <span class="baf-mini-icon">€</span>
-                                            <span>Monatliche Dateien</span>
-                                        </div>
+                                    <div class="baf-card-number">02</div>
 
-                                        <h2>Preisdateien</h2>
+                                    <div class="baf-card-body">
+                                        <span class="baf-card-category">
+                                            Downloads
+                                        </span>
+
+                                        <h3>Preisdateien</h3>
+
                                         <p>
-                                            Aktuelle monatliche Preislisten passend zu Ihrer Kundengruppe herunterladen.
+                                            Aktuelle Preislisten passend zu Ihrer Kundengruppe
+                                            öffnen und herunterladen.
                                         </p>
                                     </div>
 
-                                    <strong>Preislisten öffnen</strong>
+                                    <div class="baf-card-footer">
+                                        <span>Preislisten öffnen</span>
+                                        <span class="baf-arrow">→</span>
+                                    </div>
+
                                 </a>
 
+
                                 <a href="/shop/cart" class="baf-primary-card">
-                                    <div class="baf-card-top">
-                                        <span>03</span>
-                                        <div class="baf-card-icon baf-icon-cart">▣</div>
-                                    </div>
 
-                                    <div class="baf-card-content">
-                                        <div class="baf-card-label">
-                                            <span class="baf-mini-icon">✓</span>
-                                            <span>Bestellung prüfen</span>
-                                        </div>
+                                    <div class="baf-card-number">03</div>
 
-                                        <h2>Warenkorb</h2>
+                                    <div class="baf-card-body">
+                                        <span class="baf-card-category">
+                                            Bestellübersicht
+                                        </span>
+
+                                        <h3>Warenkorb</h3>
+
                                         <p>
-                                            Aktuelle Auswahl prüfen, Mengen kontrollieren und Bestellung abschließen.
+                                            Artikel, Mengen und Preise kontrollieren und
+                                            anschließend die Bestellung abschließen.
                                         </p>
                                     </div>
 
-                                    <strong>Warenkorb öffnen</strong>
+                                    <div class="baf-card-footer">
+                                        <span>Warenkorb öffnen</span>
+                                        <span class="baf-arrow">→</span>
+                                    </div>
+
                                 </a>
 
                             </div>
-
                         </div>
                     </section>
 
+
+                    <!-- ACCOUNT AREAS -->
                     <section class="baf-account-secondary o_colored_level">
                         <div class="container">
 
-                            <div class="baf-section-head">
-                                <span class="baf-kicker">Kontoübersicht</span>
-                                <h2>Wichtige Bereiche</h2>
+                            <div class="baf-section-header">
+                                <div>
+                                    <span class="baf-eyebrow">Kontoübersicht</span>
+                                    <h2>Weitere Bereiche</h2>
+                                </div>
+
+                                <p>
+                                    Dokumente, Kontodaten und vergangene Vorgänge zentral verwalten.
+                                </p>
                             </div>
 
-                            <div class="baf-secondary-grid">
+                            <div class="baf-secondary-list">
 
-                                <a href="/my/orders" class="baf-secondary-card">
-                                    <div class="baf-secondary-icon">📦</div>
-                                    <span>Bestellungen</span>
-                                    <strong>Meine Bestellungen</strong>
-                                    <p>Bestellhistorie und Status öffnen.</p>
+                                <a href="/my/orders" class="baf-secondary-item">
+
+                                    <div class="baf-secondary-content">
+                                        <span class="baf-secondary-number">01</span>
+
+                                        <div>
+                                            <strong>Bestellungen</strong>
+                                            <p>Bestellhistorie und aktuellen Status ansehen.</p>
+                                        </div>
+                                    </div>
+
+                                    <span class="baf-arrow">→</span>
                                 </a>
 
-                                <a href="/my/invoices" class="baf-secondary-card">
-                                    <div class="baf-secondary-icon">▤</div>
-                                    <span>Dokumente</span>
-                                    <strong>Rechnungen</strong>
-                                    <p>Rechnungen und Zahlstatus ansehen.</p>
+
+                                <a href="/my/invoices" class="baf-secondary-item">
+
+                                    <div class="baf-secondary-content">
+                                        <span class="baf-secondary-number">02</span>
+
+                                        <div>
+                                            <strong>Rechnungen</strong>
+                                            <p>Rechnungen und Zahlungsinformationen öffnen.</p>
+                                        </div>
+                                    </div>
+
+                                    <span class="baf-arrow">→</span>
                                 </a>
 
-                                <a href="/my/quotes" class="baf-secondary-card">
-                                    <div class="baf-secondary-icon">%</div>
-                                    <span>Angebote</span>
-                                    <strong>Meine Angebote</strong>
-                                    <p>Offene Angebote prüfen.</p>
+
+                                <a href="/my/quotes" class="baf-secondary-item">
+
+                                    <div class="baf-secondary-content">
+                                        <span class="baf-secondary-number">03</span>
+
+                                        <div>
+                                            <strong>Angebote</strong>
+                                            <p>Offene und bisherige Angebote prüfen.</p>
+                                        </div>
+                                    </div>
+
+                                    <span class="baf-arrow">→</span>
                                 </a>
 
-                                <a href="/my/addresses" class="baf-secondary-card">
-                                    <div class="baf-secondary-icon">⌂</div>
-                                    <span>Konto</span>
-                                    <strong>Adressen</strong>
-                                    <p>Liefer- und Rechnungsadressen verwalten.</p>
+
+                                <a href="/my/addresses" class="baf-secondary-item">
+
+                                    <div class="baf-secondary-content">
+                                        <span class="baf-secondary-number">04</span>
+
+                                        <div>
+                                            <strong>Adressen</strong>
+                                            <p>Liefer- und Rechnungsadressen verwalten.</p>
+                                        </div>
+                                    </div>
+
+                                    <span class="baf-arrow">→</span>
                                 </a>
 
-                                <a href="/my/security" class="baf-secondary-card">
-                                    <div class="baf-secondary-icon">●</div>
-                                    <span>Sicherheit</span>
-                                    <strong>Login &amp; Sicherheit</strong>
-                                    <p>Zugang und Sicherheitseinstellungen öffnen.</p>
+
+                                <a href="/my/security" class="baf-secondary-item">
+
+                                    <div class="baf-secondary-content">
+                                        <span class="baf-secondary-number">05</span>
+
+                                        <div>
+                                            <strong>Login &amp; Sicherheit</strong>
+                                            <p>Zugangsdaten und Sicherheitseinstellungen öffnen.</p>
+                                        </div>
+                                    </div>
+
+                                    <span class="baf-arrow">→</span>
                                 </a>
 
-                                <a href="/contactus" class="baf-secondary-card dark">
-                                    <div class="baf-secondary-icon">?</div>
-                                    <span>Support</span>
-                                    <strong>B2B Support</strong>
-                                    <p>Fragen zu Teilenummern oder Großbestellungen senden.</p>
+
+                                <a href="/contactus" class="baf-secondary-item baf-secondary-item-support">
+
+                                    <div class="baf-secondary-content">
+                                        <span class="baf-secondary-number">06</span>
+
+                                        <div>
+                                            <strong>B2B Support</strong>
+                                            <p>Unterstützung bei Teilenummern und Bestellungen erhalten.</p>
+                                        </div>
+                                    </div>
+
+                                    <span class="baf-arrow">→</span>
                                 </a>
 
                             </div>
-
                         </div>
                     </section>
 
+
+                    <!-- FINAL CTA -->
                     <section class="baf-account-cta o_colored_level">
                         <div class="container">
                             <div class="baf-cta-inner">
+
                                 <div>
-                                    <span class="baf-kicker">Direkt weiterarbeiten</span>
-                                    <strong>Bereit für die nächste Bestellung?</strong>
+                                    <span class="baf-eyebrow baf-eyebrow-light">
+                                        Direkt weiterarbeiten
+                                    </span>
+
+                                    <strong>Neue Bestellung vorbereiten</strong>
+
                                     <p>
-                                        Starten Sie eine neue Schnellbestellung oder öffnen Sie Ihren Warenkorb.
+                                        Starten Sie eine Schnellbestellung oder prüfen Sie
+                                        Ihre bereits ausgewählten Artikel.
                                     </p>
                                 </div>
 
                                 <div class="baf-cta-actions">
-                                    <a href="/bestellsystem" class="baf-btn-light">Neue Bestellung</a>
-                                    <a href="/shop/cart" class="baf-btn-outline">Warenkorb öffnen</a>
+                                    <a href="/b2b" class="baf-button baf-button-light">Neue Bestellung<br/>
+                                    </a>
+
+                                    <a href="/shop/cart" class="baf-button baf-button-outline">
+                                        Warenkorb öffnen
+                                    </a>
                                 </div>
+
                             </div>
                         </div>
                     </section>
 
                 </div>
 
-                <!-- Odoo compatibility structure.
-                     Do not remove. Other portal modules use XPath targets inside this block. -->
+
+                <!--
+                    Odoo compatibility structure.
+                    Do not remove.
+                    Other portal modules use XPath targets inside this block.
+                -->
                 <div class="o_portal_my_home baf-portal-compat">
+
                     <div class="oe_structure" id="oe_structure_portal_my_home_1"/>
 
                     <div class="o_portal_docs row g-2">
+
                         <div t-if="portal_alert_category_enable" class="o_portal_category row g-2 mt-3" id="portal_alert_category"/>
+
                         <div t-if="portal_client_category_enable" class="o_portal_category row g-2 mt-3" id="portal_client_category"/>
+
                         <div t-if="portal_service_category_enable" class="o_portal_category row g-2 mt-3" id="portal_service_category"/>
+
                         <div t-if="portal_vendor_category_enable" class="o_portal_category row g-2 mt-3" id="portal_vendor_category"/>
+
                         <div class="o_portal_category row g-2 mt-3" id="portal_common_category"/>
+
                         <div class="o_portal_doc_spinner spinner-border text-o-color-2 align-self-center mt-5"/>
+
                     </div>
 
                     <div class="oe_structure" id="oe_structure_portal_my_home_2"/>
+
                 </div>
 
+
                 <style>
+                    :root {
+                        --baf-black: #111111;
+                        --baf-white: #ffffff;
+                        --baf-background: #f7f7f6;
+                        --baf-surface: #ffffff;
+                        --baf-border: #ddddda;
+                        --baf-border-dark: #c9c9c5;
+                        --baf-text: #151515;
+                        --baf-text-soft: #676765;
+                        --baf-text-light: #a5a5a1;
+                        --baf-radius-large: 18px;
+                        --baf-radius-small: 10px;
+                        --baf-shadow: 0 14px 38px rgba(0, 0, 0, 0.06);
+                    }
+
+
+                    /* ODOO COMPATIBILITY */
+
                     .baf-portal-compat {
                         display: none !important;
                         visibility: hidden !important;
@@ -228,102 +351,112 @@
                         display: none !important;
                     }
 
-                    :root {
-                        --baf-black: #000000;
-                        --baf-white: #ffffff;
-                        --baf-gray-50: #f7f7f7;
-                        --baf-gray-100: #eeeeee;
-                        --baf-gray-200: #d8d8d8;
-                        --baf-gray-300: #cfcfcf;
-                        --baf-gray-500: #777777;
-                        --baf-gray-700: #333333;
-                        --baf-radius: 24px;
-                        --baf-shadow: 0 18px 46px rgba(0,0,0,0.10);
+
+                    /* FULL WIDTH FIX */
+
+                    html,
+                    body,
+                    #wrapwrap {
+                        overflow-x: hidden !important;
                     }
 
                     .baf-account-page {
-                        background: var(--baf-white);
-                        color: var(--baf-black);
+                        position: relative;
+                        left: 50%;
+                        width: 100vw;
+                        max-width: 100vw;
+                        margin-left: -50vw;
+                        margin-right: -50vw;
+                    }
+
+                    .baf-account-page &gt; section {
+                        width: 100%;
+                        max-width: none;
+                        margin-left: 0;
+                        margin-right: 0;
+                    }
+
+                    .baf-account-page &gt; section &gt; .container {
+                        width: calc(100% - 48px);
+                        max-width: 1280px;
+                        margin-left: auto;
+                        margin-right: auto;
+                        padding-left: 0;
+                        padding-right: 0;
+                    }
+
+
+                    /* GENERAL */
+
+                    .baf-account-page {
+                        overflow: hidden;
+                        background: var(--baf-background);
+                        color: var(--baf-text);
                         font-family: Inter, Arial, sans-serif;
-                        overflow: hidden;
-                        margin-top: 0;
                     }
 
-                    .baf-account-page .container {
-                        max-width: 1320px;
+                    .baf-account-page * {
+                        box-sizing: border-box;
                     }
 
-                    .baf-account-hero {
-                        position: relative;
-                        overflow: hidden;
-                        padding: 48px 0 42px;
-                        background:
-                            radial-gradient(circle at top right, rgba(0,0,0,0.055), transparent 34%),
-                            linear-gradient(135deg, #ffffff 0%, #f4f4f4 100%);
-                        border-bottom: 1px solid var(--baf-gray-200);
-                    }
-
-                    .baf-bg-grid {
-                        position: absolute;
-                        inset: 0;
-                        background-image:
-                            linear-gradient(rgba(0,0,0,0.045) 1px, transparent 1px),
-                            linear-gradient(90deg, rgba(0,0,0,0.045) 1px, transparent 1px);
-                        background-size: 42px 42px;
-                        mask-image: linear-gradient(to bottom, black, transparent 90%);
-                        pointer-events: none;
-                    }
-
-                    .baf-account-hero-inner {
-                        position: relative;
-                        display: grid;
-                        grid-template-columns: minmax(0, 1fr) 340px;
-                        gap: 34px;
-                        align-items: center;
-                    }
-
-                    .baf-kicker {
-                        display: inline-flex;
-                        margin-bottom: 10px;
-                        color: var(--baf-gray-700);
+                    .baf-eyebrow {
+                        display: block;
+                        margin-bottom: 13px;
+                        color: var(--baf-text-soft);
                         font-size: 11px;
-                        font-weight: 950;
-                        letter-spacing: 0.15em;
+                        line-height: 1.2;
+                        font-weight: 800;
+                        letter-spacing: 0.14em;
                         text-transform: uppercase;
                     }
 
-                    .baf-account-title h1,
-                    .baf-section-head h2 {
-                        margin: 0;
-                        color: var(--baf-black);
-                        font-weight: 950;
-                        letter-spacing: -0.075em;
-                        line-height: 0.92;
+                    .baf-eyebrow-light {
+                        color: rgba(255, 255, 255, 0.58);
+                    }
+
+
+                    /* HERO */
+
+                    .baf-account-hero {
+                        padding: 64px 0 58px;
+                        background: var(--baf-white);
+                        border-bottom: 1px solid var(--baf-border);
+                    }
+
+                    .baf-account-hero-inner {
+                        display: grid;
+                        grid-template-columns: minmax(0, 1fr) 320px;
+                        gap: 64px;
+                        align-items: end;
+                    }
+
+                    .baf-account-title {
+                        max-width: 780px;
                     }
 
                     .baf-account-title h1 {
-                        font-size: clamp(48px, 6vw, 82px);
+                        margin: 0;
+                        color: var(--baf-black);
+                        font-size: clamp(48px, 6vw, 76px);
+                        line-height: 0.98;
+                        font-weight: 850;
+                        letter-spacing: -0.055em;
                     }
 
                     .baf-account-title p {
-                        max-width: 760px;
-                        margin: 18px 0 0;
-                        color: var(--baf-gray-700);
+                        max-width: 700px;
+                        margin: 22px 0 0;
+                        color: var(--baf-text-soft);
                         font-size: 17px;
-                        line-height: 1.55;
-                        font-weight: 800;
+                        line-height: 1.65;
+                        font-weight: 500;
                     }
 
                     .baf-user-card {
-                        min-height: 178px;
-                        display: flex;
-                        flex-direction: column;
-                        justify-content: center;
-                        background: var(--baf-black);
-                        color: var(--baf-white);
-                        border-radius: var(--baf-radius);
-                        padding: 26px;
-                        box-shadow: var(--baf-shadow);
+                        padding: 26px 28px;
+                        background: var(--baf-background);
+                        border: 1px solid var(--baf-border);
+                        border-radius: var(--baf-radius-large);
                     }
 
                     .baf-user-card span,
@@ -332,285 +465,277 @@
                         display: block;
                     }
 
-                    .baf-user-card span {
+                    .baf-user-label {
                         margin-bottom: 14px;
-                        color: #d0d0d0;
-                        font-size: 11px;
-                        font-weight: 950;
+                        color: var(--baf-text-soft);
+                        font-size: 10px;
+                        line-height: 1.2;
+                        font-weight: 800;
                         letter-spacing: 0.13em;
                         text-transform: uppercase;
                     }
 
                     .baf-user-card strong {
-                        font-size: 27px;
-                        line-height: 1.05;
-                        font-weight: 950;
-                        letter-spacing: -0.055em;
+                        color: var(--baf-black);
+                        font-size: 24px;
+                        line-height: 1.15;
+                        font-weight: 800;
+                        letter-spacing: -0.03em;
                         word-break: break-word;
                     }
 
                     .baf-user-card small {
-                        margin-top: 10px;
-                        color: #d0d0d0;
+                        margin-top: 8px;
+                        color: var(--baf-text-soft);
                         font-size: 13px;
-                        line-height: 1.4;
-                        font-weight: 750;
+                        line-height: 1.5;
+                        font-weight: 500;
                         word-break: break-word;
                     }
 
-                    .baf-account-main {
-                        padding: 44px 0 48px;
-                        background: var(--baf-white);
+
+                    /* SECTION HEADERS */
+
+                    .baf-section-header {
+                        display: flex;
+                        justify-content: space-between;
+                        align-items: end;
+                        gap: 40px;
+                        margin-bottom: 30px;
+                    }
+
+                    .baf-section-header h2 {
+                        margin: 0;
+                        color: var(--baf-black);
+                        font-size: clamp(32px, 4vw, 48px);
+                        line-height: 1;
+                        font-weight: 820;
+                        letter-spacing: -0.045em;
+                    }
+
+                    .baf-section-header &gt; p {
+                        max-width: 440px;
+                        margin: 0 0 3px;
+                        color: var(--baf-text-soft);
+                        font-size: 14px;
+                        line-height: 1.6;
+                        text-align: right;
+                    }
+
+
+                    /* PRIMARY AREA */
+
+                    .baf-account-primary {
+                        padding: 58px 0 64px;
+                        background: var(--baf-background);
                     }
 
                     .baf-primary-grid {
                         display: grid;
-                        grid-template-columns: 1.15fr 1fr 1fr;
-                        gap: 18px;
+                        grid-template-columns: repeat(3, minmax(0, 1fr));
+                        gap: 16px;
                     }
 
                     .baf-primary-card {
-                        min-height: 270px;
+                        min-height: 330px;
                         display: flex;
                         flex-direction: column;
-                        justify-content: space-between;
-                        border: 1px solid var(--baf-gray-200);
-                        border-radius: var(--baf-radius);
-                        background: var(--baf-white);
-                        color: var(--baf-black) !important;
-                        text-decoration: none !important;
-                        padding: 26px;
-                        box-shadow: 0 12px 34px rgba(0,0,0,0.055);
-                        transition: 0.2s ease;
+                        padding: 27px;
                         overflow: hidden;
+                        background: var(--baf-surface);
+                        color: var(--baf-text) !important;
+                        border: 1px solid var(--baf-border);
+                        border-radius: var(--baf-radius-large);
+                        text-decoration: none !important;
+                        transition:
+                            border-color 0.18s ease,
+                            box-shadow 0.18s ease,
+                            transform 0.18s ease;
                     }
 
-                    .baf-primary-card:hover,
-                    .baf-secondary-card:hover {
-                        transform: translateY(-4px);
-                        box-shadow: 0 22px 54px rgba(0,0,0,0.13);
+                    .baf-primary-card:hover {
+                        transform: translateY(-2px);
+                        border-color: var(--baf-border-dark);
+                        box-shadow: var(--baf-shadow);
                     }
 
-                    .baf-primary-card.dark,
-                    .baf-secondary-card.dark {
+                    .baf-primary-card-main {
                         background: var(--baf-black);
                         color: var(--baf-white) !important;
                         border-color: var(--baf-black);
                     }
 
-                    .baf-card-top {
-                        display: flex;
-                        justify-content: space-between;
-                        align-items: flex-start;
-                        gap: 14px;
-                        margin-bottom: 18px;
-                    }
-
-                    .baf-card-top span {
-                        color: var(--baf-gray-500);
-                        font-size: 13px;
-                        font-weight: 950;
+                    .baf-card-number {
+                        margin-bottom: 48px;
+                        color: var(--baf-text-light);
+                        font-size: 11px;
+                        line-height: 1;
+                        font-weight: 800;
                         letter-spacing: 0.12em;
                     }
 
-                    .baf-primary-card.dark .baf-card-top span,
-                    .baf-secondary-card.dark span {
-                        color: #d0d0d0;
+                    .baf-primary-card-main .baf-card-number {
+                        color: rgba(255, 255, 255, 0.42);
                     }
 
-                    .baf-card-icon {
-                        width: 54px;
-                        height: 54px;
-                        display: inline-flex;
-                        align-items: center;
-                        justify-content: center;
-                        border-radius: 999px;
-                        background: rgba(0,0,0,0.06);
-                        color: var(--baf-black);
-                        font-size: 25px;
-                        font-weight: 950;
-                        flex: 0 0 auto;
+                    .baf-card-body {
+                        flex: 1;
                     }
 
-                    .baf-primary-card.dark .baf-card-icon {
-                        background: rgba(255,255,255,0.13);
-                        color: var(--baf-white);
-                    }
-
-                    .baf-icon-order {
-                        font-size: 28px;
-                    }
-
-                    .baf-icon-download {
-                        font-size: 30px;
-                    }
-
-                    .baf-icon-cart {
-                        font-size: 26px;
-                    }
-
-                    .baf-card-label {
-                        display: inline-flex;
-                        align-items: center;
-                        gap: 8px;
-                        margin-bottom: 13px;
-                        padding: 7px 10px;
-                        border-radius: 999px;
-                        background: var(--baf-gray-100);
-                        color: var(--baf-gray-700);
+                    .baf-card-category {
+                        display: block;
+                        margin-bottom: 11px;
+                        color: var(--baf-text-soft);
                         font-size: 11px;
-                        font-weight: 950;
-                        letter-spacing: 0.06em;
+                        line-height: 1.2;
+                        font-weight: 750;
+                        letter-spacing: 0.09em;
                         text-transform: uppercase;
                     }
 
-                    .baf-primary-card.dark .baf-card-label {
-                        background: rgba(255,255,255,0.13);
-                        color: var(--baf-white);
+                    .baf-primary-card-main .baf-card-category {
+                        color: rgba(255, 255, 255, 0.56);
                     }
 
-                    .baf-mini-icon {
-                        width: 20px;
-                        height: 20px;
-                        display: inline-flex;
-                        align-items: center;
-                        justify-content: center;
-                        border-radius: 999px;
-                        background: var(--baf-black);
-                        color: var(--baf-white);
-                        font-size: 12px;
-                        font-weight: 950;
+                    .baf-primary-card h3 {
+                        margin: 0 0 15px;
+                        color: inherit;
+                        font-size: clamp(29px, 3vw, 39px);
                         line-height: 1;
-                    }
-
-                    .baf-primary-card.dark .baf-mini-icon {
-                        background: var(--baf-white);
-                        color: var(--baf-black);
-                    }
-
-                    .baf-primary-card h2 {
-                        margin: 0 0 12px;
-                        font-size: clamp(31px, 3.3vw, 46px);
-                        line-height: 0.94;
-                        font-weight: 950;
-                        letter-spacing: -0.075em;
+                        font-weight: 820;
+                        letter-spacing: -0.05em;
                     }
 
                     .baf-primary-card p {
+                        max-width: 390px;
                         margin: 0;
-                        color: var(--baf-gray-500);
-                        font-size: 15px;
-                        line-height: 1.5;
+                        color: var(--baf-text-soft);
+                        font-size: 14px;
+                        line-height: 1.6;
+                        font-weight: 500;
+                    }
+
+                    .baf-primary-card-main p {
+                        color: rgba(255, 255, 255, 0.65);
+                    }
+
+                    .baf-card-footer {
+                        display: flex;
+                        justify-content: space-between;
+                        align-items: center;
+                        gap: 20px;
+                        margin-top: 32px;
+                        padding-top: 18px;
+                        border-top: 1px solid var(--baf-border);
+                        font-size: 13px;
+                        line-height: 1.2;
                         font-weight: 750;
                     }
 
-                    .baf-primary-card.dark p {
-                        color: #d0d0d0;
+                    .baf-primary-card-main .baf-card-footer {
+                        border-top-color: rgba(255, 255, 255, 0.16);
                     }
 
-                    .baf-primary-card strong {
-                        display: block;
-                        margin-top: 22px;
-                        padding-top: 16px;
-                        border-top: 1px solid rgba(0,0,0,0.08);
-                        font-size: 15px;
-                        font-weight: 950;
-                    }
-
-                    .baf-primary-card.dark strong {
-                        border-top-color: rgba(255,255,255,0.14);
-                    }
-
-                    .baf-account-secondary {
-                        padding: 52px 0;
-                        background: var(--baf-gray-50);
-                        border-top: 1px solid var(--baf-gray-200);
-                        border-bottom: 1px solid var(--baf-gray-200);
-                    }
-
-                    .baf-section-head {
-                        max-width: 860px;
-                        margin-bottom: 26px;
-                    }
-
-                    .baf-section-head h2 {
-                        font-size: clamp(34px, 4vw, 58px);
-                    }
-
-                    .baf-secondary-grid {
-                        display: grid;
-                        grid-template-columns: repeat(3, 1fr);
-                        gap: 16px;
-                    }
-
-                    .baf-secondary-card {
-                        min-height: 180px;
-                        display: flex;
-                        flex-direction: column;
-                        justify-content: space-between;
-                        border: 1px solid var(--baf-gray-200);
-                        border-radius: 22px;
-                        background: var(--baf-white);
-                        color: var(--baf-black) !important;
-                        text-decoration: none !important;
-                        padding: 23px;
-                        box-shadow: 0 10px 30px rgba(0,0,0,0.045);
-                        transition: 0.2s ease;
-                        position: relative;
-                        overflow: hidden;
-                    }
-
-                    .baf-secondary-icon {
-                        width: 46px;
-                        height: 46px;
+                    .baf-arrow {
                         display: inline-flex;
                         align-items: center;
                         justify-content: center;
-                        margin-bottom: 16px;
-                        border-radius: 999px;
-                        background: var(--baf-gray-100);
-                        color: var(--baf-black);
+                        color: inherit;
                         font-size: 20px;
-                        font-weight: 950;
                         line-height: 1;
+                        font-weight: 400;
+                        transition: transform 0.18s ease;
                     }
 
-                    .baf-secondary-card.dark .baf-secondary-icon {
-                        background: rgba(255,255,255,0.14);
-                        color: var(--baf-white);
+                    .baf-primary-card:hover .baf-arrow,
+                    .baf-secondary-item:hover .baf-arrow {
+                        transform: translateX(4px);
                     }
 
-                    .baf-secondary-card span {
-                        color: var(--baf-gray-500);
-                        font-size: 11px;
-                        font-weight: 950;
-                        letter-spacing: 0.13em;
-                        text-transform: uppercase;
+
+                    /* SECONDARY AREA */
+
+                    .baf-account-secondary {
+                        padding: 62px 0 70px;
+                        background: var(--baf-white);
+                        border-top: 1px solid var(--baf-border);
                     }
 
-                    .baf-secondary-card strong {
+                    .baf-secondary-list {
+                        display: grid;
+                        grid-template-columns: repeat(2, minmax(0, 1fr));
+                        border-top: 1px solid var(--baf-border);
+                    }
+
+                    .baf-secondary-item {
+                        min-height: 132px;
+                        display: flex;
+                        justify-content: space-between;
+                        align-items: center;
+                        gap: 28px;
+                        padding: 25px 24px;
+                        color: var(--baf-text) !important;
+                        background: var(--baf-white);
+                        border-bottom: 1px solid var(--baf-border);
+                        text-decoration: none !important;
+                        transition:
+                            background 0.18s ease,
+                            padding 0.18s ease;
+                    }
+
+                    .baf-secondary-item:nth-child(odd) {
+                        border-right: 1px solid var(--baf-border);
+                    }
+
+                    .baf-secondary-item:hover {
+                        background: var(--baf-background);
+                        padding-left: 29px;
+                    }
+
+                    .baf-secondary-item-support {
+                        background: #f3f3f1;
+                    }
+
+                    .baf-secondary-content {
+                        display: flex;
+                        align-items: flex-start;
+                        gap: 22px;
+                        min-width: 0;
+                    }
+
+                    .baf-secondary-number {
+                        width: 28px;
+                        flex: 0 0 28px;
+                        padding-top: 4px;
+                        color: var(--baf-text-light);
+                        font-size: 10px;
+                        line-height: 1;
+                        font-weight: 800;
+                        letter-spacing: 0.1em;
+                    }
+
+                    .baf-secondary-item strong {
                         display: block;
-                        margin-top: 10px;
-                        font-size: 25px;
-                        line-height: 1;
-                        font-weight: 950;
-                        letter-spacing: -0.055em;
+                        color: var(--baf-black);
+                        font-size: 21px;
+                        line-height: 1.15;
+                        font-weight: 780;
+                        letter-spacing: -0.03em;
                     }
 
-                    .baf-secondary-card p {
-                        margin: 10px 0 0;
-                        color: var(--baf-gray-500);
-                        line-height: 1.46;
-                        font-size: 14px;
-                        font-weight: 750;
+                    .baf-secondary-item p {
+                        margin: 7px 0 0;
+                        color: var(--baf-text-soft);
+                        font-size: 13px;
+                        line-height: 1.5;
+                        font-weight: 500;
                     }
 
-                    .baf-secondary-card.dark p {
-                        color: #d0d0d0;
-                    }
+
+                    /* CTA */
 
                     .baf-account-cta {
-                        padding: 38px 0;
+                        padding: 46px 0;
                         background: var(--baf-black);
                         color: var(--baf-white);
                     }
@@ -618,87 +743,99 @@
                     .baf-cta-inner {
                         display: grid;
                         grid-template-columns: minmax(0, 1fr) auto;
-                        gap: 28px;
+                        gap: 50px;
                         align-items: center;
-                    }
-
-                    .baf-cta-inner .baf-kicker {
-                        color: #d0d0d0;
-                        margin-bottom: 8px;
                     }
 
                     .baf-cta-inner strong {
                         display: block;
                         color: var(--baf-white);
-                        font-size: clamp(28px, 3.4vw, 44px);
-                        line-height: 0.98;
-                        font-weight: 950;
-                        letter-spacing: -0.065em;
+                        font-size: clamp(28px, 3.5vw, 42px);
+                        line-height: 1;
+                        font-weight: 800;
+                        letter-spacing: -0.045em;
                     }
 
                     .baf-cta-inner p {
-                        max-width: 720px;
-                        margin: 10px 0 0;
-                        color: #d0d0d0;
-                        font-size: 15px;
-                        line-height: 1.5;
-                        font-weight: 750;
+                        max-width: 700px;
+                        margin: 12px 0 0;
+                        color: rgba(255, 255, 255, 0.62);
+                        font-size: 14px;
+                        line-height: 1.6;
+                        font-weight: 500;
                     }
 
                     .baf-cta-actions {
                         display: flex;
-                        gap: 12px;
+                        gap: 10px;
                         flex-wrap: wrap;
                         justify-content: flex-end;
                     }
 
-                    .baf-btn-light,
-                    .baf-btn-outline {
+                    .baf-button {
+                        min-height: 46px;
                         display: inline-flex;
                         align-items: center;
                         justify-content: center;
-                        min-height: 46px;
-                        border-radius: 999px;
-                        padding: 12px 22px;
-                        font-weight: 950;
+                        padding: 12px 20px;
+                        border-radius: var(--baf-radius-small);
+                        font-size: 13px;
+                        line-height: 1.2;
+                        font-weight: 750;
                         text-decoration: none !important;
                         white-space: nowrap;
-                        transition: 0.18s ease;
+                        transition:
+                            background 0.18s ease,
+                            color 0.18s ease,
+                            border-color 0.18s ease;
                     }
 
-                    .baf-btn-light {
-                        background: var(--baf-white);
+                    .baf-button-light {
                         color: var(--baf-black) !important;
+                        background: var(--baf-white);
                         border: 1px solid var(--baf-white);
                     }
 
-                    .baf-btn-outline {
-                        background: transparent;
+                    .baf-button-light:hover {
+                        background: #e9e9e7;
+                        border-color: #e9e9e7;
+                    }
+
+                    .baf-button-outline {
                         color: var(--baf-white) !important;
-                        border: 1px solid rgba(255,255,255,0.6);
+                        background: transparent;
+                        border: 1px solid rgba(255, 255, 255, 0.3);
                     }
 
-                    .baf-btn-light:hover,
-                    .baf-btn-outline:hover {
-                        opacity: 0.84;
-                        transform: translateY(-1px);
+                    .baf-button-outline:hover {
+                        background: rgba(255, 255, 255, 0.08);
+                        border-color: rgba(255, 255, 255, 0.55);
                     }
 
-                    @media (max-width: 1200px) {
+
+                    /* TABLET */
+
+                    @media (max-width: 1100px) {
+                        .baf-account-hero-inner {
+                            grid-template-columns: minmax(0, 1fr) 280px;
+                            gap: 36px;
+                        }
+
                         .baf-primary-grid {
                             grid-template-columns: 1fr;
                         }
 
                         .baf-primary-card {
-                            min-height: 230px;
+                            min-height: 260px;
                         }
 
-                        .baf-secondary-grid {
-                            grid-template-columns: repeat(2, 1fr);
+                        .baf-card-number {
+                            margin-bottom: 30px;
                         }
                     }
 
-                    @media (max-width: 992px) {
+
+                    @media (max-width: 900px) {
                         .baf-account-hero-inner,
                         .baf-cta-inner {
                             grid-template-columns: 1fr;
@@ -708,54 +845,111 @@
                             max-width: 100%;
                         }
 
+                        .baf-section-header {
+                            display: block;
+                        }
+
+                        .baf-section-header &gt; p {
+                            max-width: 620px;
+                            margin-top: 15px;
+                            text-align: left;
+                        }
+
+                        .baf-secondary-list {
+                            grid-template-columns: 1fr;
+                        }
+
+                        .baf-secondary-item:nth-child(odd) {
+                            border-right: none;
+                        }
+
                         .baf-cta-actions {
                             justify-content: flex-start;
                         }
                     }
 
+
+                    /* MOBILE */
+
                     @media (max-width: 640px) {
+                        .baf-account-page &gt; section &gt; .container {
+                            width: calc(100% - 32px);
+                        }
+
                         .baf-account-hero {
-                            padding: 42px 0 36px;
+                            padding: 43px 0 38px;
                         }
 
                         .baf-account-title h1 {
-                            font-size: 52px;
+                            font-size: 48px;
                         }
 
                         .baf-account-title p {
+                            margin-top: 17px;
                             font-size: 15px;
+                            line-height: 1.6;
                         }
 
                         .baf-user-card {
-                            min-height: auto;
-                        }
-
-                        .baf-account-main,
-                        .baf-account-secondary {
-                            padding: 36px 0;
-                        }
-
-                        .baf-secondary-grid {
-                            grid-template-columns: 1fr;
-                        }
-
-                        .baf-primary-card,
-                        .baf-secondary-card {
-                            min-height: auto;
                             padding: 22px;
                         }
 
-                        .baf-primary-card h2 {
+                        .baf-account-primary,
+                        .baf-account-secondary {
+                            padding: 42px 0 48px;
+                        }
+
+                        .baf-section-header {
+                            margin-bottom: 24px;
+                        }
+
+                        .baf-section-header h2 {
                             font-size: 34px;
                         }
 
-                        .baf-secondary-card strong {
-                            font-size: 24px;
+                        .baf-primary-card {
+                            min-height: auto;
+                            padding: 23px;
                         }
 
-                        .baf-cta-actions,
-                        .baf-btn-light,
-                        .baf-btn-outline {
+                        .baf-card-number {
+                            margin-bottom: 34px;
+                        }
+
+                        .baf-primary-card h3 {
+                            font-size: 31px;
+                        }
+
+                        .baf-secondary-item {
+                            min-height: auto;
+                            padding: 22px 4px;
+                        }
+
+                        .baf-secondary-item:hover {
+                            padding-left: 4px;
+                        }
+
+                        .baf-secondary-content {
+                            gap: 13px;
+                        }
+
+                        .baf-secondary-item strong {
+                            font-size: 19px;
+                        }
+
+                        .baf-account-cta {
+                            padding: 40px 0;
+                        }
+
+                        .baf-cta-inner {
+                            gap: 28px;
+                        }
+
+                        .baf-cta-actions {
+                            width: 100%;
+                        }
+
+                        .baf-button {
                             width: 100%;
                         }
                     }

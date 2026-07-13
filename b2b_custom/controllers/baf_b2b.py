@@ -73,6 +73,36 @@ def _type_label(template):
     return str(code) if code else ''
 
 
+# Bins matching the /b2b page's BAF_SUPPLIERS map. Any vendor whose lower-bound
+# weeks lands in a bin is labelled with that supplier code + text so the JS's
+# grouping / filtering behaves the same as with demo data. Weeks outside these
+# bins fall back to the "warehouse" bucket (SUPPLIER_1_2).
+def _weeks_to_supplier_code(weeks):
+    weeks = int(weeks or 0)
+    if weeks <= 1:
+        return 'SUPPLIER_1_2'
+    if weeks == 2:
+        return 'EU3'
+    if weeks == 3:
+        return 'EU2'
+    if weeks >= 4:
+        return 'EU1'
+    return 'SUPPLIER_1_2'
+
+
+def _weeks_to_delivery_text(weeks):
+    weeks = int(weeks or 0)
+    if weeks <= 1:
+        return '1 - 2 Wochen'
+    if weeks == 2:
+        return '2 - 3 Wochen'
+    if weeks == 3:
+        return '3 - 4 Wochen'
+    if weeks == 4:
+        return '4 - 6 Wochen'
+    return f'{weeks} - {weeks + 1} Wochen'
+
+
 def _product_to_dict(product, partner):
     template = product.product_tmpl_id
     is_nla = template._baf_is_nla()
@@ -138,6 +168,49 @@ def _product_to_dict(product, partner):
             replacement.product_variant_id.id if blocked and replacement else 0
         ),
     }
+
+
+def _expand_product_options(product, partner):
+    """Return one row per delivery option for `product`:
+      - the customer's default sales price (primary, warehouse/fastest bucket),
+      - one row per cheaper alternative direct vendor (with its own delivery
+        frame from `res.partner.baf_delivery_weeks`).
+
+    All rows share the same product.product id; alt rows also carry an
+    `alt_vendor_id` so cart_add can price them via `baf_alt_vendor_id`.
+    """
+    template = product.product_tmpl_id
+    primary = _product_to_dict(product, partner)
+
+    # Only offer alt vendors when the product is actually orderable — a blocked
+    # or NLA product has no delivery option to sell.
+    if primary.get('orderable') and not primary.get('is_nla'):
+        # supplier_code lets the /b2b page group this row into the "warehouse"
+        # (1-2 weeks) bin without touching the stock-based delivery_time text
+        # that the older /bestellsystem page still displays verbatim.
+        primary['supplier_code'] = 'SUPPLIER_1_2'
+        primary['alt_vendor_id'] = 0
+        options = [primary]
+
+        default_price = template.baf_get_sales_price(partner=partner)
+        for alt in product._baf_alternative_direct_vendors(default_price):
+            weeks = int(alt.get('delivery_lower') or 0)
+            options.append({
+                **primary,
+                'price': _format_amount(template, alt['price']),
+                'supplier_code': _weeks_to_supplier_code(weeks),
+                'delivery_time': _weeks_to_delivery_text(weeks),
+                'availability': 'Direktbezug',
+                'availability_type': 'ok',
+                'alt_vendor_id': int(alt['vendor_id']),
+            })
+        return options
+
+    # Non-orderable rows keep a single entry so the "Nachfolger" / NLA flows
+    # in the UI still work unchanged.
+    primary.setdefault('supplier_code', '')
+    primary.setdefault('alt_vendor_id', 0)
+    return [primary]
 
 
 class BafB2BController(http.Controller):
@@ -251,24 +324,26 @@ class BafB2BController(http.Controller):
 
             # Unambiguous: pick the first variant of the single matching brand
             chosen = next(iter(brand_groups.values()))[:1]
-            data = _product_to_dict(chosen, partner)
             requested_qty = qty_map.get(item['key'])
-            if requested_qty:
-                data['requested_quantity'] = requested_qty
-            products_out.append(data)
+            for data in _expand_product_options(chosen, partner):
+                if requested_qty:
+                    data['requested_quantity'] = requested_qty
+                products_out.append(data)
 
         # Append direct product-id lookups (from "Nachfolger ansehen") at the
         # end. Skip duplicates that were already resolved via SKU above.
-        already_in = {p['id'] for p in products_out}
+        already_in = {(p['id'], p.get('alt_vendor_id', 0)) for p in products_out}
         for product in direct_products:
-            if product.id in already_in:
-                continue
-            data = _product_to_dict(product, partner)
-            qty_key = _normalize_sku(data.get('part_number'))
-            requested_qty = qty_map.get(qty_key)
-            if requested_qty:
-                data['requested_quantity'] = requested_qty
-            products_out.append(data)
+            for data in _expand_product_options(product, partner):
+                key = (data['id'], data.get('alt_vendor_id', 0))
+                if key in already_in:
+                    continue
+                already_in.add(key)
+                qty_key = _normalize_sku(data.get('part_number'))
+                requested_qty = qty_map.get(qty_key)
+                if requested_qty:
+                    data['requested_quantity'] = requested_qty
+                products_out.append(data)
 
         echo_quantities = {sku: qty_map[sku] for sku in qty_map}
 
@@ -312,21 +387,59 @@ class BafB2BController(http.Controller):
                 })
                 continue
             note = (item.get('note') or '').strip()
+
+            alt_vendor_id = 0
             try:
-                result = order.with_context(skip_cart_verification=True)._cart_add(
-                    product_id=product.id, quantity=qty,
+                alt_vendor_id = int(item.get('alt_vendor_id') or 0)
+            except (TypeError, ValueError):
+                alt_vendor_id = 0
+            if alt_vendor_id:
+                # Same guard as website_sale add_to_cart: an untrusted client
+                # could name any partner and get billed their direct price.
+                default_price = product.baf_get_sales_price(
+                    partner=order.partner_id.sudo()._origin if order.partner_id else None,
                 )
-                if note:
-                    line_id = (result or {}).get('line_id')
-                    line = (
-                        request.env['sale.order.line'].sudo().browse(line_id)
-                        if line_id
-                        else order.order_line.filtered(
-                            lambda l: l.product_id.id == product.id
-                        )[-1:]
+                allowed = {
+                    o['vendor_id']
+                    for o in product._baf_alternative_direct_vendors(default_price)
+                }
+                if alt_vendor_id not in allowed:
+                    failed.append({
+                        'product_id': product_id,
+                        'error': 'invalid_vendor',
+                        'sku': product.product_tmpl_id.sku or product.default_code or '',
+                    })
+                    continue
+
+            try:
+                if alt_vendor_id:
+                    # Alt-vendor rows must stay as their own cart line; go direct
+                    # so `_cart_add`'s merge-by-product doesn't collapse them.
+                    line_vals = {
+                        'order_id': order.id,
+                        'product_id': product.id,
+                        'product_uom_qty': qty,
+                        'baf_alt_vendor_id': alt_vendor_id,
+                    }
+                    if note:
+                        line_vals['baf_line_note'] = note
+                    request.env['sale.order.line'].sudo().create(line_vals)
+                else:
+                    result = order.with_context(skip_cart_verification=True)._cart_add(
+                        product_id=product.id, quantity=qty,
                     )
-                    if line:
-                        line.sudo().write({'baf_line_note': note})
+                    if note:
+                        line_id = (result or {}).get('line_id')
+                        line = (
+                            request.env['sale.order.line'].sudo().browse(line_id)
+                            if line_id
+                            else order.order_line.filtered(
+                                lambda l: l.product_id.id == product.id
+                                and not l.baf_alt_vendor_id
+                            )[-1:]
+                        )
+                        if line:
+                            line.sudo().write({'baf_line_note': note})
                 added += 1
             except Exception as exc:
                 _logger.exception("B2B cart_add failed for product %s: %s", product_id, exc)

@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  <!-- B2B website top menu -->
+
+  <record id="menu_home" model="website.menu">
+    <field name="name">Home</field>
+    <field name="url">/b2b-baf</field>
+    <field name="page_id" ref="page_home"/>
+    <field name="parent_id" ref="website.main_menu"/>
+    <field name="sequence">10</field>
+  </record>
+
+  <record id="menu_b2b" model="website.menu">
+    <field name="name">B2B</field>
+    <field name="url">/b2b</field>
+    <field name="page_id" ref="page_b2b"/>
+    <field name="parent_id" ref="website.main_menu"/>
+    <field name="sequence">20</field>
+  </record>
+
+  <record id="menu_pricefile" model="website.menu">
+    <field name="name">Pricefile</field>
+    <field name="url">/pricefile</field>
+    <field name="page_id" ref="page_pricefile"/>
+    <field name="parent_id" ref="website.main_menu"/>
+    <field name="sequence">30</field>
+  </record>
+
+  <record id="menu_uber_uns" model="website.menu">
+    <field name="name">Über Uns</field>
+    <field name="url">/uber-uns</field>
+    <field name="page_id" ref="page_uber_uns"/>
+    <field name="parent_id" ref="website.main_menu"/>
+    <field name="sequence">40</field>
+  </record>
+
+  <record id="menu_contactus" model="website.menu">
+    <field name="name">Kontakt</field>
+    <field name="url">/contactus</field>
+    <field name="page_id" ref="page_contactus"/>
+    <field name="parent_id" ref="website.main_menu"/>
+    <field name="sequence">50</field>
+  </record>
+
+  <record id="menu_hilfe" model="website.menu">
+    <field name="name">Hilfe</field>
+    <field name="url">/hilfe</field>
+    <field name="page_id" ref="page_hilfe"/>
+    <field name="parent_id" ref="website.main_menu"/>
+    <field name="sequence">60</field>
+  </record>
+
+</odoo>
