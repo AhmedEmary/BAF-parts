@@ -58,6 +58,45 @@ def first_sheet(sheets):
     return next(iter(sheets.values()), [])
 
 
+def stream_first_sheet(file_name, file_data):
+    """Yield the first sheet's rows one at a time, same shape as first_sheet().
+
+    read_workbook() materialises every sheet as a list of lists, which a direct
+    price list of a few hundred thousand rows cannot afford. Unreadable content
+    still raises here, not on the first row pulled.
+    """
+    file_name = (file_name or '').lower()
+    file_content = base64.b64decode(file_data)
+    if file_name.endswith('.xlsx'):
+        import openpyxl
+        wb = openpyxl.load_workbook(
+            filename=io.BytesIO(file_content), data_only=True, read_only=True)
+        return _stream_xlsx(wb)
+    if file_name.endswith('.xls'):
+        import xlrd
+        # xlrd has no streaming mode, but .xls caps at 65k rows anyway.
+        return _stream_xls(xlrd.open_workbook(file_contents=file_content))
+    import csv
+    return csv.reader(
+        io.StringIO(file_content.decode('utf-8-sig')), delimiter=',')
+
+
+def _stream_xlsx(wb):
+    try:
+        if not wb.sheetnames:
+            return
+        for row in wb[wb.sheetnames[0]].iter_rows(values_only=True):
+            yield [clean_cell(c) for c in row]
+    finally:
+        wb.close()
+
+
+def _stream_xls(wb):
+    sheet = wb.sheet_by_index(0)
+    for r in range(sheet.nrows):
+        yield [clean_cell(c) for c in sheet.row_values(r)]
+
+
 # BMW/MINI type-code buckets: 1,2,4,6,8 -> T12 ; 3,5,7,9 -> T39.
 _T12_DIGITS = frozenset('12468')
 _T39_DIGITS = frozenset('3579')

@@ -1,3 +1,7 @@
+import itertools
+
+from psycopg2.extras import execute_values
+
 from odoo import _, api, fields, models
 from odoo.exceptions import UserError, ValidationError
 
@@ -217,9 +221,18 @@ class ResPartner(models.Model):
 
     def _baf_wipe_vendor_pricing(self):
         """Delete this contact's per-vendor pricing across all three stores."""
+        if not self.ids:
+            return
         self.baf_purchase_line_ids.unlink()
         self.baf_code_value_ids.unlink()
-        self.baf_supplierinfo_ids.unlink()
+        # Direct prices reach hundreds of thousands of rows per vendor; ORM
+        # unlink would load and cascade every one of them.
+        Seller = self.env['product.supplierinfo']
+        Seller.flush_model()
+        self.env.cr.execute(
+            "DELETE FROM product_supplierinfo WHERE partner_id IN %s",
+            (tuple(self.ids),))
+        Seller.invalidate_model()
 
     @api.depends('vat', 'country_id')
     def _compute_is_b2b_eu_vat(self):
@@ -244,19 +257,28 @@ class ResPartner(models.Model):
     def action_import_vendor_pricing_file(self):
         """Parse the uploaded file for this vendor using its chosen pricing
         method and REPLACE this vendor's pricing data with only what the file
-        contains (all of this vendor's prior per-vendor data is wiped first)."""
+        contains (all of this vendor's prior per-vendor data is wiped first).
+
+        Importers return a stats dict: created/updated, plus (direct only)
+        ambiguous/unmatched/invalid for the rows that were dropped."""
         self.ensure_one()
         if not self.baf_purchase_method:
             raise UserError(_("Set a Purchase Pricing Method first."))
         if not self.baf_pricing_file:
             raise UserError(_("Upload a file first."))
         try:
-            sheets = bafutil.read_workbook(self.baf_pricing_filename or '', self.baf_pricing_file)
+            if self.baf_purchase_method == 'direct':
+                # Direct price lists run to hundreds of thousands of rows: pull
+                # them row by row instead of holding the whole sheet in memory.
+                rows = bafutil.stream_first_sheet(
+                    self.baf_pricing_filename or '', self.baf_pricing_file)
+            else:
+                rows = bafutil.first_sheet(bafutil.read_workbook(
+                    self.baf_pricing_filename or '', self.baf_pricing_file))
         except Exception as e:
             raise UserError(_(
                 "Could not read the file. Ensure it is a valid CSV or Excel file. "
                 "Details: %s") % e)
-        rows = bafutil.first_sheet(sheets)
 
         # Full replace: drop this vendor's existing per-vendor pricing across
         # all three stores (so switching method leaves nothing stale), then
@@ -268,31 +290,49 @@ class ResPartner(models.Model):
             'codes':  self._baf_import_codes,
             'direct': self._baf_import_direct,
         }[self.baf_purchase_method]
-        created, updated, warnings = importer(rows)
+        stats = importer(rows)
 
         # One-shot upload field: clear it once processed.
         self.baf_pricing_file = False
         self.baf_pricing_filename = False
 
-        message = _("%(c)d created, %(u)d updated.") % {'c': created, 'u': updated}
-        if warnings:
-            message += "\n" + _(
-                "Skipped %(n)d ambiguous SKU(s) (add a Brand column to disambiguate): %(skus)s"
-            ) % {'n': len(warnings), 'skus': ", ".join(warnings)}
+        skipped = bool(stats.get('ambiguous') or stats.get('unmatched')
+                       or stats.get('invalid'))
         return {
             'type': 'ir.actions.client',
             'tag': 'display_notification',
             'params': {
                 'title': _("Vendor Pricing Imported"),
-                'message': message,
-                'type': 'warning' if warnings else 'success',
-                'sticky': bool(warnings),
+                'message': self._baf_import_message(stats),
+                'type': 'warning' if skipped else 'success',
+                'sticky': skipped,
                 # Refresh the current form (cleared file + refreshed data lists)
                 # via a lightweight soft reload instead of reopening the whole
                 # heavy contact form with a new act_window.
                 'next': {'type': 'ir.actions.client', 'tag': 'soft_reload'},
             },
         }
+
+    def _baf_import_message(self, stats):
+        """One line per outcome, so every row of the uploaded file is accounted
+        for: what landed, and what was dropped and why."""
+        lines = [_("%(c)d created, %(u)d updated.") % {
+            'c': stats.get('created', 0), 'u': stats.get('updated', 0)}]
+        if stats.get('unmatched'):
+            lines.append(_(
+                "%d row(s) skipped: SKU not found in the catalogue."
+            ) % stats['unmatched'])
+        if stats.get('invalid'):
+            lines.append(_(
+                "%d row(s) skipped: empty SKU or unreadable price."
+            ) % stats['invalid'])
+        ambiguous = stats.get('ambiguous') or []
+        if ambiguous:
+            lines.append(_(
+                "%d SKU(s) skipped: the same SKU exists under several brands. "
+                "Add a Brand column to the file to disambiguate."
+            ) % len(ambiguous))
+        return "\n".join(lines)
 
     # Canonical column headers per method (single accepted name per column).
     _BAF_TEMPLATE_ROWS = {
@@ -338,11 +378,11 @@ class ResPartner(models.Model):
     def _baf_import_matrix(self, rows):
         """Matrix (BMW/MINI/MOTO): header row = DC, <col>, <col>...; each data
         row = code, pct, pct... Upserts purchase baf.discount.line for this
-        vendor with canonical column keys. Returns (created, updated, warnings)."""
+        vendor with canonical column keys."""
         Disc = self.env['baf.discount.line']
         created = updated = 0
         if not rows:
-            return 0, 0, []
+            return {'created': 0, 'updated': 0}
         header = [bafutil.clean_cell(c).strip() for c in rows[0]]
         col_keys = {idx: bafutil.normalize_matrix_header(k)
                     for idx, k in enumerate(header) if idx >= 1 and k}
@@ -377,7 +417,7 @@ class ResPartner(models.Model):
                         'discount_pct': pct,
                     })
                     created += 1
-        return created, updated, []
+        return {'created': created, 'updated': updated}
 
     def _baf_import_codes(self, rows):
         """Discount codes (brandless): rows = code, percentage. Upserts
@@ -405,21 +445,30 @@ class ResPartner(models.Model):
                 Value.create({
                     'code_id': code.id, 'partner_id': self.id, 'percentage': pct})
                 created += 1
-        return created, updated, []
+        return {'created': created, 'updated': updated}
+
+    # Rows buffered before each flush: one product lookup and one INSERT per
+    # batch.
+    _BAF_DIRECT_BATCH = 5000
 
     def _baf_import_direct(self, rows):
         """Direct prices: columns SKU, PRICE and an OPTIONAL BRAND (named header).
         Match products by sku (+ brand when given). A SKU that matches several
         products without a brand to disambiguate is skipped and reported.
-        Falls back to positional [sku, price] when no recognizable header."""
-        Tmpl = self.env['product.template']
-        Seller = self.env['product.supplierinfo']
-        created = updated = 0
-        warnings = []
-        if not rows:
-            return 0, 0, []
+        Falls back to positional [sku, price] when no recognizable header.
 
-        header = [bafutil.clean_cell(c).strip().lower() for c in rows[0]]
+        `rows` may be a stream, so it is consumed once, in batches. The vendor's
+        existing prices were wiped beforehand, so every matched row is an insert
+        and nothing is ever updated.
+
+        Every data row ends up in exactly one counter (created / unmatched /
+        invalid / ambiguous), so the file always adds up."""
+        rows = iter(rows)
+        first_row = next(rows, None)
+        if first_row is None:
+            return {'created': 0, 'updated': 0}
+
+        header = [bafutil.clean_cell(c).strip().lower() for c in first_row]
 
         def _find(names):
             for i, h in enumerate(header):
@@ -431,13 +480,16 @@ class ResPartner(models.Model):
         price_idx = _find({'discounted price'})
         if sku_idx is not None and price_idx is not None:
             brand_idx = _find({'brand'})
-            data_rows = rows[1:]
         else:
-            # No recognizable header -> positional [sku, price] (no brand).
+            # No recognizable header -> positional [sku, price] (no brand), and
+            # the row just consumed is data.
             sku_idx, price_idx, brand_idx = 0, 1, None
-            data_rows = rows
+            rows = itertools.chain([first_row], rows)
 
-        for row in data_rows:
+        stats = {'created': 0, 'updated': 0, 'unmatched': 0, 'invalid': 0,
+                 'ambiguous': set()}
+        batch = []
+        for row in rows:
             if not row:
                 continue
             sku = bafutil.clean_cell(row[sku_idx]).strip() if sku_idx < len(row) else ''
@@ -445,33 +497,65 @@ class ResPartner(models.Model):
                 continue
             price = bafutil.parse_float(row[price_idx]) if price_idx < len(row) else None
             if price is None:
+                stats['invalid'] += 1
                 continue
-            domain = [('sku', '=', sku)]
+            brand = ''
             if brand_idx is not None and brand_idx < len(row):
-                brand_name = bafutil.clean_cell(row[brand_idx]).strip()
-                if brand_name:
-                    domain.append(('brand.name', '=', brand_name))
-            products = Tmpl.search(domain)
-            if not products:
+                brand = bafutil.clean_cell(row[brand_idx]).strip()
+            batch.append((sku, brand, price))
+            if len(batch) >= self._BAF_DIRECT_BATCH:
+                self._baf_insert_direct_batch(batch, stats)
+                batch = []
+        if batch:
+            self._baf_insert_direct_batch(batch, stats)
+        stats['ambiguous'] = sorted(stats['ambiguous'])
+        return stats
+
+    def _baf_insert_direct_batch(self, batch, stats):
+        """Resolve one batch of (sku, brand, price) tuples against
+        product.template with a single query, then write the matched rows with a
+        single INSERT. Raw SQL on purpose: an ORM create per row re-triggers the
+        inverse-field recompute of product.supplierinfo every time, which is what
+        makes a large price list take hours. Updates `stats` in place: matched
+        rows count as created, the rest as unmatched or ambiguous."""
+        by_sku = {}
+        products = self.env['product.template'].search_read(
+            [('sku', 'in', list({sku for sku, _brand, _price in batch}))],
+            ['sku', 'brand', 'uom_id'])
+        for product in products:
+            by_sku.setdefault(product['sku'], []).append(product)
+
+        company = self.env.company
+        now = fields.Datetime.now()
+        values = []
+        for sku, brand, price in batch:
+            matches = by_sku.get(sku, [])
+            if brand:
+                matches = [p for p in matches if p['brand'] and p['brand'][1] == brand]
+            if not matches:
+                # No product carries this SKU (or not under that brand).
+                stats['unmatched'] += 1
                 continue
-            if len(products) > 1:
+            if len(matches) > 1:
                 # Ambiguous even after any brand filter -> skip and report.
-                warnings.append(sku)
+                stats['ambiguous'].add(sku)
                 continue
-            product = products
-            seller = Seller.search([
-                ('partner_id', '=', self.id),
-                ('product_tmpl_id', '=', product.id)], limit=1)
-            if seller:
-                if seller.price != price:
-                    seller.price = price
-                updated += 1
-            else:
-                Seller.create({
-                    'partner_id': self.id, 'product_tmpl_id': product.id,
-                    'price': price})
-                created += 1
-        return created, updated, sorted(set(warnings))
+            values.append((
+                self.id, matches[0]['id'], price, matches[0]['uom_id'][0],
+                company.currency_id.id, company.id, 0.0, 0.0, 1, 1,
+                self.env.uid, now, self.env.uid, now,
+            ))
+        if not values:
+            return
+        execute_values(self.env.cr, """
+            INSERT INTO product_supplierinfo (
+                partner_id, product_tmpl_id, price, product_uom_id, currency_id,
+                company_id, min_qty, discount, delay, sequence,
+                create_uid, create_date, write_uid, write_date)
+            VALUES %s
+        """, values, page_size=1000)
+        self.env['product.supplierinfo'].invalidate_model()
+        stats['created'] += len(values)
 
     @api.constrains('sales_group_ids')
     def _check_sales_group_ids_unique_family(self):

@@ -420,7 +420,8 @@ class TestVendorImport(TransactionCase):
             ('partner_id', '=', self.vendor.id),
             ('product_tmpl_id', 'in', [p_bmw.id, p_mini.id])]))
         self.assertEqual(res['params']['type'], 'warning')
-        self.assertIn('ZZDUP2', res['params']['message'])
+        self.assertIn('1 SKU(s) skipped', res['params']['message'])
+        self.assertIn('Brand column', res['params']['message'])
 
     def test_import_replaces_previous_data(self):
         # A second import fully replaces the vendor's data; old rows are gone.
