@@ -10,11 +10,6 @@ _logger = logging.getLogger(__name__)
 ALZURA_ORDERS_URL = "https://api-b2b.alzura.com/common/latestorders"
 
 
-class AlzuraProductMissing(UserError):
-    """Raised when an Alzura position references a SKU with no matching product,
-    so the whole order is rejected rather than imported with missing lines."""
-
-
 class SaleOrder(models.Model):
     _inherit = "sale.order"
 
@@ -59,15 +54,6 @@ class SaleOrder(models.Model):
                 # created earlier in _alzura_import_order, without aborting the batch.
                 with self.env.cr.savepoint():
                     imported = self._alzura_import_order(company, order_data)
-            except AlzuraProductMissing as e:
-                rejected += 1
-                _logger.warning(
-                    "Alzura: rejected order %s for company %s: %s",
-                    order_data.get("order"),
-                    company.name,
-                    e,
-                )
-                continue
             except Exception as e:
                 # Isolate any other per-order failure (confirmation, constraints)
                 # so one bad order can't abort or permanently block the batch.
@@ -185,8 +171,9 @@ class SaleOrder(models.Model):
         """Map Alzura positions to order_line create commands.
 
         Products are matched on product.product.sku (supplier_item_number).
-        A position whose SKU has no product raises AlzuraProductMissing, which
-        rejects the whole order rather than importing it with missing lines.
+        A position whose SKU has no product is kept as a text-only note line
+        (carrying the SKU, name, qty and price) so the order still imports and
+        the unmatched item stays visible.
         """
         Product = self.env["product.product"].sudo()
         commands = []
@@ -202,9 +189,18 @@ class SaleOrder(models.Model):
             )
 
             if not product:
-                raise AlzuraProductMissing(
-                    "No product found for SKU '%s' (%s)." % (sku, name)
+                commands.append(
+                    (
+                        0,
+                        0,
+                        {
+                            "display_type": "line_note",
+                            "name": "Unmatched SKU %s: %s (qty %s, net %s)"
+                            % (sku, name, qty, price),
+                        },
+                    )
                 )
+                continue
             commands.append(
                 (
                     0,

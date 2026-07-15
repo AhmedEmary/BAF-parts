@@ -5,8 +5,6 @@ from unittest.mock import patch
 
 from odoo.tests.common import TransactionCase, tagged
 
-from ..models.sale_order import AlzuraProductMissing
-
 FIXTURE = os.path.join(os.path.dirname(__file__), "fixtures", "latest_orders.json")
 
 # Product SKUs (supplier_item_number) referenced by the fixture positions.
@@ -84,11 +82,14 @@ class TestAlzuraImport(TransactionCase):
         self.assertEqual(line.product_uom_qty, 2)
         self.assertAlmostEqual(line.price_unit, 43.7)
 
-    def test_unmatched_product_rejects_order(self):
+    def test_unmatched_product_kept_as_note_line(self):
         data = self._order(0)
         data["positions"][0]["supplier_item_number"] = "DOES-NOT-EXIST"
-        with self.assertRaises(AlzuraProductMissing):
-            self.SaleOrder._alzura_import_order(self.company, data)
+        order = self.SaleOrder._alzura_import_order(self.company, data)
+        self.assertTrue(order, "order must still import despite an unmatched SKU")
+        note = order.order_line.filtered(lambda l: l.display_type == "line_note")
+        self.assertEqual(len(note), 1)
+        self.assertIn("DOES-NOT-EXIST", note.name)
 
     # --- fee / charge lines ---------------------------------------------
 
