@@ -559,32 +559,31 @@ class ResPartner(models.Model):
 
     @api.constrains('sales_group_ids')
     def _check_sales_group_ids_unique_family(self):
-        family_labels = dict(self.env['baf.sales.group']._fields['brand_family'].selection)
         for partner in self:
-            groups_by_key = {}
-            for group in partner.sales_group_ids:
-                key = (group.brand_family, group._is_moto_group())
-                bucket = groups_by_key.setdefault(key, self.env['baf.sales.group'])
-                groups_by_key[key] = bucket | group
+            # Two groups clash when they price the same family at the same tier
+            # (see baf.sales.group._baf_prices_same_family). Groups of different
+            # families don't clash, so a JLR group + a Mercedes group is allowed.
+            clashes = []
+            groups = list(partner.sales_group_ids)
+            for i, group in enumerate(groups):
+                for peer in groups[i + 1:]:
+                    if (group._is_moto_group() == peer._is_moto_group()
+                            and group._baf_prices_same_family(peer)):
+                        clashes.append((group, peer))
 
-            duplicates = {
-                key: groups
-                for key, groups in groups_by_key.items()
-                if len(groups) > 1
-            }
-            if duplicates:
+            if clashes:
                 tier_label_moto = _("motorcycle")
                 tier_label_car = _("car")
-                detail_tpl = _("%(family)s (%(tier)s): %(groups)s")
+                detail_tpl = _("%(scope)s (%(tier)s): %(groups)s")
                 details = '; '.join(
                     detail_tpl % {
-                        'family': family_labels.get(family, family),
-                        'tier': tier_label_moto if is_moto else tier_label_car,
-                        'groups': ', '.join(groups.mapped('name')),
+                        'scope': group._baf_scope_label(),
+                        'tier': tier_label_moto if group._is_moto_group() else tier_label_car,
+                        'groups': ', '.join([group.name, peer.name]),
                     }
-                    for (family, is_moto), groups in duplicates.items()
+                    for group, peer in clashes
                 )
                 raise ValidationError(_(
-                    "A customer can only belong to one car group + one motorcycle group per brand family. "
+                    "A customer can only belong to one car group + one motorcycle group per family. "
                     "Conflicts found: %(details)s"
                 ) % {'details': details})

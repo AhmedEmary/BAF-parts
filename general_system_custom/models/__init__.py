@@ -1,6 +1,7 @@
 from sys import dont_write_bytecode
 
 # 1. Base / Core Models MUST load first
+from . import brand_family
 from . import baf_pricing
 from . import baf_product_pricing
 from . import partner
