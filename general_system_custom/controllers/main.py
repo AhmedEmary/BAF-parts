@@ -7,6 +7,10 @@ from odoo.addons.portal.controllers.portal import CustomerPortal
 from odoo.tools import file_open
 from io import BytesIO
 
+from odoo.addons.general_system_custom.models.baf_product_pricing import (
+    baf_brand_base_key,
+)
+
 try:
     import openpyxl
     from openpyxl.styles import Font
@@ -22,23 +26,32 @@ class BafDiscountTemplateDownload(http.Controller):
         '/general_system_custom/discount_matrix_template',
         type='http', auth='user',
     )
-    def download_discount_matrix_template(self, format_type=None, **kw):
+    def download_discount_matrix_template(self, family_id=None, method=None, **kw):
         if not openpyxl:
             return request.not_found()
+        try:
+            fid = int(family_id)
+        except (TypeError, ValueError):
+            return request.not_found()
 
-        builders = {
-            'bmw_mini': self._build_bmw_mini_sheet,
-            'jlr':      self._build_jlr_sheet,
-            'mercedes': self._build_mercedes_sheet,
-        }
-        builder = builders.get(format_type)
-        if not builder:
+        family = request.env['baf.brand.family'].browse(fid).exists()
+        if not family:
+            return request.not_found()
+        # Distinct column bases of the family's brands, in brand order. The
+        # method (not the brands) decides the type-split layout.
+        bases = []
+        for brand in family.brand_ids:
+            base = baf_brand_base_key(brand.name)
+            if base and base not in bases:
+                bases.append(base)
+        type_split = method != 'groups_only'
+        if not bases:
             return request.not_found()
 
         wb = openpyxl.Workbook()
         wb.remove(wb.active)
-        builder(wb)
-        filename = 'discount_matrix_%s_template.xlsx' % format_type
+        self._build_matrix_sheet(wb, bases, type_split)
+        filename = 'discount_matrix_%s_template.xlsx' % '_'.join(bases)
 
         output = BytesIO()
         wb.save(output)
@@ -54,52 +67,40 @@ class BafDiscountTemplateDownload(http.Controller):
             ],
         )
 
-    # ── Sheet builders ──────────────────────────────────────────────────
-    # Layouts mirror the constants in baf.discount.import.wizard so that a
-    # file produced from this template can be re-uploaded without editing.
+    # ── Sheet builder ───────────────────────────────────────────────────
+    # The layout mirrors what baf.discount.import.wizard detects, so a file
+    # produced from this template can be re-uploaded without editing.
 
     @staticmethod
-    def _bold_header(ws, cell, value):
-        ws[cell] = value
-        ws[cell].font = Font(bold=True)
+    def _bold(ws, row, col, value):
+        ws.cell(row=row, column=col, value=value).font = Font(bold=True)
 
-    def _build_bmw_mini_sheet(self, wb):
-        ws = wb.create_sheet('BMW-MINI-MOTORRAD')
+    def _build_matrix_sheet(self, wb, bases, with_types):
+        """BMW/MINI: row 1 names each group, row 2 names the group's type
+        sub-columns (one pair per brand). Single brand: row 1 names each group,
+        one column each."""
+        ws = wb.create_sheet('-'.join(bases))
+        group_labels = ['SALE PRICE GR1', 'SALE PRICE GR2',
+                        'SALE PRICE GR3', 'SALE PRICE GR4']
+        self._bold(ws, 1, 1, 'DC')
 
-        # Row 1: section headers. Sales only — DC then GR1..GR4, MOTO.
-        # Section bases (1-indexed): B=2, F=6, J=10, N=14, R=18.
-        self._bold_header(ws, 'A1', 'DC')
-        for col, label in (('B1', 'SALE PRICE GR1'), ('F1', 'SALE PRICE GR2'),
-                           ('J1', 'SALE PRICE GR3'), ('N1', 'SALE PRICE GR4'),
-                           ('R1', 'GR_MOTORCYCLE')):
-            self._bold_header(ws, col, label)
+        if not with_types:
+            for offset, label in enumerate(group_labels):
+                self._bold(ws, 1, 2 + offset, label)
+            ws['A2'] = '1A'  # sample DC — codes may be alphanumeric
+            return
 
-        # Row 2: type sub-headers per section.
         # T12 column covers type codes 1, 2, 4, 6, 8; T39 covers 3, 5, 7, 9.
-        bmw_mini_subs = ['BMW TA 1-2-4-6-8', 'BMW TA 3-5-7-9',
-                         'MINI TA 1-2-4-6-8', 'MINI TA 3-5-7-9']
-        for base_col in (2, 6, 10, 14, 18):
-            for i, sub in enumerate(bmw_mini_subs):
-                ws.cell(row=2, column=base_col + i, value=sub).font = Font(bold=True)
-
-        # Sample data row to make the format obvious (row 3: discount code 10)
-        ws['A3'] = '10'
-
-    def _build_jlr_sheet(self, wb):
-        ws = wb.create_sheet('JLR')
-        headers = ['DC', 'GR8', 'GR7', 'GR6', 'GR5', 'GR4',
-                   'GR3', 'GR2', 'GR1']
-        for idx, label in enumerate(headers, start=1):
-            ws.cell(row=1, column=idx, value=label).font = Font(bold=True)
-        # Sample alphanumeric DC to advertise that codes can contain chars
-        ws['A2'] = '1A'
-
-    def _build_mercedes_sheet(self, wb):
-        ws = wb.create_sheet('MERCEDES')
-        headers = ['DC', 'SALES GR1', 'SALES GR2', 'SALES GR3']
-        for idx, label in enumerate(headers, start=1):
-            ws.cell(row=1, column=idx, value=label).font = Font(bold=True)
-        ws['A2'] = 'M03'
+        subs = [f'{base} TA {codes}'
+                for base in bases
+                for codes in ('1-2-4-6-8', '3-5-7-9')]
+        # The moto tier is a group like any other, detected from its header.
+        for section, label in enumerate(group_labels + ['GR_MOTORCYCLE']):
+            base_col = 2 + section * len(subs)
+            self._bold(ws, 1, base_col, label)
+            for i, sub in enumerate(subs):
+                self._bold(ws, 2, base_col + i, sub)
+        ws['A3'] = '10'  # sample DC
 
 
 class PortalExcelExport(CustomerPortal):

@@ -7,41 +7,91 @@ import xlrd
 from odoo import models, fields, api, _
 from odoo.exceptions import UserError
 
+from .baf_product_pricing import (
+    BAF_TYPE_BUCKETS,
+    _normalize_brand,
+    baf_brand_base_key,
+)
+
 
 class BafDiscountImportWizard(models.TransientModel):
+    """Import a SALES discount matrix and build the matching sales groups.
+
+    Only sales pricing is handled here; purchase pricing is per-vendor and
+    uploaded inline on each contact (res.partner.action_import_vendor_pricing_file).
+
+    You pick an import METHOD (the column layout), a BRAND FAMILY (whose brands
+    set the column keys and the created group's scope), and a WRITE MODE (update
+    the family's existing groups / add new ones, or delete them first and import
+    only the sheet). Group columns are read from the sheet header, so any number
+    of tiers works — a group is any column whose header names a tier:
+        "SALE PRICE GR1" / "GR8" / "SALES GR3" -> GR1 / GR8 / GR3
+        "GR_MOTORCYCLE" / anything with MOTO    -> MOTO
+    """
     _name = 'baf.discount.import.wizard'
     _description = 'Import Sales Discount Matrix Tables'
 
     file_data = fields.Binary('File')
     file_name = fields.Char('File Name')
 
-    # SALES-ONLY matrix import. This wizard loads the global sales discount
-    # tiers (customer groups x brand/type columns) and creates the matching
-    # baf.sales.group records. Purchase pricing is NOT handled here: it is
-    # per-vendor and uploaded inline on each contact
-    # (res.partner.action_import_vendor_pricing_file).
-    #
-    # Group columns are detected from the sheet header, so any number of groups
-    # works (2, 5, ...). A group is any column whose header names a group tier:
-    #   "SALE PRICE GR1" / "GR8" / "SALES GR3" -> GR1 / GR8 / GR3
-    #   "GR_MOTORCYCLE" / anything with MOTO    -> MOTO
-    # JLR & Mercedes use one column per group; BMW/MINI uses 4 type sub-columns
-    # per group (BMW_T12, BMW_T39, MINI_T12, MINI_T39) starting at the group's
-    # header column.
-    format_type = fields.Selection([
-        ('bmw_mini', 'BMW & MINI Matrix'),
-        ('jlr', 'Land Rover & Jaguar Matrix'),
-        ('mercedes', 'Mercedes Matrix'),
-    ], string="File Format", required=True, default='bmw_mini')
+    import_method = fields.Selection([
+        ('types_groups', 'Types & Groups Table (type sub-columns per group)'),
+        ('groups_only', 'Groups Table (one column per group)'),
+    ], string="Import Method", required=True, default='types_groups',
+        help="Types & Groups Table: each group spans one column per (brand, "
+             "type) — BMW_T12, BMW_T39, MINI_T12, MINI_T39 — for brands that "
+             "price differently per type code (BMW/MINI).\n\n"
+             "Groups Table: each group is a single column, shared by every brand "
+             "of the family (JLR, Mercedes, ...).")
 
-    # ─── Sheet names in the templates ───────────────────────────────────
-    _SHEET_BMW_MINI = 'BMW-MINI-MOTORRAD'
-    _SHEET_JLR = 'JLR'
-    _SHEET_MERCEDES = 'MERCEDES'
+    family_id = fields.Many2one(
+        'baf.brand.family',
+        string="Brand Family",
+        required=True,
+        help="The brand family this sheet prices. Its brands set the discount "
+             "column keys and the created group's scope, so they match what "
+             "products of those brands look up. Merge brands into one family "
+             "(e.g. Jaguar + Land Rover) to price them from one sheet.",
+    )
 
-    # BMW/MINI: fixed 4 type sub-columns per group (the number of GROUPS is
-    # variable; the number of types within a group is not).
-    _BMW_MINI_SALES_SUBCOLS = ('BMW_T12', 'BMW_T39', 'MINI_T12', 'MINI_T39')
+    write_mode = fields.Selection([
+        ('update', 'Update existing / add new groups only'),
+        ('replace', 'Delete existing groups'),
+    ], string="On Import", required=True, default='update',
+        help="Update existing / add new groups only: keep every group already "
+             "priced for this family; overwrite the codes present in the sheet "
+             "and add new ones. Upload a single group (e.g. MOTO) without "
+             "touching the others.\n\n"
+             "Delete existing groups: first delete every existing sales discount "
+             "line of this family, then import only what the sheet contains. "
+             "Groups absent from the sheet are left with no pricing (their group "
+             "records and customer assignments are kept).")
+
+    @api.onchange('import_method')
+    def _onchange_import_method_family(self):
+        """Clear the family pick when switching layout, so the user re-chooses a
+        family that fits the selected method."""
+        self.family_id = False
+
+    def _family_brands(self):
+        return self.family_id.brand_ids
+
+    def _brand_bases(self):
+        """Distinct discount column bases of the family's brands, in brand order.
+        Each base is the brand's own normalized name (brands are never merged
+        into a shared base): Jaguar + Land Rover -> ['JAGUAR', 'LAND_ROVER'];
+        BMW + MINI -> ['BMW', 'MINI']."""
+        bases = []
+        for brand in self._family_brands():
+            base = baf_brand_base_key(brand.name)
+            if base and base not in bases:
+                bases.append(base)
+        return bases
+
+    def _is_type_split(self):
+        """The chosen method decides the layout: Types & Groups splits each
+        brand base into T12 / T39; Groups Table gives one column per base."""
+        return self.import_method == 'types_groups'
 
     # ────────────────────────────────────────────────────────────────
     # Action entry points
@@ -52,14 +102,8 @@ class BafDiscountImportWizard(models.TransientModel):
             raise UserError(_("Please upload a file."))
 
         sheets = self._read_workbook(self.file_name or '', self.file_data)
-
-        importer, sheet_name = {
-            'bmw_mini': (self._import_bmw_mini, self._SHEET_BMW_MINI),
-            'jlr':      (self._import_jlr,      self._SHEET_JLR),
-            'mercedes': (self._import_mercedes, self._SHEET_MERCEDES),
-        }[self.format_type]
-        rows = self._pick_sheet(sheets, sheet_name, required=True)
-        created, updated, groups_created = importer(rows)
+        rows = self._pick_sheet(sheets)
+        counters = self._import_matrix(rows)
 
         return {
             'type': 'ir.actions.client',
@@ -67,20 +111,24 @@ class BafDiscountImportWizard(models.TransientModel):
             'params': {
                 'title': _("Discount Matrix Imported"),
                 'message': _(
-                    "%(c)d lines created, %(u)d updated, %(g)d groups created."
-                ) % {'c': created, 'u': updated, 'g': groups_created},
+                    "%(c)d lines added, %(u)d updated, %(r)d cleared, "
+                    "%(g)d groups created."
+                ) % {'c': counters['created'], 'u': counters['updated'],
+                     'r': counters['removed'], 'g': counters['groups_created']},
                 'type': 'success',
                 'next': {'type': 'ir.actions.act_window_close'},
             },
         }
 
     def action_download_template(self):
-        """Download the Excel template for the selected brand format."""
+        """Download the Excel template for the selected family."""
         self.ensure_one()
+        self._check_family()
         return {
             'type': 'ir.actions.act_url',
-            'url': '/general_system_custom/discount_matrix_template?format_type=%s'
-                   % (self.format_type or 'bmw_mini'),
+            'url': '/general_system_custom/discount_matrix_template'
+                   '?family_id=%s&method=%s'
+                   % (self.family_id.id, self.import_method or 'types_groups'),
             'target': 'self',
         }
 
@@ -133,21 +181,21 @@ class BafDiscountImportWizard(models.TransientModel):
             )
         return sheets
 
-    def _pick_sheet(self, sheets, name, required=True):
+    def _pick_sheet(self, sheets):
         """
-        Locate a sheet by exact name, then case-insensitive match.
-        For single-sheet imports, fall back to the first sheet if there's only one.
+        Pick the sheet holding the matrix: the first one naming any of the
+        brand's column keys ('BMW-MINI-MOTORRAD' -> BMW, 'JLR' -> JLR),
+        otherwise the first sheet in the workbook.
         """
-        if name in sheets:
-            return sheets[name]
-        for sn in sheets:
-            if sn.strip().lower() == name.strip().lower():
-                return sheets[sn]
-        if len(sheets) == 1:
-            return next(iter(sheets.values()))
-        if required:
-            raise UserError(_("Sheet '%s' not found in the uploaded file.") % name)
-        return None
+        if not sheets:
+            raise UserError(_("The uploaded file contains no sheets."))
+        if len(sheets) > 1:
+            bases = [b.replace('_', ' ') for b in self._brand_bases()]
+            for sheet_name, rows in sheets.items():
+                norm = _normalize_brand(sheet_name)
+                if any(re.search(r'\b%s\b' % re.escape(b), norm) for b in bases):
+                    return rows
+        return next(iter(sheets.values()))
 
     # ────────────────────────────────────────────────────────────────
     # Helpers shared by importers
@@ -190,6 +238,9 @@ class BafDiscountImportWizard(models.TransientModel):
         return None, []
 
     def _upsert_line(self, table_type, column_key, discount_code, pct, counters, group=None):
+        """Create the discount line, or overwrite it if one with this
+        (table_type, column_key, discount_code) already exists — whether from an
+        earlier row in this sheet or a previous import (update-mode re-import)."""
         DiscountLine = self.env['baf.discount.line']
         existing = DiscountLine.search([
             ('table_type', '=', table_type),
@@ -215,10 +266,10 @@ class BafDiscountImportWizard(models.TransientModel):
             })
             counters['created'] += 1
 
-    def _ensure_group(self, name, suffix, counters, brand_family='all'):
+    def _ensure_group(self, name, suffix, counters):
         """Idempotently create a baf.sales.group with table_lookup pricing,
-        tagged with the brand family it serves so the pricing engine can
-        pick the right group when a customer holds several."""
+        scoped to the selected family so the pricing engine can pick it by the
+        product's family when a customer holds several."""
         Group = self.env['baf.sales.group']
         existing = Group.search([('name', '=', name)], limit=1)
         if existing:
@@ -227,8 +278,8 @@ class BafDiscountImportWizard(models.TransientModel):
                 vals['pricing_method'] = 'table_lookup'
             if existing.group_column_suffix != suffix:
                 vals['group_column_suffix'] = suffix
-            if existing.brand_family != brand_family:
-                vals['brand_family'] = brand_family
+            if existing.family_id != self.family_id:
+                vals['family_id'] = self.family_id.id
             if vals:
                 existing.write(vals)
             return existing
@@ -236,89 +287,88 @@ class BafDiscountImportWizard(models.TransientModel):
             'name': name,
             'pricing_method': 'table_lookup',
             'group_column_suffix': suffix,
-            'brand_family': brand_family,
+            'family_id': self.family_id.id,
         })
         counters['groups_created'] += 1
         return group
 
     # ────────────────────────────────────────────────────────────────
-    # BMW / MINI importer (variable group count; 4 type sub-cols per group)
+    # Importer (variable group count; layout from the import method)
     # ────────────────────────────────────────────────────────────────
 
-    def _import_bmw_mini(self, rows):
-        counters = {'created': 0, 'updated': 0, 'groups_created': 0}
+    def _check_family(self):
+        if not self.family_id:
+            raise UserError(_("Select the brand family this sheet prices."))
+        if not self._brand_bases():
+            raise UserError(_(
+                "Family '%s' has no brands, so there is nothing to price. "
+                "Add brands to it first.") % self.family_id.name)
+
+    def _column_keys(self):
+        """Discount column keys one group occupies, left to right. Types & Groups
+        method: one key per (brand base, type bucket) — BMW_T12, BMW_T39,
+        MINI_T12, MINI_T39. Groups Table method: one key per brand base."""
+        bases = self._brand_bases()
+        if self._is_type_split():
+            return [f"{base}_{bucket}" for base in bases for bucket in BAF_TYPE_BUCKETS]
+        return bases
+
+    def _import_matrix(self, rows):
+        counters = {'created': 0, 'updated': 0, 'removed': 0, 'groups_created': 0}
+
+        self._check_family()
+        column_keys = self._column_keys()
+        type_split = self._is_type_split()
 
         header_idx, group_cols = self._detect_group_columns(rows)
         if not group_cols:
             raise UserError(_(
                 "No group columns found. The header must name each group, "
-                "e.g. 'SALE PRICE GR1', 'GR_MOTORCYCLE'."))
+                "e.g. 'SALE PRICE GR1', 'GR8', 'GR_MOTORCYCLE'."))
 
-        # One sales group per detected section, shared across BMW/MINI/T12/T39.
+        # Replace mode wipes every existing sales line of this family first, so
+        # the import that follows is the family's whole pricing. Update mode
+        # keeps them and lets _upsert_line overwrite/add per code. Either way the
+        # group records (and customer assignments) are kept.
+        if self.write_mode == 'replace':
+            self._clear_existing_lines(counters)
+
+        # One sales group per detected section, all scoped to the family
+        # (e.g. BMW_MINI_GR1 covers BMW_T12_GR1 ... MINI_T39_GR1).
+        group_prefix = '_'.join(self._brand_bases())
         groups = {
-            suffix: self._ensure_group(f"BMW_MINI_{suffix}", suffix, counters,
-                                       brand_family='bmw_mini')
+            suffix: self._ensure_group(f"{group_prefix}_{suffix}", suffix, counters)
             for _base_col, suffix in group_cols
         }
 
+        # Types & Groups spreads its keys across consecutive columns; Groups
+        # Table feeds every brand base from the group's single column.
         for i, row in enumerate(rows):
             if i == header_idx or not row:
                 continue
             code = str(row[0]).strip()
-            if not code.isdigit():  # BMW/MINI codes are numeric
+            if not code or code.upper() == 'DC':
                 continue
             for base_col, suffix in group_cols:
-                for offset, sub in enumerate(self._BMW_MINI_SALES_SUBCOLS):
-                    col_idx = base_col + offset
+                for offset, key in enumerate(column_keys):
+                    col_idx = base_col + (offset if type_split else 0)
                     if col_idx >= len(row):
                         continue
                     pct = self._parse_float(row[col_idx])
                     if pct is None:
                         continue
-                    self._upsert_line('sales', f"{sub}_{suffix}", code, pct,
+                    self._upsert_line('sales', f"{key}_{suffix}", code, pct,
                                       counters, group=groups[suffix])
 
-        return counters['created'], counters['updated'], counters['groups_created']
+        return counters
 
-    # ────────────────────────────────────────────────────────────────
-    # JLR / MERCEDES importers (variable group count; one column per group)
-    # ────────────────────────────────────────────────────────────────
-
-    def _import_single_col(self, rows, brand_prefix, brand_family):
-        counters = {'created': 0, 'updated': 0, 'groups_created': 0}
-
-        header_idx, group_cols = self._detect_group_columns(rows)
-        if not group_cols:
-            raise UserError(_(
-                "No group columns found. The header must name each group, "
-                "e.g. 'GR1', 'SALES GR2'."))
-
-        groups = {
-            suffix: self._ensure_group(f"{brand_prefix}_{suffix}", suffix, counters,
-                                       brand_family=brand_family)
-            for _col_idx, suffix in group_cols
-        }
-
-        for i, row in enumerate(rows):
-            if i == header_idx or not row:
-                continue
-            dc = str(row[0]).strip()
-            if not dc or dc.upper() == 'DC':
-                continue
-            for col_idx, suffix in group_cols:
-                if col_idx >= len(row):
-                    continue
-                pct = self._parse_float(row[col_idx])
-                if pct is None:
-                    continue
-                self._upsert_line('sales', f"{brand_prefix}_{suffix}", dc, pct,
-                                  counters, group=groups[suffix])
-
-        return counters['created'], counters['updated'], counters['groups_created']
-
-    def _import_jlr(self, rows):
-        return self._import_single_col(rows, 'JLR', 'jlr')
-
-    def _import_mercedes(self, rows):
-        return self._import_single_col(rows, 'MERCEDES', 'mercedes')
+    def _clear_existing_lines(self, counters):
+        """Delete the sales discount lines of every group scoped to the selected
+        family. Runs only in 'Delete existing groups' mode, so the import that
+        follows starts from a clean slate. Group records are kept."""
+        groups = self.env['baf.sales.group'].search([('family_id', '=', self.family_id.id)])
+        lines = groups.mapped('discount_line_ids').filtered(
+            lambda l: l.table_type == 'sales')
+        counters['removed'] += len(lines)
+        lines.unlink()
 

@@ -10,8 +10,23 @@
                     sales discount tiers (groups x brand/type columns) and creates
                     the matching sales groups.
                 </div>
+                <div class="alert alert-info" role="alert">
+                    <strong>Each group column header must name its tier</strong> —
+                    <code>GR1</code>, <code>SALE PRICE GR2</code>, <code>SALES GR3</code>
+                    and <code>gr_04</code> all work, and anything containing
+                    <code>MOTO</code> / <code>MOTORRAD</code> (e.g.
+                    <code>GR_MOTORCYCLE</code>) is read as the motorcycle tier.
+                </div>
                 <group>
-                    <field name="format_type" widget="radio"/>
+                    <field name="import_method" widget="radio"/>
+                    <field name="family_id" options="{'no_create_edit': True}"/>
+                    <field name="write_mode" widget="radio"/>
+                    <div colspan="2">
+                        <span class="text-muted">
+                            The method sets the column layout; the family's brands
+                            set the column keys and the group's scope.
+                        </span>
+                    </div>
                     <field name="file_name" invisible="1"/>
                     <field name="file_data" filename="file_name" string="Upload File (xlsx / xls / csv)"/>
                 </group>
