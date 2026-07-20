@@ -9,11 +9,53 @@ class ProductBrand(models.Model):
 
     name = fields.Char(string='Brand Name', required=True)
     description = fields.Text(string='Description')
+
+    _name_uniq = models.Constraint(
+        'unique(name)',
+        'A brand with this name already exists.',
+    )
+    family_id = fields.Many2one(
+        'baf.brand.family',
+        string='Brand Family',
+        ondelete='restrict',
+        index=True,
+        help="Brands in the same family share one sales discount table and are "
+             "priced by the same customer group. A new brand gets its own family "
+             "automatically; move it onto a shared family to merge.",
+    )
     is_public = fields.Boolean(
         string='Publicly Available',
         default=False,
         help="If checked, this brand is visible to all users (including guests) in the e-commerce."
     )
+
+    @api.model_create_multi
+    def create(self, vals_list):
+        # A brand with no family gets one named after it, so every brand always
+        # belongs to exactly one family (merge later by reassigning family_id).
+        # Reuse a same-named family if one already exists, since family names are
+        # unique — creating a duplicate would otherwise fail.
+        Family = self.env['baf.brand.family']
+        for vals in vals_list:
+            if not vals.get('family_id') and vals.get('name'):
+                family = Family.search([('name', '=', vals['name'])], limit=1)
+                vals['family_id'] = (family or Family.create({'name': vals['name']})).id
+        return super().create(vals_list)
+
+    def write(self, vals):
+        # Moving a brand into a family removes it from its old one (family_id is
+        # a Many2one, so membership is already exclusive). If that old family is
+        # then left with no brands and no pricing group, drop it so merged brands
+        # don't leave orphaned single-brand families behind.
+        old_families = self.mapped('family_id') if 'family_id' in vals else None
+        res = super().write(vals)
+        if old_families:
+            stale = old_families.filtered(
+                lambda f: not f.brand_ids
+                and not self.env['baf.sales.group'].search_count([('family_id', '=', f.id)])
+            )
+            stale.unlink()
+        return res
     # Required by website_sale.shop_product_image when the brand record is
     # used as an image holder fallback for products that have no image.
     can_image_1024_be_zoomed = fields.Boolean(
