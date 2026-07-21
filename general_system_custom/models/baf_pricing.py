@@ -17,24 +17,16 @@ class BafSalesGroup(models.Model):
 
     name = fields.Char(string='Group Name', required=True)
 
-    # Which product brand-family this group prices. A customer typically
-    # belongs to ONE group per family (BMW/MINI tier, JLR tier, Mercedes
-    # tier). 'all' is a fallback wildcard used when only the markup method
-    # applies (e.g. EU direct).
-    brand_family = fields.Selection(
-        selection=[
-            ('bmw_mini', 'BMW / MINI'),
-            ('jlr',      'Jaguar / Land Rover / Range Rover'),
-            ('mercedes', 'Mercedes'),
-            ('other',    'Other / Unknown'),
-            ('all',      'All Brands (fallback)'),
-        ],
+    # The brand family this group prices. The discount import sets it from the
+    # family chosen on the wizard. Empty = wildcard: the group prices every
+    # product as the last-resort fallback (e.g. an EU-direct markup group).
+    family_id = fields.Many2one(
+        'baf.brand.family',
         string='Brand Family',
-        required=True,
-        default='all',
-        help="Restricts this group to products of the matching brand family. "
-             "Customers can hold one group per family (e.g. JLR_GR1 for "
-             "Jaguar parts and BMW_MINI_GR2 for BMW parts).",
+        ondelete='restrict',
+        index=True,
+        help="Products whose brand belongs to this family are priced by this "
+             "group. Leave empty to make it a fallback that prices every brand.",
     )
 
     pricing_method = fields.Selection(
@@ -94,16 +86,27 @@ class BafSalesGroup(models.Model):
         self.ensure_one()
         return (self.group_column_suffix or '').strip().upper() == 'MOTO'
 
-    @api.constrains('partner_ids', 'brand_family', 'group_column_suffix')
+    def _baf_prices_same_family(self, other):
+        """Two groups compete when they price the same family: same family, or
+        both wildcards (no family). A wildcard and a family-scoped group don't
+        compete — the scoped one wins for its family. Odoo compares two empty
+        Many2ones as equal, so this single test covers both cases."""
+        self.ensure_one()
+        return self.family_id == other.family_id
+
+    def _baf_scope_label(self):
+        self.ensure_one()
+        return self.family_id.name if self.family_id else _("all brands")
+
+    @api.constrains('partner_ids', 'family_id', 'group_column_suffix')
     def _check_partner_ids_unique_family(self):
-        family_labels = dict(self._fields['brand_family'].selection)
         for group in self:
             tier = group._is_moto_group()
             conflicting_partners = []
             for partner in group.partner_ids:
                 same_tier_groups = partner.sales_group_ids.filtered(
-                    lambda g: g.brand_family == group.brand_family
-                              and g._is_moto_group() == tier
+                    lambda g: g._is_moto_group() == tier
+                              and g._baf_prices_same_family(group)
                 )
                 if len(same_tier_groups) > 1:
                     conflicting_partners.append((partner, same_tier_groups))
@@ -119,11 +122,11 @@ class BafSalesGroup(models.Model):
                 )
                 tier_label = _("motorcycle") if tier else _("car")
                 raise ValidationError(_(
-                    "A customer can only belong to one %(tier)s pricing group in the %(family)s family. "
+                    "A customer can only belong to one %(tier)s pricing group for %(scope)s. "
                     "Conflicts found: %(details)s"
                 ) % {
                     'tier': tier_label,
-                    'family': family_labels.get(group.brand_family, group.brand_family),
+                    'scope': group._baf_scope_label(),
                     'details': details,
                 })
 

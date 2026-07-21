@@ -11,7 +11,7 @@
         <field name="arch" type="xml">
             <list>
                 <field name="name"/>
-                <field name="brand_family"/>
+                <field name="family_id"/>
                 <field name="pricing_method"/>
                 <field name="markup_pct"/>
                 <field name="group_column_suffix"/>
@@ -29,7 +29,8 @@
                     <group>
                         <group string="Group Identity">
                             <field name="name"/>
-                            <field name="brand_family"/>
+                            <field name="family_id"
+                                   help="Leave empty to make this a fallback group that prices every brand."/>
                             <field name="active"/>
                         </group>
                         <group string="Pricing Method">
@@ -141,6 +142,53 @@
     </record>
 
     <!-- ═══════════════════════════════════════════════════════
+         BAF Brand Family
+    ═══════════════════════════════════════════════════════ -->
+
+    <record id="baf_brand_family_view_list" model="ir.ui.view">
+        <field name="name">baf.brand.family.list</field>
+        <field name="model">baf.brand.family</field>
+        <field name="arch" type="xml">
+            <list>
+                <field name="name"/>
+                <field name="brand_count" string="Brands"/>
+                <field name="brand_ids" widget="many2many_tags"/>
+                <field name="active"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="baf_brand_family_view_form" model="ir.ui.view">
+        <field name="name">baf.brand.family.form</field>
+        <field name="model">baf.brand.family</field>
+        <field name="arch" type="xml">
+            <form>
+                <sheet>
+                    <group>
+                        <field name="name"/>
+                        <field name="active"/>
+                        <field name="note"/>
+                    </group>
+                    <group string="Brands in this family">
+                        <field name="brand_ids"
+                               widget="many2many_tags"
+                               nolabel="1"
+                               colspan="2"
+                               options="{'no_create': True}"
+                               placeholder="Choose brands to put into this family..."/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="baf_brand_family_action" model="ir.actions.act_window">
+        <field name="name">Brand Families</field>
+        <field name="res_model">baf.brand.family</field>
+        <field name="view_mode">list,form</field>
+    </record>
+
+    <!-- ═══════════════════════════════════════════════════════
          Menu entries under Sales > Products
     ═══════════════════════════════════════════════════════ -->
 
@@ -149,6 +197,13 @@
         name="BAF Pricing"
         parent="sale.product_menu_catalog"
         sequence="200"/>
+
+    <menuitem
+        id="baf_brand_family_menu"
+        name="Brand Families"
+        parent="baf_pricing_menu_root"
+        action="baf_brand_family_action"
+        sequence="5"/>
 
     <menuitem
         id="baf_sales_group_menu"

@@ -37,13 +37,42 @@ BAF_T39_TYPE_CODES = frozenset({3, 5, 7, 9})
 BAF_T12_TYPE_CODES = frozenset({1, 2, 4, 6, 8})
 
 _BRAND_PATTERNS = (
-    # (regex, base_column_key, brand_family)
-    (re.compile(r'\bBMW\b'),                                                'BMW',      'bmw_mini'),
-    (re.compile(r'\bMINI\b'),                                               'MINI',     'bmw_mini'),
-    (re.compile(r'JAGUAR|ROVER|\bJLR\b|\bJAG\b|\bLR\b|\bRR\b|\bJ\b'),       'JLR',      'jlr'),
-    (re.compile(r'MERCEDES|BENZ|\bMB\b'),                                   'MERCEDES', 'mercedes'),
+    # (regex, brand_family) — classifies a brand into a family for the type-split
+    # check and the stored baf_brand_family field. The discount column base is
+    # always the brand's own name (see baf_brand_base_key); patterns no longer
+    # merge several brands into one shared base.
+    (re.compile(r'\bBMW\b'),                                                'bmw_mini'),
+    (re.compile(r'\bMINI\b'),                                               'bmw_mini'),
+    (re.compile(r'JAGUAR|ROVER|\bJLR\b|\bJAG\b|\bLR\b|\bRR\b|\bJ\b'),       'jlr'),
+    (re.compile(r'MERCEDES|BENZ|\bMB\b'),                                   'mercedes'),
 )
 
+# Type buckets in the order their columns appear in a types-and-groups file.
+BAF_TYPE_BUCKETS = ('T12', 'T39')
+
+# Families whose column key carries a type bucket (BMW_T12 / BMW_T39). Every
+# other family prices a discount code with a single rate (JLR, MERCEDES, ...).
+BAF_TYPE_SPLIT_FAMILIES = frozenset({'bmw_mini'})
+
+
+def baf_brand_base_key(brand_name):
+    """Base discount column key of a brand, without any type bucket: its own
+    normalized name. 'BMW' -> 'BMW', 'Range Rover' -> 'RANGE_ROVER',
+    'Porsche' -> 'PORSCHE'. Every brand keys its own column; brands are never
+    merged into a shared base."""
+    norm = _normalize_brand(brand_name)
+    return norm.replace(' ', '_') if norm else ''
+
+
+def baf_brand_family_of(brand_name):
+    """Brand family of a brand name; 'other' for brands with no pattern."""
+    norm = _normalize_brand(brand_name)
+    if not norm:
+        return 'other'
+    for pattern, family in _BRAND_PATTERNS:
+        if pattern.search(norm):
+            return family
+    return 'other'
 
 def _normalize_brand(name):
     if not name:
@@ -59,27 +88,24 @@ def resolve_baf_brand_info(brand_name, type_code=0, mod='car'):
 
     Returns a (column_key, brand_family) tuple. brand_family is one of
     'bmw_mini', 'jlr', 'mercedes', 'other'. column_key is '' for blank brand,
-    `<BRAND>_T12` / `<BRAND>_T39` for BMW/MINI (per type_code), the family
-    name for JLR/MERCEDES, or the cleaned brand name for unknowns.
+    `<BRAND>_T12` / `<BRAND>_T39` for BMW/MINI (per type_code), otherwise the
+    cleaned brand name (every brand keys its own column).
 
     BMW/MINI type-code split:
         T12 → 1, 2, 4, 6, 8
         T39 → 3, 5, 7, 9
     A missing/zero type code falls back to T12.
     """
-    norm = _normalize_brand(brand_name)
-    if not norm:
+    if not _normalize_brand(brand_name):
         return ('', 'other')
 
-    for pattern, base_key, family in _BRAND_PATTERNS:
-        if pattern.search(norm):
-            if family == 'bmw_mini':
-                tc = type_code or 0
-                bucket = 'T39' if tc in BAF_T39_TYPE_CODES else 'T12'
-                return (f'{base_key}_{bucket}', 'bmw_mini')
-            return (base_key, family)
-
-    return (norm.replace(' ', '_'), 'other')
+    base_key = baf_brand_base_key(brand_name)
+    family = baf_brand_family_of(brand_name)
+    if family in BAF_TYPE_SPLIT_FAMILIES:
+        tc = type_code or 0
+        bucket = 'T39' if tc in BAF_T39_TYPE_CODES else 'T12'
+        return (f'{base_key}_{bucket}', family)
+    return (base_key, family)
 
 
 class ProductTemplateBafPricing(models.Model):
@@ -267,13 +293,15 @@ class ProductTemplateBafPricing(models.Model):
 
         # B2B EU VAT tier ─────────────────────────────────────────────────────
         # Registered customers with a VAT number from an EU country get a flat
-        # −5 % on JLR products when they don't already have a JLR pricing group
-        # (pricing groups always take priority and usually offer more).
+        # −5 % on JLR products when they don't already have a group covering this
+        # product (a matching-family group or a wildcard); pricing groups take
+        # priority and usually offer more.
+        product_bfam = self.brand.family_id
         if (
             product_family == 'jlr'
             and getattr(partner, 'is_b2b_eu_vat', False)
             and not sales_groups.filtered(
-                lambda g: g.active and g.brand_family in ('jlr', 'all')
+                lambda g: g.active and (not g.family_id or g.family_id == product_bfam)
             )
         ):
             return {
@@ -292,25 +320,26 @@ class ProductTemplateBafPricing(models.Model):
                 'pricing_method': 'guest',
             }
 
-        # Pick the customer's group whose brand_family matches the product.
-        # A customer can hold one car group + one moto group per family
-        # (e.g. BMW_MINI_GR1 for BMW car parts AND BMW_MINI_MOTO for BMW
-        # motorcycle parts). The moto tier is detected from the group's
-        # column suffix == 'MOTO'. Wildcard groups (brand_family='all')
-        # act as a catch-all when no exact match exists.
+        # Pick the customer's group covering this product's family. A group
+        # scoped to the product's family wins (so a JLR group prices JLR parts
+        # and never Mercedes ones); a wildcard group (no family) is the
+        # last-resort catch-all. A customer can hold one car group + one moto
+        # group per family (e.g. BMW_MINI_GR1 for BMW car parts AND BMW_MINI_MOTO
+        # for BMW motorcycle parts). The moto tier is detected from the group's
+        # column suffix == 'MOTO'.
         is_moto_product = self.baf_mod == MOD_MOTORCYCLE and self.baf_brand_family == 'bmw_mini'
         groups = sales_groups.filtered(lambda g: g.active)
-        family_groups = groups.filtered(lambda g: g.brand_family == product_family)
+        family_groups = groups.filtered(lambda g: product_bfam and g.family_id == product_bfam)
         if is_moto_product:
             group = (
                 family_groups.filtered(lambda g: g._is_moto_group())[:1]
                 or family_groups.filtered(lambda g: not g._is_moto_group())[:1]
-                or groups.filtered(lambda g: g.brand_family == 'all')[:1]
+                or groups.filtered(lambda g: not g.family_id)[:1]
             )
         else:
             group = (
                 family_groups.filtered(lambda g: not g._is_moto_group())[:1]
-                or groups.filtered(lambda g: g.brand_family == 'all')[:1]
+                or groups.filtered(lambda g: not g.family_id)[:1]
             )
         if not group:
             # Customer has groups, but none cover this product's family.

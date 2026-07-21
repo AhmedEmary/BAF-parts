@@ -2,6 +2,9 @@ id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
 access_discount_code_all,discount.code,model_discount_code,base.group_user,1,1,1,1
 access_discount_code_value_all,discount.code.value,model_discount_code_value,base.group_user,1,1,1,1
 access_product_brand_all,product.brand,model_product_brand,base.group_user,1,1,1,1
+access_baf_brand_family_all,baf.brand.family,model_baf_brand_family,base.group_user,1,1,1,1
+access_baf_brand_family_public,baf.brand.family public,model_baf_brand_family,base.group_public,1,0,0,0
+access_baf_brand_family_portal,baf.brand.family portal,model_baf_brand_family,base.group_portal,1,0,0,0
 access_import_so_lines,import.so.lines,model_import_so_lines,base.group_user,1,1,1,1
 access_import_so_lines_conflict,import.so.lines.conflict,model_import_so_lines_conflict,base.group_user,1,1,1,1
 access_delivery_list_import,delivery.list.import,model_delivery_list_import,base.group_user,1,1,1,1

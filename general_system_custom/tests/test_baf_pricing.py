@@ -15,38 +15,42 @@ class TestBafPricing(TransactionCase):
         self.DiscountLine = self.env['baf.discount.line']
         self.SalesGroup = self.env['baf.sales.group']
 
-        self.brand_bmw = self.Brand.create({'name': 'BMW'})
-        self.brand_mini = self.Brand.create({'name': 'MINI'})
-        self.brand_jaguar = self.Brand.create({'name': 'Jaguar'})
+        self.Family = self.env['baf.brand.family']
+        self.family_bmw = self.Family.create({'name': 'BMW / MINI'})
+        self.family_jlr = self.Family.create({'name': 'JLR'})
+        # BMW and MINI share one family; the rest get their own auto-family.
+        self.brand_bmw = self.Brand.create({'name': 'BMW', 'family_id': self.family_bmw.id})
+        self.brand_mini = self.Brand.create({'name': 'MINI', 'family_id': self.family_bmw.id})
+        self.brand_jaguar = self.Brand.create({'name': 'Jaguar', 'family_id': self.family_jlr.id})
         self.brand_mercedes = self.Brand.create({'name': 'Mercedes-Benz'})
         self.brand_other = self.Brand.create({'name': 'Bosal'})
 
         self.group_bmw_gr1 = self.SalesGroup.create({
             'name': 'BMW/MINI GR1',
-            'brand_family': 'bmw_mini',
+            'family_id': self.family_bmw.id,
             'pricing_method': 'table_lookup',
             'group_column_suffix': 'GR1',
         })
         self.group_bmw_default_suffix = self.SalesGroup.create({
             'name': 'BMW/MINI default suffix',
-            'brand_family': 'bmw_mini',
+            'family_id': self.family_bmw.id,
             'pricing_method': 'table_lookup',
         })
         self.group_jlr_markup = self.SalesGroup.create({
             'name': 'JLR markup',
-            'brand_family': 'jlr',
+            'family_id': self.family_jlr.id,
             'pricing_method': 'markup_pct',
             'markup_pct': 15.0,
         })
+        # No family -> wildcard: prices every product as the last-resort fallback.
         self.group_all_markup = self.SalesGroup.create({
             'name': 'Wildcard markup',
-            'brand_family': 'all',
             'pricing_method': 'markup_pct',
             'markup_pct': 20.0,
         })
         self.group_bmw_inactive = self.SalesGroup.create({
             'name': 'Inactive BMW group',
-            'brand_family': 'bmw_mini',
+            'family_id': self.family_bmw.id,
             'pricing_method': 'table_lookup',
             'group_column_suffix': 'GR1',
             'active': False,
@@ -107,8 +111,10 @@ class TestBafPricing(TransactionCase):
         self.assertEqual(resolve_baf_brand_info('', 0, 'car'), ('', 'other'))
         self.assertEqual(resolve_baf_brand_info('BMW', 1, 'car'), ('BMW_T12', 'bmw_mini'))
         self.assertEqual(resolve_baf_brand_info('MINI', 3, 'car'), ('MINI_T39', 'bmw_mini'))
-        self.assertEqual(resolve_baf_brand_info('Land-Rover', 0, 'car'), ('JLR', 'jlr'))
-        self.assertEqual(resolve_baf_brand_info('Mercedes-Benz', 0, 'car'), ('MERCEDES', 'mercedes'))
+        # Base is now each brand's own normalized name (brands are no longer
+        # merged into a shared base); the family classification is unchanged.
+        self.assertEqual(resolve_baf_brand_info('Land-Rover', 0, 'car'), ('LAND_ROVER', 'jlr'))
+        self.assertEqual(resolve_baf_brand_info('Mercedes-Benz', 0, 'car'), ('MERCEDES_BENZ', 'mercedes'))
         self.assertEqual(resolve_baf_brand_info('Bosal', 0, 'car'), ('BOSAL', 'other'))
 
     def test_01b_bmw_mini_type_code_split(self):
@@ -232,7 +238,7 @@ class TestBafPricing(TransactionCase):
     def _make_moto_bmw_group(self):
         return self.SalesGroup.create({
             'name': 'BMW/MINI MOTO',
-            'brand_family': 'bmw_mini',
+            'family_id': self.family_bmw.id,
             'pricing_method': 'table_lookup',
             'group_column_suffix': 'MOTO',
         })
@@ -248,7 +254,7 @@ class TestBafPricing(TransactionCase):
         moto_a = self._make_moto_bmw_group()
         moto_b = self.SalesGroup.create({
             'name': 'BMW/MINI MOTO 2',
-            'brand_family': 'bmw_mini',
+            'family_id': self.family_bmw.id,
             'pricing_method': 'table_lookup',
             'group_column_suffix': 'MOTO',
         })
@@ -264,7 +270,7 @@ class TestBafPricing(TransactionCase):
         # engine picks decides the pricing_method in the result.
         moto_group = self.SalesGroup.create({
             'name': 'BMW/MINI MOTO markup',
-            'brand_family': 'bmw_mini',
+            'family_id': self.family_bmw.id,
             'pricing_method': 'markup_pct',
             'group_column_suffix': 'MOTO',
             'markup_pct': 25.0,
