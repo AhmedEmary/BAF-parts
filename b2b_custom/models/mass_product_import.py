@@ -9,7 +9,11 @@ from odoo import models, fields, api, _
 from odoo.exceptions import UserError
 from odoo.tools import config
 from odoo.tools.sql import column_exists
-from odoo.addons.general_system_custom.models.baf_product_pricing import resolve_baf_brand_info
+from odoo.addons.general_system_custom.models.baf_product_pricing import (
+    resolve_baf_brand_info,
+    baf_family_base_key,
+    BAF_TYPE_SPLIT_FAMILIES,
+)
 
 try:
     import openpyxl
@@ -176,8 +180,11 @@ class MassProductImport(models.TransientModel):
         if not uom_id or not categ_id:
             raise UserError("Missing Category or Unit of Measure in the database!")
 
+        # Cache each brand's id AND its family discount base, so the bulk SQL
+        # can set baf_column_key off the family (brands in a family share one
+        # column) without a per-row browse.
         brand_cache = {
-            b.name.strip().lower(): b.id
+            b.name.strip().lower(): (b.id, baf_family_base_key(b.family_id))
             for b in self.env['product.brand'].search([])
             if b.name
         }
@@ -205,6 +212,10 @@ class MassProductImport(models.TransientModel):
             'has_allow_out_of_stock': has_allow_out_of_stock,
             'manual_brand_id': self.manual_brand_id.id if self.brand_source == 'manual' else None,
             'manual_brand_name': self.manual_brand_id.name if self.brand_source == 'manual' else None,
+            'manual_brand_family_base': (
+                baf_family_base_key(self.manual_brand_id.family_id)
+                if self.brand_source == 'manual' else None
+            ),
             'manual_tax_ids': self.manual_tax_ids.ids,
         }
 
@@ -274,11 +285,13 @@ class MassProductImport(models.TransientModel):
             return 'sb'
         return 'car'
 
-    def _resolve_brand_id(self, brand_name, brand_cache):
+    def _resolve_brand(self, brand_name, brand_cache):
+        """Return (brand_id, family_base) for `brand_name`, creating the brand
+        (and its auto-family) when unknown."""
         brand_key = brand_name.lower()
         if brand_key not in brand_cache:
             new_brand = self.env['product.brand'].create({'name': brand_name})
-            brand_cache[brand_key] = new_brand.id
+            brand_cache[brand_key] = (new_brand.id, baf_family_base_key(new_brand.family_id))
         return brand_cache[brand_key]
 
     def _resolve_origin_id(self, origin_input, country_cache):
@@ -305,13 +318,14 @@ class MassProductImport(models.TransientModel):
         if self.brand_source == 'manual':
             brand_id = ctx['manual_brand_id']
             brand_name = ctx['manual_brand_name']
+            brand_family_base = ctx['manual_brand_family_base']
         else:
             brand_name = self._get_cell_value(row, indices['brand_idx'])
             if not brand_name:
                 return None
             if _is_sentinel(brand_name):
                 return 'sentinel'
-            brand_id = self._resolve_brand_id(brand_name, ctx['brand_cache'])
+            brand_id, brand_family_base = self._resolve_brand(brand_name, ctx['brand_cache'])
         origin_id = self._resolve_origin_id(
             self._get_cell_value(row, indices['origin_idx']),
             ctx['country_cache'],
@@ -345,6 +359,7 @@ class MassProductImport(models.TransientModel):
                 replaced_by_sku,
                 brand_id,
                 brand_name,
+                brand_family_base,
                 ctx['uom_id'],
                 ctx['categ_id'],
                 ctx['replacement_cache'],
@@ -354,7 +369,15 @@ class MassProductImport(models.TransientModel):
         baf_type = self._parse_int(self._get_cell_value(row, indices['baf_type_idx'])) or 0
         baf_mod = self._normalize_baf_mod(self._get_cell_value(row, indices['baf_mod_idx'], 'car'))
         default_code = self._compute_default_code(brand_name, sku)
-        computed_col_key, computed_family = resolve_baf_brand_info(brand_name, baf_type, baf_mod)
+        # Purchase key: brand-based. Sales key: brand-based for type-split
+        # families (BMW/MINI keep per-brand columns), family-based otherwise.
+        computed_col_key, computed_family = resolve_baf_brand_info(
+            brand_name, baf_type, baf_mod)
+        if computed_family in BAF_TYPE_SPLIT_FAMILIES:
+            computed_sales_col_key = computed_col_key
+        else:
+            computed_sales_col_key, _sf = resolve_baf_brand_info(
+                brand_name, baf_type, baf_mod, family_base=brand_family_base)
 
         # Track Inventory: from a manual override or read from the file.
         if self.storable_source == 'manual':
@@ -399,6 +422,7 @@ class MassProductImport(models.TransientModel):
             'baf_type': baf_type,
             'baf_mod': baf_mod,
             'computed_col_key': computed_col_key,
+            'computed_sales_col_key': computed_sales_col_key,
             'computed_family': computed_family,
             'is_storable': is_storable,
             'is_published': is_published,
@@ -424,8 +448,9 @@ class MassProductImport(models.TransientModel):
             payload['baf_disc'],       # 16. baf_discount_code
             payload['baf_type'],       # 17. baf_type_code
             payload['baf_mod'],        # 18. baf_mod
-            payload['computed_col_key'],   # 19. baf_column_key
-            payload['computed_family'],    # 20. baf_brand_family
+            payload['computed_col_key'],       # 19. baf_column_key
+            payload['computed_sales_col_key'], # 20. baf_sales_column_key
+            payload['computed_family'],        # 21. baf_brand_family
             payload['origin_id'],      # 21. origin
             payload['hs_code'],        # 22. hs_code
             payload['surcharge'],      # 23. surcharge
@@ -462,7 +487,7 @@ class MassProductImport(models.TransientModel):
                         tracking, base_unit_count,
                         sale_ok, purchase_ok,
                         baf_discount_code, baf_type_code, baf_mod,
-                        baf_column_key, baf_brand_family,
+                        baf_column_key, baf_sales_column_key, baf_brand_family,
                         origin, hs_code, surcharge, weight,
                         height, width, length, volume,
                         replaced_by_id,
@@ -478,6 +503,7 @@ class MassProductImport(models.TransientModel):
                         baf_type_code    = EXCLUDED.baf_type_code,
                         baf_mod          = EXCLUDED.baf_mod,
                         baf_column_key   = EXCLUDED.baf_column_key,
+                        baf_sales_column_key = EXCLUDED.baf_sales_column_key,
                         baf_brand_family = EXCLUDED.baf_brand_family,
                         origin           = EXCLUDED.origin,
                         hs_code          = EXCLUDED.hs_code,
@@ -615,7 +641,7 @@ class MassProductImport(models.TransientModel):
             },
         )
 
-    def _ensure_replacement_template(self, replacement_sku, brand_id, brand_name, uom_id, categ_id, replacement_cache):
+    def _ensure_replacement_template(self, replacement_sku, brand_id, brand_name, brand_family_base, uom_id, categ_id, replacement_cache):
         """Ensure the replacement template exists *before* importing the source row.
 
         The replacement is always created/located using the same brand context
@@ -641,7 +667,13 @@ class MassProductImport(models.TransientModel):
             return existing[0], False
 
         placeholder_name = json.dumps({"en_US": f"{brand_name} {replacement_sku}"})
+        # Purchase key: brand-based. Sales key: brand-based for type-split
+        # families, family-based otherwise.
         column_key, family = resolve_baf_brand_info(brand_name, 0, 'car')
+        if family in BAF_TYPE_SPLIT_FAMILIES:
+            sales_column_key = column_key
+        else:
+            sales_column_key, _sf = resolve_baf_brand_info(brand_name, 0, 'car', family_base=brand_family_base)
         insert_query = """
             INSERT INTO product_template (
                 name, default_code, sku, brand, list_price,
@@ -649,7 +681,7 @@ class MassProductImport(models.TransientModel):
                 tracking, base_unit_count,
                 sale_ok, purchase_ok,
                 baf_discount_code, baf_type_code, baf_mod,
-                baf_column_key, baf_brand_family,
+                baf_column_key, baf_sales_column_key, baf_brand_family,
                 origin, hs_code, surcharge, weight,
                 height, width, length, volume,
                 invoice_policy, publish_date
@@ -659,6 +691,7 @@ class MassProductImport(models.TransientModel):
                 sku = EXCLUDED.sku,
                 brand = EXCLUDED.brand,
                 baf_column_key = EXCLUDED.baf_column_key,
+                baf_sales_column_key = EXCLUDED.baf_sales_column_key,
                 baf_brand_family = EXCLUDED.baf_brand_family
             RETURNING id;
         """
@@ -682,6 +715,7 @@ class MassProductImport(models.TransientModel):
             0,
             'car',
             column_key,
+            sales_column_key,
             family,
             None,
             None,

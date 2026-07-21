@@ -9,6 +9,7 @@ from io import BytesIO
 
 from odoo.addons.general_system_custom.models.baf_product_pricing import (
     baf_brand_base_key,
+    baf_family_base_key,
 )
 
 try:
@@ -37,14 +38,18 @@ class BafDiscountTemplateDownload(http.Controller):
         family = request.env['baf.brand.family'].browse(fid).exists()
         if not family:
             return request.not_found()
-        # Distinct column bases of the family's brands, in brand order. The
-        # method (not the brands) decides the type-split layout.
-        bases = []
-        for brand in family.brand_ids:
-            base = baf_brand_base_key(brand.name)
-            if base and base not in bases:
-                bases.append(base)
+        # Types & Groups: one base per brand (each split into T12/T39).
+        # Groups Table: the whole family shares one base (its normalized name).
         type_split = method != 'groups_only'
+        if type_split:
+            bases = []
+            for brand in family.brand_ids:
+                base = baf_brand_base_key(brand.name)
+                if base and base not in bases:
+                    bases.append(base)
+        else:
+            base = baf_family_base_key(family)
+            bases = [base] if base else []
         if not bases:
             return request.not_found()
 

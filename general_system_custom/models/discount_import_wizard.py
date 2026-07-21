@@ -11,6 +11,7 @@ from .baf_product_pricing import (
     BAF_TYPE_BUCKETS,
     _normalize_brand,
     baf_brand_base_key,
+    baf_family_base_key,
 )
 
 
@@ -77,16 +78,21 @@ class BafDiscountImportWizard(models.TransientModel):
         return self.family_id.brand_ids
 
     def _brand_bases(self):
-        """Distinct discount column bases of the family's brands, in brand order.
-        Each base is the brand's own normalized name (brands are never merged
-        into a shared base): Jaguar + Land Rover -> ['JAGUAR', 'LAND_ROVER'];
-        BMW + MINI -> ['BMW', 'MINI']."""
-        bases = []
-        for brand in self._family_brands():
-            base = baf_brand_base_key(brand.name)
-            if base and base not in bases:
-                bases.append(base)
-        return bases
+        """Discount column bases for this family, per import method:
+          - Types & Groups (BMW/MINI): one base per brand (BMW, MINI), each
+            split into T12/T39 downstream -> per-brand, per-type columns.
+          - Groups Table: the whole family shares one base (its normalized
+            name), so the sheet holds one line per code for all its brands
+            (Jaguar + Land Rover in a 'JLR' family -> ['JLR'])."""
+        if self._is_type_split():
+            bases = []
+            for brand in self._family_brands():
+                base = baf_brand_base_key(brand.name)
+                if base and base not in bases:
+                    bases.append(base)
+            return bases
+        base = baf_family_base_key(self.family_id)
+        return [base] if base else []
 
     def _is_type_split(self):
         """The chosen method decides the layout: Types & Groups splits each
@@ -305,9 +311,9 @@ class BafDiscountImportWizard(models.TransientModel):
                 "Add brands to it first.") % self.family_id.name)
 
     def _column_keys(self):
-        """Discount column keys one group occupies, left to right. Types & Groups
-        method: one key per (brand base, type bucket) — BMW_T12, BMW_T39,
-        MINI_T12, MINI_T39. Groups Table method: one key per brand base."""
+        """Discount column keys one group occupies, left to right. The family
+        has one base; Types & Groups method splits it per type bucket
+        (<FAMILY>_T12, <FAMILY>_T39), Groups Table method uses the base alone."""
         bases = self._brand_bases()
         if self._is_type_split():
             return [f"{base}_{bucket}" for base in bases for bucket in BAF_TYPE_BUCKETS]

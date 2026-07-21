@@ -77,7 +77,7 @@ class ProductTemplate(models.Model):
     _inherit = 'product.template'
 
     sku = fields.Char(string='SKU', help="SKU of the product unique for each brand", index=True)
-    brand = fields.Many2one('product.brand', string='Brand', help="Select the brand for this product")
+    brand = fields.Many2one('product.brand', string='Brand', help="Select the brand for this product", index=True)
     default_code = fields.Char(index=True)
     origin = fields.Many2one(string='Origin', comodel_name='res.country')
     hs_code = fields.Char(string='HS Code')

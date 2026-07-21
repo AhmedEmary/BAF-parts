@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Top-nav entry. group_ids restricts it to logged-in users (portal
+         customers + internal staff); public visitors never see it, so the
+         "logged-in only" rule holds at the menu level too, not just at the
+         route gate in ir_http. -->
+    <record id="menu_pricefile" model="website.menu">
+        <field name="name">Preisliste</field>
+        <field name="url">/pricefile</field>
+        <field name="parent_id" ref="website.main_menu"/>
+        <field name="sequence" eval="50"/>
+        <field name="group_ids" eval="[(6, 0, [ref('base.group_portal'), ref('base.group_user')])]"/>
+    </record>
+
+    <template id="pricefile_page" name="Price Files">
+        <t t-call="portal.portal_layout">
+            <div class="container my-4">
+                <h1 class="mb-3">Preisdateien</h1>
+                <t t-if="brands">
+                    <p class="text-muted">
+                        Wählen Sie eine Marke und laden Sie die aktuelle Preisliste als CSV-Datei herunter.
+                    </p>
+                    <form action="/pricefile/download" method="get" class="row g-2 align-items-end">
+                        <div class="col-auto">
+                            <label for="brand_id" class="form-label">Marke</label>
+                            <select name="brand_id" id="brand_id" class="form-select">
+                                <t t-foreach="brands" t-as="brand">
+                                    <option t-att-value="brand.id" t-esc="brand.name"/>
+                                </t>
+                            </select>
+                        </div>
+                        <div class="col-auto">
+                            <button type="submit" class="btn btn-primary">CSV herunterladen</button>
+                        </div>
+                    </form>
+                </t>
+                <t t-else="">
+                    <div class="alert alert-info">
+                        Für Ihr Konto sind derzeit keine Marken freigegeben.
+                    </div>
+                </t>
+            </div>
+        </t>
+    </template>
+</odoo>

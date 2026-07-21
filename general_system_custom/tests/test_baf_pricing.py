@@ -86,6 +86,8 @@ class TestBafPricing(TransactionCase):
             {'table_type': 'purchase', 'column_key': 'SUP2_BMW_T12', 'discount_code': 'ZZ10', 'discount_pct': 20.0},  # SUP2 gets same 20% — SB surcharge only applies for SUP1
             {'table_type': 'purchase', 'column_key': 'SUP1_BMW_T39', 'discount_code': 'ZZ10', 'discount_pct': 30.0},
             {'table_type': 'purchase', 'column_key': 'SUP3_MOTO', 'discount_code': 'ZZ10', 'discount_pct': 40.0},
+            # BMW/MINI is type-split: sales keys stay per-brand + type
+            # (BMW_T12, BMW_T39), like the purchase keys.
             {'table_type': 'sales', 'column_key': 'BMW_T12_GR1', 'discount_code': 'ZZ10', 'discount_pct': 5.0},
             {'table_type': 'sales', 'column_key': 'BMW_T39_GR1', 'discount_code': 'ZZ10', 'discount_pct': 7.0},
             {'table_type': 'sales', 'column_key': 'BMW_T12_MOTO', 'discount_code': 'ZZ10', 'discount_pct': 8.0},
@@ -116,6 +118,31 @@ class TestBafPricing(TransactionCase):
         self.assertEqual(resolve_baf_brand_info('Land-Rover', 0, 'car'), ('LAND_ROVER', 'jlr'))
         self.assertEqual(resolve_baf_brand_info('Mercedes-Benz', 0, 'car'), ('MERCEDES_BENZ', 'mercedes'))
         self.assertEqual(resolve_baf_brand_info('Bosal', 0, 'car'), ('BOSAL', 'other'))
+
+    def test_01c_sales_key_perbrand_for_bmw_mini_shared_for_others(self):
+        """Type-split families (BMW/MINI) keep a per-brand + type sales column
+        (BMW_T12, MINI_T12) -- NOT merged. Other families share one family-based
+        sales column while keeping brand-based purchase columns."""
+        # BMW/MINI: each brand its own sales column, split by type.
+        bmw = self._create_product(self.brand_bmw, 'FAM-BMW', baf_type_code=1)
+        mini = self._create_product(self.brand_mini, 'FAM-MINI', baf_type_code=1)
+        self.assertEqual(bmw.baf_sales_column_key, 'BMW_T12')
+        self.assertEqual(mini.baf_sales_column_key, 'MINI_T12')
+        # For type-split families the sales key equals the purchase key.
+        self.assertEqual(bmw.baf_column_key, 'BMW_T12')
+        self.assertEqual(mini.baf_column_key, 'MINI_T12')
+
+        # Non-type-split family: brands share one sales column (the family base)
+        # but keep their own brand-based purchase columns.
+        fam = self.Family.create({'name': 'Shared Fam'})
+        b1 = self.Brand.create({'name': 'SharedOne', 'family_id': fam.id})
+        b2 = self.Brand.create({'name': 'SharedTwo', 'family_id': fam.id})
+        p1 = self._create_product(b1, 'SH-1')
+        p2 = self._create_product(b2, 'SH-2')
+        self.assertEqual(p1.baf_sales_column_key, 'SHARED_FAM')
+        self.assertEqual(p2.baf_sales_column_key, 'SHARED_FAM')
+        self.assertEqual(p1.baf_column_key, 'SHAREDONE')
+        self.assertEqual(p2.baf_column_key, 'SHAREDTWO')
 
     def test_01b_bmw_mini_type_code_split(self):
         """T12 covers codes 1, 2, 4, 6, 8; T39 covers 3, 5, 7, 9."""
