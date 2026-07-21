@@ -2,6 +2,7 @@
     'name': 'BAF B2B Website',
     'version': '1.0',
     'category': 'Website',
+    'author': 'Ahmed Elamery',
     'summary': 'Static BAF Parts B2B website',
     'description': 'Static export of the BAF Parts B2B website (home, B2B order page, pricefile, about, contact, help).',
     'depends': ['website', 'b2b_custom'],

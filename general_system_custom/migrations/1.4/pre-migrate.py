@@ -14,6 +14,12 @@ The fill mirrors _compute_baf_column_key:
     equals the (brand-based) purchase key baf_column_key (BMW_T12, MINI_T39);
   - other families share one column keyed by the family's normalized name;
   - a product with no brand/family falls back to its brand-based key.
+
+The baf.brand.family model and product.brand.family_id column were introduced
+in an earlier refactor that did NOT bump the module version, so a DB upgrading
+from <=1.1 straight to 1.4 hits this pre-migrate before _auto_init has created
+that schema. Detect the missing schema and fall back to the brand-based key;
+the family-aware compute will refine values when products are next touched.
 """
 
 
@@ -22,20 +28,37 @@ def migrate(cr, version):
         ALTER TABLE product_template
         ADD COLUMN IF NOT EXISTS baf_sales_column_key varchar
     """)
-    cr.execute(r"""
-        UPDATE product_template pt
-        SET baf_sales_column_key = CASE
-            WHEN pt.baf_brand_family = 'bmw_mini' THEN pt.baf_column_key
-            WHEN src.base IS NOT NULL AND src.base <> '' THEN src.base
-            ELSE pt.baf_column_key
-        END
-        FROM (
-            SELECT p.id AS pid,
-                   trim(both '_' from
-                        regexp_replace(upper(bf.name), '[-_/[:space:]]+', '_', 'g')) AS base
-            FROM product_template p
-            LEFT JOIN product_brand pb ON pb.id = p.brand
-            LEFT JOIN baf_brand_family bf ON bf.id = pb.family_id
-        ) src
-        WHERE src.pid = pt.id
-    """)
+
+    cr.execute("SELECT to_regclass('baf_brand_family')")
+    has_family_schema = cr.fetchone()[0] is not None
+    if has_family_schema:
+        cr.execute("""
+            SELECT 1 FROM information_schema.columns
+            WHERE table_name = 'product_brand' AND column_name = 'family_id'
+        """)
+        has_family_schema = cr.fetchone() is not None
+
+    if has_family_schema:
+        cr.execute(r"""
+            UPDATE product_template pt
+            SET baf_sales_column_key = CASE
+                WHEN pt.baf_brand_family = 'bmw_mini' THEN pt.baf_column_key
+                WHEN src.base IS NOT NULL AND src.base <> '' THEN src.base
+                ELSE pt.baf_column_key
+            END
+            FROM (
+                SELECT p.id AS pid,
+                       trim(both '_' from
+                            regexp_replace(upper(bf.name), '[-_/[:space:]]+', '_', 'g')) AS base
+                FROM product_template p
+                LEFT JOIN product_brand pb ON pb.id = p.brand
+                LEFT JOIN baf_brand_family bf ON bf.id = pb.family_id
+            ) src
+            WHERE src.pid = pt.id
+        """)
+    else:
+        cr.execute("""
+            UPDATE product_template
+            SET baf_sales_column_key = baf_column_key
+            WHERE baf_sales_column_key IS DISTINCT FROM baf_column_key
+        """)
