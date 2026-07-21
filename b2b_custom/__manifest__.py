@@ -19,6 +19,7 @@
         'views/website_list_to_part_template.xml',
         'views/website_baf_b2b_template.xml',
         'views/portal_my_home_template.xml',
+        'views/website_pricefile_template.xml',
         'views/website_sale_cart_view.xml',
         'views/website_sale_cart_baf_skin.xml',
         'views/website_backorders_template.xml',

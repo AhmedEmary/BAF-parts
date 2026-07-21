@@ -39,8 +39,8 @@ BAF_T12_TYPE_CODES = frozenset({1, 2, 4, 6, 8})
 _BRAND_PATTERNS = (
     # (regex, brand_family) — classifies a brand into a family for the type-split
     # check and the stored baf_brand_family field. The discount column base is
-    # always the brand's own name (see baf_brand_base_key); patterns no longer
-    # merge several brands into one shared base.
+    # the brand's baf.brand.family (see baf_family_base_key): brands merged into
+    # one family share one column, keyed by the family name.
     (re.compile(r'\bBMW\b'),                                                'bmw_mini'),
     (re.compile(r'\bMINI\b'),                                               'bmw_mini'),
     (re.compile(r'JAGUAR|ROVER|\bJLR\b|\bJAG\b|\bLR\b|\bRR\b|\bJ\b'),       'jlr'),
@@ -56,11 +56,20 @@ BAF_TYPE_SPLIT_FAMILIES = frozenset({'bmw_mini'})
 
 
 def baf_brand_base_key(brand_name):
-    """Base discount column key of a brand, without any type bucket: its own
-    normalized name. 'BMW' -> 'BMW', 'Range Rover' -> 'RANGE_ROVER',
-    'Porsche' -> 'PORSCHE'. Every brand keys its own column; brands are never
-    merged into a shared base."""
+    """Fallback base discount column key from a brand name (its own normalized
+    name), used only when a family is not available. Real products key their
+    discount column off the family (see baf_family_base_key): brands merged into
+    one family share a single column."""
     norm = _normalize_brand(brand_name)
+    return norm.replace(' ', '_') if norm else ''
+
+
+def baf_family_base_key(family):
+    """Discount column base shared by every brand in a family: the family's own
+    normalized name. 'JLR' -> 'JLR', 'BMW / MINI' -> 'BMW_MINI'. Brands merged
+    into one family share this single column, so the discount table holds one
+    line per code per family (not per brand)."""
+    norm = _normalize_brand(family.name) if family else ''
     return norm.replace(' ', '_') if norm else ''
 
 
@@ -82,14 +91,16 @@ def _normalize_brand(name):
     return norm
 
 
-def resolve_baf_brand_info(brand_name, type_code=0, mod='car'):
+def resolve_baf_brand_info(brand_name, type_code=0, mod='car', family_base=None):
     """
     Smart brand → (column_key, brand_family) resolver.
 
     Returns a (column_key, brand_family) tuple. brand_family is one of
-    'bmw_mini', 'jlr', 'mercedes', 'other'. column_key is '' for blank brand,
-    `<BRAND>_T12` / `<BRAND>_T39` for BMW/MINI (per type_code), otherwise the
-    cleaned brand name (every brand keys its own column).
+    'bmw_mini', 'jlr', 'mercedes', 'other' and is classified from the name.
+    The column_key base is the family's shared key when `family_base` is given
+    (brands in a family share one column); otherwise it falls back to the
+    brand's own name. column_key is '' for a blank brand, `<BASE>_T12` /
+    `<BASE>_T39` for BMW/MINI (per type_code), else just `<BASE>`.
 
     BMW/MINI type-code split:
         T12 → 1, 2, 4, 6, 8
@@ -99,8 +110,10 @@ def resolve_baf_brand_info(brand_name, type_code=0, mod='car'):
     if not _normalize_brand(brand_name):
         return ('', 'other')
 
-    base_key = baf_brand_base_key(brand_name)
+    base_key = family_base if family_base is not None else baf_brand_base_key(brand_name)
     family = baf_brand_family_of(brand_name)
+    if not base_key:
+        return ('', family)
     if family in BAF_TYPE_SPLIT_FAMILIES:
         tc = type_code or 0
         bucket = 'T39' if tc in BAF_T39_TYPE_CODES else 'T12'
@@ -144,9 +157,17 @@ class ProductTemplateBafPricing(models.Model):
         string='Column Key',
         compute='_compute_baf_column_key',
         store=True,
-        help="Auto-computed from Brand + Type Code + Mod. "
-             "Used as the base key for discount table lookups. "
-             "Empty = no table lookup available for this product.",
+        help="Brand-based key (e.g. BMW_T12) for PURCHASE discount lookups: "
+             "vendors quote per brand. Empty = no table lookup for this product.",
+    )
+
+    baf_sales_column_key = fields.Char(
+        string='Sales Column Key',
+        compute='_compute_baf_column_key',
+        store=True,
+        help="Family-based key (e.g. BMW_MINI_T12) for SALES discount lookups: "
+             "brands merged into one family share a single sales column, so the "
+             "sales discount table holds one line per code per family.",
     )
 
     # ── Brand family (drives BMW/MINI-only UI sections) ──────────────────────
@@ -163,17 +184,30 @@ class ProductTemplateBafPricing(models.Model):
         help="Auto-derived from the product's Brand. Drives which fields apply.",
     )
 
-    @api.depends('brand', 'brand.name', 'baf_type_code', 'baf_mod')
+    @api.depends('brand', 'brand.name', 'brand.family_id', 'brand.family_id.name',
+                 'baf_type_code', 'baf_mod')
     def _compute_baf_column_key(self):
         # Note: motorcycles keep their brand/type key (e.g. BMW_T12) so that
         # sales lookups land on BMW_T12_MOTO / MINI_T39_MOTO. On the purchase
         # side the engine substitutes the plain 'MOTO' column for moto products.
+        # Purchase key is always brand-based (vendors quote per brand). Sales key:
+        #  - type-split families (BMW/MINI) keep a per-brand column split by type
+        #    (BMW_T12, MINI_T39) -- one sales line per (brand, type) per group.
+        #  - other families share one column (the family base) -- one sales line
+        #    per code covers every brand in the family.
         for rec in self:
-            brand_name = rec.brand.name if rec.brand else ''
+            brand = rec.brand
+            brand_name = brand.name if brand else ''
             column_key, family = resolve_baf_brand_info(
                 brand_name, type_code=rec.baf_type_code, mod=rec.baf_mod,
             )
+            if family in BAF_TYPE_SPLIT_FAMILIES:
+                sales_key = column_key
+            else:
+                family_base = baf_family_base_key(brand.family_id) if brand and brand.family_id else None
+                sales_key = family_base if family_base is not None else column_key
             rec.baf_column_key = column_key
+            rec.baf_sales_column_key = sales_key
             rec.baf_brand_family = family
 
     # ── Pricing engine entry point ────────────────────────────────────────────
@@ -363,11 +397,11 @@ class ProductTemplateBafPricing(models.Model):
                 'pricing_method': 'markup_pct',
             }
 
-        # table_lookup — resolved column key (BMW_T12, MINI_T39, JLR, MERCEDES, …)
+        # table_lookup — family-based sales key (BMW_MINI_T12, JLR, MERCEDES, …)
         # Motorcycle BMW/MINI parts: override the group suffix with MOTO so the
-        # lookup lands on BMW_T12_MOTO / MINI_T39_MOTO regardless of the
-        # customer's car-side group (GR1..GR4).
-        column_key = self.baf_column_key
+        # lookup lands on <FAMILY>_T12_MOTO regardless of the customer's
+        # car-side group (GR1..GR4).
+        column_key = self.baf_sales_column_key
         if self.baf_mod == MOD_MOTORCYCLE and self.baf_brand_family == 'bmw_mini':
             suffix = 'MOTO'
         else:
