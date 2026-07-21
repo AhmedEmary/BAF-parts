@@ -184,8 +184,14 @@ class ProductTemplateBafPricing(models.Model):
         help="Auto-derived from the product's Brand. Drives which fields apply.",
     )
 
-    @api.depends('brand', 'brand.name', 'brand.family_id', 'brand.family_id.name',
-                 'baf_type_code', 'baf_mod')
+    # Note on deps: brand.family_id / brand.family_id.name are deliberately NOT
+    # in @api.depends. A single brand can back hundreds of thousands of products
+    # (BMW ~650K, LR ~300K), and letting the ORM mark them all for recompute in
+    # one transaction OOMs the worker. When a brand moves families or a family
+    # is renamed we run a set-based SQL update instead — see
+    # _baf_bulk_recompute_sales_key_for_brands and its callers in
+    # product.brand.write / baf.brand.family.write.
+    @api.depends('brand', 'brand.name', 'baf_type_code', 'baf_mod')
     def _compute_baf_column_key(self):
         # Note: motorcycles keep their brand/type key (e.g. BMW_T12) so that
         # sales lookups land on BMW_T12_MOTO / MINI_T39_MOTO. On the purchase
@@ -209,6 +215,42 @@ class ProductTemplateBafPricing(models.Model):
             rec.baf_column_key = column_key
             rec.baf_sales_column_key = sales_key
             rec.baf_brand_family = family
+
+    @api.model
+    def _baf_bulk_recompute_sales_key_for_brands(self, brand_ids):
+        """Set-based bulk update of baf_sales_column_key for every product of
+        the given brands. Mirrors the family branch of _compute_baf_column_key
+        without loading rows into ORM memory: with brands backing hundreds of
+        thousands of products, an ORM recompute OOMs the worker.
+
+        Only baf_sales_column_key needs updating — baf_column_key and
+        baf_brand_family are derived from the brand *name*, not its family."""
+        brand_ids = [bid for bid in (brand_ids or []) if bid]
+        if not brand_ids:
+            return
+        self.env.cr.execute(r"""
+            UPDATE product_template pt
+            SET baf_sales_column_key = CASE
+                WHEN pt.baf_brand_family = 'bmw_mini' THEN pt.baf_column_key
+                WHEN src.family_base IS NOT NULL AND src.family_base <> '' THEN src.family_base
+                ELSE pt.baf_column_key
+            END
+            FROM (
+                SELECT pb.id AS brand_id,
+                       trim(both '_' from
+                            regexp_replace(upper(bf.name), '[-_/[:space:]]+', '_', 'g')) AS family_base
+                FROM product_brand pb
+                LEFT JOIN baf_brand_family bf ON bf.id = pb.family_id
+                WHERE pb.id = ANY(%s)
+            ) src
+            WHERE pt.brand = src.brand_id
+              AND pt.baf_sales_column_key IS DISTINCT FROM CASE
+                    WHEN pt.baf_brand_family = 'bmw_mini' THEN pt.baf_column_key
+                    WHEN src.family_base IS NOT NULL AND src.family_base <> '' THEN src.family_base
+                    ELSE pt.baf_column_key
+                END
+        """, (brand_ids,))
+        self.env['product.template'].invalidate_model(['baf_sales_column_key'])
 
     # ── Pricing engine entry point ────────────────────────────────────────────
 

@@ -32,3 +32,14 @@ class BafBrandFamily(models.Model):
     def _compute_brand_count(self):
         for family in self:
             family.brand_count = len(family.brand_ids)
+
+    def write(self, vals):
+        res = super().write(vals)
+        if 'name' in vals:
+            # Family name feeds baf_sales_column_key on every product of every
+            # brand in this family (BMW alone backs ~650K products). Bulk-update
+            # via SQL — see ProductTemplate._baf_bulk_recompute_sales_key_for_brands.
+            brand_ids = self.mapped('brand_ids').ids
+            if brand_ids:
+                self.env['product.template']._baf_bulk_recompute_sales_key_for_brands(brand_ids)
+        return res

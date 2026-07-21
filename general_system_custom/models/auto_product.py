@@ -49,6 +49,11 @@ class ProductBrand(models.Model):
         # don't leave orphaned single-brand families behind.
         old_families = self.mapped('family_id') if 'family_id' in vals else None
         res = super().write(vals)
+        if 'family_id' in vals and self.ids:
+            # Family drives baf_sales_column_key on every product of this brand
+            # (up to hundreds of thousands per brand). Bulk-update via SQL —
+            # an ORM recompute would OOM the worker.
+            self.env['product.template']._baf_bulk_recompute_sales_key_for_brands(self.ids)
         if old_families:
             stale = old_families.filtered(
                 lambda f: not f.brand_ids
