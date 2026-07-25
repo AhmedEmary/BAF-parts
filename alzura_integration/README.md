@@ -72,8 +72,9 @@ per new Alzura order.
 | Alzura field                          | Odoo `sale.order`                          |
 | ------------------------------------- | ------------------------------------------ |
 | `order` (e.g. `PAC1234567890719`)     | `b2b_so` — **de-dup key**                  |
+| `cart_order_id` (Alzura internal order number) | `alzura_internal_number` (form field visible on Alzura orders, optional list column, searchable) |
 | (constant)                            | `so_source` → **Alzura**                   |
-| `reference_number`                    | `customer_po` + `client_order_ref`         |
+| `reference_number`                    | `customer_po` + `client_order_ref` (falls back to `cart_order_id`, then `order`) |
 | `date`                                | `date_order`                               |
 | `buyer`                               | `partner_id` (see below)                   |
 | `positions[]`                         | `order_line`                               |
@@ -111,20 +112,25 @@ import capturing **all** available buyer data:
 
 | Alzura buyer field | Odoo `res.partner` |
 | ------------------ | ------------------ |
-| `address.name` (or `contact.name`) | `name` |
+| `address.name` (billing recipient; falls back to `contact.name`) | `name` |
 | `address.name_additional`          | `street2` |
 | `address.street/city/zip/country`  | `street` / `city` / `zip` / `country_id` |
 | `contact.email` (real) / `contact.phone` | `email` / `phone` |
 | `tax.sales_tax_identification_number` | `vat` |
 | `bank` (`iban` / `owner` / `bic_swift` / `bank`) | `res.partner.bank` (+ `res.bank`) |
-| `status_name`, `tax.tax_number`, `credit_reform` | `comment` (internal notes) |
+| `contact.name` (when ≠ `address.name`), `status_name`, `recipient_code`, `tax.tax_number`, `credit_reform` | `comment` (internal notes) |
+
+Every buyer touched by an import is tagged **Alzura / Tyre24**
+(`res.partner.category`, get-or-create); when the matched contact belongs to a
+company, the company is tagged as well. (Up to v1.0 the tag was named *Alzura
+Buyer* — the 1.1 migration moves those partners to *Alzura / Tyre24* and drops
+the old tag.)
 
 Bank-account creation is guarded: a malformed IBAN is logged and skipped
 rather than rejecting the order.
 
 ### Intentionally not mapped
 
-Buyer `cooperation` / `recipient_code` (empty Alzura-internal data),
 `contact.firstname` / `lastname` / `fax` (no dedicated Odoo 19 partner field —
 `name` covers the name; `fax` was removed), the per-position `seller` block (the
 seller is this Odoo instance), per-position `attributes` / `check_options`, and
@@ -178,7 +184,7 @@ No new models. Extensions only:
 | ------------------- | ------------------------------------------------------------- |
 | `res.company`       | `alzura_token`, `alzura_token_expiry`, `alzura_country`, `_alzura_request_headers()` |
 | `res.config.settings` | UI for credentials/country + token & fetch buttons          |
-| `sale.order`        | order-import methods (`_cron_fetch_alzura_orders`, `_alzura_fetch_orders`, …) — **methods only; reuses `b2b_so` / `customer_po` / `so_source` from `general_system_custom`** |
+| `sale.order`        | `alzura_internal_number`, `is_alzura_order` (computed, drives view visibility) + order-import methods (`_cron_fetch_alzura_orders`, `_alzura_fetch_orders`, …) — otherwise reuses `b2b_so` / `customer_po` / `so_source` from `general_system_custom` |
 
 ## License
 
