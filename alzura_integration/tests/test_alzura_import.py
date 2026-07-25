@@ -71,6 +71,38 @@ class TestAlzuraImport(TransactionCase):
             self.SaleOrder.search_count([("b2b_so", "=", data["order"])]), 1
         )
 
+    def test_alzura_internal_number_imported(self):
+        # cart_order_id is the number the buyer sees in the Alzura frontend.
+        order = self._import(0)
+        self.assertEqual(order.alzura_internal_number, "4285747")
+        # With no buyer reference it becomes the customer reference, so the
+        # default "Order" search box finds the SO by the number customers quote.
+        self.assertEqual(order.client_order_ref, "4285747")
+        found = self.SaleOrder.search(
+            [("client_order_ref", "ilike", "4285747"), ("id", "=", order.id)]
+        )
+        self.assertEqual(found, order)
+
+    def test_is_alzura_order_flag(self):
+        # Drives visibility of the Alzura fields in the form/list views.
+        order = self._import(0)
+        self.assertTrue(order.is_alzura_order)
+        plain = self.SaleOrder.create(
+            {
+                "partner_id": self.env["res.partner"]
+                .create({"name": "Plain Customer"})
+                .id
+            }
+        )
+        self.assertFalse(plain.is_alzura_order)
+
+    def test_buyer_reference_still_wins_as_customer_ref(self):
+        data = self._order(0)
+        data["reference_number"] = "CUSTOMER-REF-7"
+        order = self.SaleOrder._alzura_import_order(self.company, data)
+        self.assertEqual(order.client_order_ref, "CUSTOMER-REF-7")
+        self.assertEqual(order.alzura_internal_number, "4285747")
+
     # --- position lines --------------------------------------------------
 
     def test_position_line_mapping(self):
@@ -134,6 +166,41 @@ class TestAlzuraImport(TransactionCase):
         # Status and credit-reform enrichment kept in the internal notes.
         self.assertIn("Premium", partner.comment or "")
         self.assertIn("ACHTUNG", partner.comment or "")
+
+    def test_partner_named_after_billing_recipient(self):
+        # address.name is the billing recipient (the business for B2B buyers);
+        # contact.name is only the person ordering and goes to the notes.
+        order = self._import(0)
+        partner = order.partner_id
+        self.assertEqual(partner.name, "Abduramani Nurij")
+        self.assertIn("Contact person: Nurij Abduramani", partner.comment or "")
+
+    def test_partner_tagged_alzura_tyre24(self):
+        order = self._import(0)
+        self.assertIn(
+            "Alzura / Tyre24", order.partner_id.category_id.mapped("name")
+        )
+        self.assertNotIn(
+            "Alzura Buyer", order.partner_id.category_id.mapped("name")
+        )
+
+    def test_existing_contact_tags_its_company_too(self):
+        company = self.env["res.partner"].create(
+            {"name": "Preexisting Garage GmbH", "is_company": True}
+        )
+        data = self._order(0)
+        contact = self.env["res.partner"].create(
+            {
+                "name": "Preexisting Contact",
+                "parent_id": company.id,
+                "phone": data["buyer"]["contact"]["phone"],
+            }
+        )
+        order = self.SaleOrder._alzura_import_order(self.company, data)
+        # Matched by phone: the tag must land on the contact and its company.
+        self.assertIn("Alzura / Tyre24", contact.category_id.mapped("name"))
+        self.assertIn("Alzura / Tyre24", company.category_id.mapped("name"))
+        self.assertEqual(order.partner_id, contact)
 
     def test_masked_email_not_stored(self):
         order = self._import(0)

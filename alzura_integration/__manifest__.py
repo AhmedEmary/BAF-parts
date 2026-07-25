@@ -1,6 +1,6 @@
 {
     "name": "Alzura B2B Integration",
-    "version": "19.0.1.0.0",
+    "version": "19.0.1.1.0",
     "category": "Sales/Purchase",
     "summary": "Connect Odoo to the Alzura B2B automotive marketplace for tires, rims & spare parts.",
     "description": """
@@ -28,6 +28,7 @@ Token is valid for 24 hours and must be refreshed before expiry.
         "data/so_source_data.xml",
         "data/alzura_cron.xml",
         "views/res_config_settings_views.xml",
+        "views/sale_order_views.xml",
     ],
     "assets": {
         "web.assets_backend": [

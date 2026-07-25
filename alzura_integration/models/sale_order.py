@@ -13,6 +13,26 @@ ALZURA_ORDERS_URL = "https://api-b2b.alzura.com/common/latestorders"
 class SaleOrder(models.Model):
     _inherit = "sale.order"
 
+    alzura_internal_number = fields.Char(
+        string="Alzura Internal Order No.",
+        copy=False,
+        help="Alzura internal order number (cart_order_id) shown to the buyer "
+        "in the Alzura frontend. Customers usually quote this number when "
+        "they contact us about an order.",
+    )
+    is_alzura_order = fields.Boolean(
+        compute="_compute_is_alzura_order",
+        help="True when the order source is Alzura; drives view visibility.",
+    )
+
+    @api.depends("so_source")
+    def _compute_is_alzura_order(self):
+        alzura = self.env.ref(
+            "alzura_integration.so_source_alzura", raise_if_not_found=False
+        )
+        for order in self:
+            order.is_alzura_order = bool(alzura) and order.so_source == alzura
+
     @api.model
     def _cron_fetch_alzura_orders(self):
         """Cron entry point: fetch latest orders for every company holding a token."""
@@ -132,6 +152,10 @@ class SaleOrder(models.Model):
         )
         reference = order_data.get("reference_number") or ""
         shipping = order_data.get("shipping") or {}
+        # Alzura internal order number: what the buyer sees in the Alzura
+        # frontend and quotes when contacting us, so it must be searchable.
+        internal_number = order_data.get("cart_order_id")
+        internal_number = str(internal_number) if internal_number else False
 
         vals = {
             "company_id": company.id,
@@ -148,8 +172,9 @@ class SaleOrder(models.Model):
                 raise_if_not_found=False,
             ).id
             or False,
+            "alzura_internal_number": internal_number,
             "customer_po": reference,
-            "client_order_ref": reference or alzura_ref,
+            "client_order_ref": reference or internal_number or alzura_ref,
             "date_order": self._alzura_parse_dt(order_data.get("date")),
             "order_line": self._alzura_build_lines(order_data.get("positions") or [])
             + self._alzura_charge_lines(order_data),
@@ -248,13 +273,18 @@ class SaleOrder(models.Model):
 
         tag = self._alzura_buyer_tag()
         if partner:
-            if tag not in partner.category_id:
-                partner.category_id = [(4, tag.id)]
+            # Tag the matched contact and, when it belongs to a company, the
+            # company as well, so the tag is visible on the customer record.
+            for rec in partner | partner.commercial_partner_id:
+                if tag not in rec.category_id:
+                    rec.category_id = [(4, tag.id)]
         else:
             partner = Partner.create(
                 {
-                    "name": contact.get("name")
-                    or address.get("name")
+                    # address.name is the billing recipient (the business for
+                    # B2B buyers); contact.name is just the person ordering.
+                    "name": address.get("name")
+                    or contact.get("name")
                     or "Alzura Buyer",
                     "ref": ref,
                     "category_id": [(4, tag.id)],
@@ -319,22 +349,31 @@ class SaleOrder(models.Model):
         )
 
     def _alzura_buyer_tag(self):
-        """Get-or-create the 'Alzura Buyer' partner tag (res.partner.category)."""
+        """Get-or-create the 'Alzura / Tyre24' partner tag (res.partner.category)."""
         Category = self.env["res.partner.category"].sudo()
-        tag = Category.search([("name", "=", "Alzura Buyer")], limit=1)
+        tag = Category.search([("name", "=", "Alzura / Tyre24")], limit=1)
         if not tag:
-            tag = Category.create({"name": "Alzura Buyer"})
+            tag = Category.create({"name": "Alzura / Tyre24"})
         return tag
 
     def _alzura_partner_note(self, buyer):
-        """Buyer data with no dedicated partner field: Alzura status, the
-        secondary tax number and the credit-reform assessment.
+        """Buyer data with no dedicated partner field: the contact person,
+        Alzura status, recipient code, the secondary tax number and the
+        credit-reform assessment.
         """
         tax = buyer.get("tax") or {}
         credit = buyer.get("credit_reform") or {}
+        contact = buyer.get("contact") or {}
+        address = buyer.get("address") or {}
         parts = []
+        # The partner is named after the billing recipient; keep the ordering
+        # person visible when it is somebody else.
+        if contact.get("name") and contact["name"] != address.get("name"):
+            parts.append("Contact person: %s" % contact["name"])
         if buyer.get("status_name"):
             parts.append("Alzura status: %s" % buyer["status_name"])
+        if buyer.get("recipient_code"):
+            parts.append("Recipient code: %s" % buyer["recipient_code"])
         if tax.get("tax_number"):
             parts.append("Tax number: %s" % tax["tax_number"])
         if credit.get("text") or credit.get("index"):
