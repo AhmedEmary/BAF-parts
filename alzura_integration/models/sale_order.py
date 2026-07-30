@@ -25,13 +25,27 @@ class SaleOrder(models.Model):
         help="True when the order source is Alzura; drives view visibility.",
     )
 
-    @api.depends("so_source")
-    def _compute_is_alzura_order(self):
-        alzura = self.env.ref(
+    @api.model
+    def _alzura_source_ids(self):
+        """Every so.source that means "imported from Alzura".
+
+        Databases carry manually created duplicates of the Alzura source
+        alongside the xmlid-backed one, so matching the xmlid alone would
+        classify orders stamped with a duplicate as non-Alzura and let the
+        catalog repricing reach them.
+        """
+        source = self.env.ref(
             "alzura_integration.so_source_alzura", raise_if_not_found=False
         )
+        if not source:
+            return self.env["so.source"]
+        return source | self.env["so.source"].search([("name", "=", source.name)])
+
+    @api.depends("so_source")
+    def _compute_is_alzura_order(self):
+        sources = self._alzura_source_ids()
         for order in self:
-            order.is_alzura_order = bool(alzura) and order.so_source == alzura
+            order.is_alzura_order = order.so_source in sources
 
     @api.model
     def _cron_fetch_alzura_orders(self):
@@ -156,6 +170,9 @@ class SaleOrder(models.Model):
         # frontend and quotes when contacting us, so it must be searchable.
         internal_number = order_data.get("cart_order_id")
         internal_number = str(internal_number) if internal_number else False
+        source = self.env.ref(
+            "alzura_integration.so_source_alzura", raise_if_not_found=False
+        )
 
         vals = {
             "company_id": company.id,
@@ -167,17 +184,15 @@ class SaleOrder(models.Model):
                 order_data.get("country"),
             ).id,
             "b2b_so": alzura_ref,
-            "so_source": self.env.ref(
-                "alzura_integration.so_source_alzura",
-                raise_if_not_found=False,
-            ).id
-            or False,
+            "so_source": source.id if source else False,
             "alzura_internal_number": internal_number,
             "customer_po": reference,
             "client_order_ref": reference or internal_number or alzura_ref,
             "date_order": self._alzura_parse_dt(order_data.get("date")),
-            "order_line": self._alzura_build_lines(order_data.get("positions") or [])
-            + self._alzura_charge_lines(order_data),
+            "order_line": self._alzura_build_lines(
+                order_data.get("positions") or [], company
+            )
+            + self._alzura_charge_lines(order_data, company),
         }
         delivery_date = self._alzura_delivery_date(shipping)
         if delivery_date:
@@ -192,7 +207,57 @@ class SaleOrder(models.Model):
         order.action_confirm()
         return order
 
-    def _alzura_build_lines(self, positions):
+    def _alzura_tax_ids(self, company, vat):
+        """Resolve an Alzura VAT rate (0.19 = 19 %) to a sale tax of company.
+
+        Alzura states the rate it charged the buyer, so taking the tax from the
+        payload keeps amount_total on total_sum.gross instead of depending on
+        whatever the matched product happens to carry. Returns False when no
+        matching tax exists, which leaves Odoo's product default in place; the
+        rate is never created here, since that is accounting configuration.
+        """
+        if vat is None:
+            return False
+        percent = round(float(vat) * 100.0, 4)
+        candidates = (
+            self.env["account.tax"]
+            .sudo()
+            .search(
+                [
+                    ("company_id", "=", company.id),
+                    ("type_tax_use", "=", "sale"),
+                    ("amount_type", "=", "percent"),
+                    ("amount", "=", percent),
+                    ("price_include", "=", False),
+                ]
+            )
+        )
+        if not candidates:
+            _logger.warning(
+                "Alzura: company %s has no %s%% sale tax; falling back to the "
+                "product default, so the order total may not match Alzura.",
+                company.name,
+                percent,
+            )
+            return False
+
+        # Databases keep several taxes at the same rate (e.g. "19%" next to
+        # "19% EU D"), and picking by search order would post to whichever
+        # happens to sort first. The company's configured sale tax is the
+        # deliberate choice, so it wins whenever it matches the rate.
+        default = company.sudo().account_sale_tax_id
+        tax = (candidates & default) or candidates[:1]
+        if len(candidates) > 1:
+            _logger.info(
+                "Alzura: %s taxes match %s%% for company %s; using %s.",
+                len(candidates),
+                percent,
+                company.name,
+                tax.display_name,
+            )
+        return [(6, 0, tax.ids)]
+
+    def _alzura_build_lines(self, positions, company):
         """Map Alzura positions to order_line create commands.
 
         Products are matched on product.product.sku (supplier_item_number).
@@ -226,18 +291,16 @@ class SaleOrder(models.Model):
                     )
                 )
                 continue
-            commands.append(
-                (
-                    0,
-                    0,
-                    {
-                        "product_id": product.id,
-                        "name": name,
-                        "product_uom_qty": qty,
-                        "price_unit": price,
-                    },
-                )
-            )
+            line_vals = {
+                "product_id": product.id,
+                "name": name,
+                "product_uom_qty": qty,
+                "price_unit": price,
+            }
+            taxes = self._alzura_tax_ids(company, (pos.get("price") or {}).get("vat"))
+            if taxes:
+                line_vals["tax_ids"] = taxes
+            commands.append((0, 0, line_vals))
         return commands
 
     def _alzura_find_or_create_partner(self, buyer, country_code=False):
@@ -499,7 +562,7 @@ class SaleOrder(models.Model):
             }
         )
 
-    def _alzura_charge_lines(self, order_data):
+    def _alzura_charge_lines(self, order_data, company):
         """Fee order lines so the order net matches Alzura's total_sum.
 
         - shipping fee = shipping.method.price.net + shipping.handling_fee.net
@@ -538,6 +601,12 @@ class SaleOrder(models.Model):
             ("Payment fee", payment_fee),
             ("alzura_charge", remainder),
         ]
+        # Alzura taxes the fees at the same rate as the order itself, so the
+        # gross of positions plus fees adds up to total_sum.gross.
+        taxes = self._alzura_tax_ids(
+            company, (order_data.get("total_sum") or {}).get("vat")
+        )
+
         commands = []
         product = None
         for label, amount in charges:
@@ -545,18 +614,15 @@ class SaleOrder(models.Model):
                 continue
             if product is None:
                 product = self._alzura_charge_product()
-            commands.append(
-                (
-                    0,
-                    0,
-                    {
-                        "product_id": product.id,
-                        "name": label,
-                        "product_uom_qty": 1.0,
-                        "price_unit": amount,
-                    },
-                )
-            )
+            line_vals = {
+                "product_id": product.id,
+                "name": label,
+                "product_uom_qty": 1.0,
+                "price_unit": amount,
+            }
+            if taxes:
+                line_vals["tax_ids"] = taxes
+            commands.append((0, 0, line_vals))
         return commands
 
     def _alzura_charge_product(self):
@@ -594,7 +660,7 @@ class SaleOrder(models.Model):
         parts = []
 
         if order_data.get("comment"):
-            parts.append(f"Comment: {order_data['comment']}")
+            parts.append("Comment: %s" % order_data["comment"])
 
         method = (shipping.get("method") or {}).get("name")
         if method:

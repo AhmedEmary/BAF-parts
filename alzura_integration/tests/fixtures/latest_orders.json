@@ -816,9 +816,1014 @@
         }
       ],
       "tagging_counter": 4
+    },
+    {
+      "cart_order_id": 4419424,
+      "order": "POE22521340726",
+      "date": "2026-07-23 17:42:22",
+      "status": 3,
+      "is_marketplace": false,
+      "positions": [
+        {
+          "id": 61073,
+          "article_type": "POE",
+          "alzura_id": "6855747",
+          "status": 3,
+          "quantity": 5,
+          "attributes": [
+            {
+              "key": "Hersteller",
+              "value": "LAND ROVER",
+              "generic_key": "manufacturer"
+            },
+            {
+              "key": "Hersteller Artikelnummer",
+              "value": "LR030371",
+              "generic_key": "manufacturer_item_number"
+            },
+            {
+              "key": "Markenschlüssel",
+              "value": "LR",
+              "generic_key": "markenschlüssel"
+            },
+            {
+              "key": "OEN",
+              "value": "LR030371",
+              "generic_key": "oen"
+            },
+            {
+              "key": "Originalteilmarke",
+              "value": "Land Rover",
+              "generic_key": "originalteilmarke"
+            }
+          ],
+          "price": {
+            "net": 1.82,
+            "net_converted": 1.82,
+            "gross": 2.17,
+            "gross_converted": 2.17,
+            "vat": 0.19,
+            "net_original": 1.22
+          },
+          "supplier_item_number": "LR030371",
+          "position_name": "BOLZEN",
+          "position_description": "LAND ROVER"
+        },
+        {
+          "id": 61074,
+          "article_type": "POE",
+          "alzura_id": "6889820",
+          "status": 3,
+          "quantity": 1,
+          "attributes": [
+            {
+              "key": "Hersteller",
+              "value": "LAND ROVER",
+              "generic_key": "manufacturer"
+            },
+            {
+              "key": "Hersteller Artikelnummer",
+              "value": "LR077218",
+              "generic_key": "manufacturer_item_number"
+            },
+            {
+              "key": "Markenschlüssel",
+              "value": "LR",
+              "generic_key": "markenschlüssel"
+            },
+            {
+              "key": "OEN",
+              "value": "LR077218",
+              "generic_key": "oen"
+            },
+            {
+              "key": "Originalteilmarke",
+              "value": "Land Rover",
+              "generic_key": "originalteilmarke"
+            }
+          ],
+          "price": {
+            "net": 56.15,
+            "net_converted": 56.15,
+            "gross": 66.82,
+            "gross_converted": 66.82,
+            "vat": 0.19,
+            "net_original": 56.15
+          },
+          "supplier_item_number": "LR077218",
+          "position_name": "BLENDE - A-SÄULE - AUSSEN",
+          "position_description": "LAND ROVER"
+        },
+        {
+          "id": 61075,
+          "article_type": "POE",
+          "alzura_id": "8418131",
+          "status": 3,
+          "quantity": 5,
+          "attributes": [
+            {
+              "key": "Hersteller",
+              "value": "LAND ROVER",
+              "generic_key": "manufacturer"
+            },
+            {
+              "key": "Hersteller Artikelnummer",
+              "value": "LR167008",
+              "generic_key": "manufacturer_item_number"
+            },
+            {
+              "key": "Markenschlüssel",
+              "value": "LR",
+              "generic_key": "markenschlüssel"
+            },
+            {
+              "key": "OEN",
+              "value": "LR167008",
+              "generic_key": "oen"
+            },
+            {
+              "key": "Originalteilmarke",
+              "value": "Land Rover",
+              "generic_key": "originalteilmarke"
+            }
+          ],
+          "price": {
+            "net": 1.77,
+            "net_converted": 1.77,
+            "gross": 2.11,
+            "gross_converted": 2.11,
+            "vat": 0.19,
+            "net_original": 1.17
+          },
+          "supplier_item_number": "LR167008",
+          "position_name": "BLINDNIET",
+          "position_description": "LAND ROVER"
+        }
+      ],
+      "sum": {
+        "net": 74.1,
+        "net_converted": 74.1,
+        "gross": 88.18,
+        "gross_converted": 88.18,
+        "vat": 0.19
+      },
+      "total_sum": {
+        "net": 68.1,
+        "net_converted": 68.1,
+        "gross": 81.04,
+        "gross_converted": 81.04,
+        "vat": 0.19
+      },
+      "deposit": {
+        "net": 0.0,
+        "net_converted": 0.0,
+        "gross": 0.0,
+        "gross_converted": 0.0,
+        "vat": 0.19
+      },
+      "is_payed": false,
+      "is_partially_cancelled": false,
+      "reference_number": "",
+      "country": "de",
+      "comment": "<br />\n~ Versandart: Priority-Shipping!<br /> <br />Priorisierter Auftragsbearbeitung & Versand",
+      "currency": {
+        "code_origin": "EUR",
+        "code_converted": "EUR",
+        "factor": 1.0
+      },
+      "shipping": {
+        "deliveryDate": "2026-07-30 00:00:00",
+        "priority": true,
+        "neutral": false,
+        "handling_fee": {
+          "net": -6.0,
+          "net_converted": -6.0,
+          "gross": -7.14,
+          "gross_converted": -7.14,
+          "vat": 0.19
+        },
+        "delivery_address": {
+          "use_alternative_address": false
+        },
+        "method": {
+          "id": 1,
+          "name": "Standardversand",
+          "price": {
+            "net": 0.0,
+            "net_converted": 0.0,
+            "gross": 0.0,
+            "gross_converted": 0.0,
+            "vat": 0.19
+          }
+        },
+        "tracking": []
+      },
+      "payment": {
+        "method": {
+          "id": 1,
+          "name": "SEPA-Lastschrift",
+          "text": "",
+          "price": {
+            "net": 0.0,
+            "net_converted": 0.0,
+            "gross": 0.0,
+            "gross_converted": 0.0,
+            "vat": 0.19
+          }
+        },
+        "price_additional": {
+          "net": 0.0,
+          "net_converted": 0.0,
+          "gross": 0.0,
+          "gross_converted": 0.0,
+          "vat": 0.19
+        }
+      },
+      "invoice": {
+        "has_invoice": true,
+        "has_refund": false,
+        "number": "",
+        "sum": 0.0
+      },
+      "messages": [],
+      "documents": [
+        {
+          "id": 10361603,
+          "type": "DEBIT_AGREEMENT",
+          "reference_number": "3006261714196205675",
+          "endpoint": "https://api-b2b.alzura.com/common/document?type=DEBIT_AGREEMENT&filter[id]=10361603&order=POE22521340726"
+        },
+        {
+          "id": 22521340726,
+          "type": "SELLER_INVOICE",
+          "endpoint": "https://api-b2b.alzura.com/common/document?type=SELLER_INVOICE&filter[id]=22521340726&order=POE22521340726"
+        },
+        {
+          "id": 44895,
+          "type": "PRODUCT_OE_AGREEMENT",
+          "endpoint": "https://api-b2b.alzura.com/common/document?type=PRODUCT_OE_AGREEMENT&filter[id]=44895&order=POE22521340726"
+        }
+      ],
+      "status_comment": "",
+      "tagging_counter": 25,
+      "buyer": {
+        "id": 14196,
+        "recipient_code": "",
+        "address": {
+          "name": "Autohaus Gäckle GmbH & Co. KG",
+          "name_additional": "",
+          "street": "Robert-Bosch-Ring 1",
+          "city": "Oberderingen",
+          "zip": "75038",
+          "country": "Deutschland"
+        },
+        "tax": {
+          "tax_number": "",
+          "sales_tax_identification_number": "DE813344801"
+        },
+        "bank": {
+          "bank": "Sparkasse Kraichgau",
+          "owner": "Autohaus Gäckle",
+          "iban": "DE94663500360005012547",
+          "bic_swift": "BRUSDE66XXX"
+        },
+        "credit_reform": {
+          "index": "302",
+          "limit": "5000",
+          "text": "",
+          "check_date": "2005-04-08"
+        },
+        "cooperation": {
+          "number": "",
+          "name": "",
+          "show_name": false,
+          "show_number": false
+        },
+        "contact": {
+          "name": "Matthias Gäckle",
+          "firstname": "Matthias",
+          "lastname": "Gäckle",
+          "email": "https://supplier.alzura.com/de/de/user/historySendMessage/user/14196/category/POE/orderID/22521340726/orderType/POE",
+          "phone": "+49725891300",
+          "fax": "+497258913015"
+        }
+      },
+      "has_coupon": false,
+      "coupon_status": -1
+    },
+    {
+      "cart_order_id": 4441025,
+      "order": "POE14350330726",
+      "date": "2026-07-29 10:30:31",
+      "status": 0,
+      "is_marketplace": false,
+      "positions": [
+        {
+          "id": 61339,
+          "article_type": "POE",
+          "alzura_id": "6893868",
+          "status": -1,
+          "quantity": 1,
+          "attributes": [
+            {
+              "key": "Hersteller",
+              "value": "LAND ROVER",
+              "generic_key": "manufacturer"
+            },
+            {
+              "key": "Hersteller Artikelnummer",
+              "value": "LR082315",
+              "generic_key": "manufacturer_item_number"
+            },
+            {
+              "key": "Markenschlüssel",
+              "value": "LR",
+              "generic_key": "markenschlüssel"
+            },
+            {
+              "key": "OEN",
+              "value": "LR082315",
+              "generic_key": "oen"
+            },
+            {
+              "key": "Originalteilmarke",
+              "value": "Land Rover",
+              "generic_key": "originalteilmarke"
+            }
+          ],
+          "price": {
+            "net": 14.5,
+            "net_converted": 14.5,
+            "gross": 17.26,
+            "gross_converted": 17.26,
+            "vat": 0.19,
+            "net_original": 11.51
+          },
+          "supplier_item_number": "LR082315",
+          "position_name": "DICHTUNG - AUSPUFFKRUEMMER",
+          "position_description": "LAND ROVER"
+        },
+        {
+          "id": 61340,
+          "article_type": "POE",
+          "alzura_id": "6937352",
+          "status": -1,
+          "quantity": 1,
+          "attributes": [
+            {
+              "key": "Hersteller",
+              "value": "LAND ROVER",
+              "generic_key": "manufacturer"
+            },
+            {
+              "key": "Hersteller Artikelnummer",
+              "value": "LR138360",
+              "generic_key": "manufacturer_item_number"
+            },
+            {
+              "key": "Markenschlüssel",
+              "value": "LR",
+              "generic_key": "markenschlüssel"
+            },
+            {
+              "key": "OEN",
+              "value": "LR138360",
+              "generic_key": "oen"
+            },
+            {
+              "key": "Originalteilmarke",
+              "value": "Land Rover",
+              "generic_key": "originalteilmarke"
+            }
+          ],
+          "price": {
+            "net": 16.98,
+            "net_converted": 16.98,
+            "gross": 20.21,
+            "gross_converted": 20.21,
+            "vat": 0.19,
+            "net_original": 13.99
+          },
+          "supplier_item_number": "LR138360",
+          "position_name": "BELÜFTUNGSSCHLAUCH - KÜHLER",
+          "position_description": "LAND ROVER"
+        }
+      ],
+      "sum": {
+        "net": 31.48,
+        "net_converted": 31.48,
+        "gross": 37.47,
+        "gross_converted": 37.47,
+        "vat": 0.19
+      },
+      "total_sum": {
+        "net": 31.48,
+        "net_converted": 31.48,
+        "gross": 37.47,
+        "gross_converted": 37.47,
+        "vat": 0.19
+      },
+      "deposit": {
+        "net": 0.0,
+        "net_converted": 0.0,
+        "gross": 0.0,
+        "gross_converted": 0.0,
+        "vat": 0.19
+      },
+      "is_payed": false,
+      "is_partially_cancelled": false,
+      "reference_number": "",
+      "country": "de",
+      "comment": "<br />\n~ Versandart: Priority-Shipping!<br /> <br />Priorisierter Auftragsbearbeitung & Versand",
+      "currency": {
+        "code_origin": "EUR",
+        "code_converted": "EUR",
+        "factor": 1.0
+      },
+      "shipping": {
+        "deliveryDate": "2026-08-04 00:00:00",
+        "priority": true,
+        "neutral": false,
+        "handling_fee": {
+          "net": 0.0,
+          "net_converted": 0.0,
+          "gross": 0.0,
+          "gross_converted": 0.0,
+          "vat": 0.19
+        },
+        "delivery_address": {
+          "use_alternative_address": false
+        },
+        "method": {
+          "id": 1,
+          "name": "Standardversand",
+          "price": {
+            "net": 0.0,
+            "net_converted": 0.0,
+            "gross": 0.0,
+            "gross_converted": 0.0,
+            "vat": 0.19
+          }
+        },
+        "tracking": []
+      },
+      "payment": {
+        "method": {
+          "id": 1,
+          "name": "SEPA-Lastschrift",
+          "text": "",
+          "price": {
+            "net": 0.0,
+            "net_converted": 0.0,
+            "gross": 0.0,
+            "gross_converted": 0.0,
+            "vat": 0.19
+          }
+        },
+        "price_additional": {
+          "net": 0.0,
+          "net_converted": 0.0,
+          "gross": 0.0,
+          "gross_converted": 0.0,
+          "vat": 0.19
+        }
+      },
+      "invoice": {
+        "has_invoice": false,
+        "has_refund": false,
+        "number": "",
+        "sum": 0.0
+      },
+      "messages": [],
+      "documents": [
+        {
+          "id": 9676301,
+          "type": "DEBIT_AGREEMENT",
+          "reference_number": "17062418185684205675",
+          "endpoint": "https://api-b2b.alzura.com/common/document?type=DEBIT_AGREEMENT&filter[id]=9676301&order=POE14350330726"
+        },
+        {
+          "id": 38372,
+          "type": "PRODUCT_OE_AGREEMENT",
+          "endpoint": "https://api-b2b.alzura.com/common/document?type=PRODUCT_OE_AGREEMENT&filter[id]=38372&order=POE14350330726"
+        }
+      ],
+      "status_comment": "",
+      "tagging_counter": 31,
+      "buyer": {
+        "id": 185684,
+        "recipient_code": "",
+        "address": {
+          "name": "Automobile Özcan GmbH",
+          "name_additional": "",
+          "street": "Maicostr. 10",
+          "city": "Herrenberg",
+          "zip": "71083",
+          "country": "Deutschland"
+        },
+        "tax": {
+          "tax_number": "",
+          "sales_tax_identification_number": "DE262974360"
+        },
+        "bank": {
+          "bank": "Ehninger Bank",
+          "owner": "Automobile Özcan GmbH",
+          "iban": "DE33 6006 9355 0002 3610 00",
+          "bic_swift": "GENODES1EHN"
+        },
+        "credit_reform": {
+          "index": "0",
+          "limit": "250-349",
+          "text": "ACHTUNG: UMFIRMIERUNG + ADRESSÄNDERUG!!! (12/16)",
+          "check_date": "2023-11-02"
+        },
+        "cooperation": {
+          "number": "",
+          "name": "",
+          "show_name": false,
+          "show_number": false
+        },
+        "contact": {
+          "name": "Mustafa Özcan",
+          "firstname": "Mustafa",
+          "lastname": "Özcan",
+          "email": "https://supplier.alzura.com/de/de/user/historySendMessage/user/185684/category/POE/orderID/14350330726/orderType/POE",
+          "phone": "+497032953210",
+          "fax": "+497032953201"
+        }
+      },
+      "has_coupon": false,
+      "coupon_status": -1
+    },
+    {
+      "cart_order_id": 4419400,
+      "order": "POE28118200726",
+      "date": "2026-07-23 17:36:58",
+      "status": 3,
+      "is_marketplace": false,
+      "positions": [
+        {
+          "id": 61072,
+          "article_type": "POE",
+          "alzura_id": "6924046",
+          "status": 3,
+          "quantity": 1,
+          "attributes": [
+            {
+              "key": "Hersteller",
+              "value": "LAND ROVER",
+              "generic_key": "manufacturer"
+            },
+            {
+              "key": "Hersteller Artikelnummer",
+              "value": "LR118375",
+              "generic_key": "manufacturer_item_number"
+            },
+            {
+              "key": "Markenschlüssel",
+              "value": "LR",
+              "generic_key": "markenschlüssel"
+            },
+            {
+              "key": "OEN",
+              "value": "LR118375",
+              "generic_key": "oen"
+            },
+            {
+              "key": "Originalteilmarke",
+              "value": "Land Rover",
+              "generic_key": "originalteilmarke"
+            }
+          ],
+          "price": {
+            "net": 151.78,
+            "net_converted": 151.78,
+            "gross": 180.62,
+            "gross_converted": 180.62,
+            "vat": 0.19,
+            "net_original": 151.78
+          },
+          "supplier_item_number": "LR118375",
+          "position_name": "ISOLATION - STIRNWAND",
+          "position_description": "LAND ROVER"
+        }
+      ],
+      "sum": {
+        "net": 151.78,
+        "net_converted": 151.78,
+        "gross": 180.62,
+        "gross_converted": 180.62,
+        "vat": 0.19
+      },
+      "total_sum": {
+        "net": 151.78,
+        "net_converted": 151.78,
+        "gross": 180.62,
+        "gross_converted": 180.62,
+        "vat": 0.19
+      },
+      "deposit": {
+        "net": 0.0,
+        "net_converted": 0.0,
+        "gross": 0.0,
+        "gross_converted": 0.0,
+        "vat": 0.19
+      },
+      "is_payed": false,
+      "is_partially_cancelled": false,
+      "reference_number": "",
+      "country": "de",
+      "comment": "<br />\n~ Versandart: Priority-Shipping!<br /> <br />Priorisierter Auftragsbearbeitung & Versand",
+      "currency": {
+        "code_origin": "EUR",
+        "code_converted": "EUR",
+        "factor": 1.0
+      },
+      "shipping": {
+        "deliveryDate": "2026-07-30 00:00:00",
+        "priority": true,
+        "neutral": false,
+        "handling_fee": {
+          "net": 0.0,
+          "net_converted": 0.0,
+          "gross": 0.0,
+          "gross_converted": 0.0,
+          "vat": 0.19
+        },
+        "delivery_address": {
+          "use_alternative_address": false
+        },
+        "method": {
+          "id": 1,
+          "name": "Standardversand",
+          "price": {
+            "net": 0.0,
+            "net_converted": 0.0,
+            "gross": 0.0,
+            "gross_converted": 0.0,
+            "vat": 0.19
+          }
+        },
+        "tracking": [
+          {
+            "service_id": 6,
+            "service": "DHL",
+            "number": "00340434197981620751",
+            "url": "http://nolp.dhl.de/nextt-online-public/set_identcodes.do?lang=de&idc=00340434197981620751"
+          }
+        ]
+      },
+      "payment": {
+        "method": {
+          "id": 1,
+          "name": "SEPA-Lastschrift",
+          "text": "",
+          "price": {
+            "net": 0.0,
+            "net_converted": 0.0,
+            "gross": 0.0,
+            "gross_converted": 0.0,
+            "vat": 0.19
+          }
+        },
+        "price_additional": {
+          "net": 0.0,
+          "net_converted": 0.0,
+          "gross": 0.0,
+          "gross_converted": 0.0,
+          "vat": 0.19
+        }
+      },
+      "invoice": {
+        "has_invoice": true,
+        "has_refund": false,
+        "number": "",
+        "sum": 0.0
+      },
+      "messages": [],
+      "documents": [
+        {
+          "id": 10361603,
+          "type": "DEBIT_AGREEMENT",
+          "reference_number": "3006261714196205675",
+          "endpoint": "https://api-b2b.alzura.com/common/document?type=DEBIT_AGREEMENT&filter[id]=10361603&order=POE28118200726"
+        },
+        {
+          "id": 28118200726,
+          "type": "SELLER_INVOICE",
+          "endpoint": "https://api-b2b.alzura.com/common/document?type=SELLER_INVOICE&filter[id]=28118200726&order=POE28118200726"
+        },
+        {
+          "id": 44895,
+          "type": "PRODUCT_OE_AGREEMENT",
+          "endpoint": "https://api-b2b.alzura.com/common/document?type=PRODUCT_OE_AGREEMENT&filter[id]=44895&order=POE28118200726"
+        }
+      ],
+      "status_comment": "",
+      "tagging_counter": 25,
+      "buyer": {
+        "id": 14196,
+        "recipient_code": "",
+        "address": {
+          "name": "Autohaus Gäckle GmbH & Co. KG",
+          "name_additional": "",
+          "street": "Robert-Bosch-Ring 1",
+          "city": "Oberderingen",
+          "zip": "75038",
+          "country": "Deutschland"
+        },
+        "tax": {
+          "tax_number": "",
+          "sales_tax_identification_number": "DE813344801"
+        },
+        "bank": {
+          "bank": "Sparkasse Kraichgau",
+          "owner": "Autohaus Gäckle",
+          "iban": "DE94663500360005012547",
+          "bic_swift": "BRUSDE66XXX"
+        },
+        "credit_reform": {
+          "index": "302",
+          "limit": "5000",
+          "text": "",
+          "check_date": "2005-04-08"
+        },
+        "cooperation": {
+          "number": "",
+          "name": "",
+          "show_name": false,
+          "show_number": false
+        },
+        "contact": {
+          "name": "Matthias Gäckle",
+          "firstname": "Matthias",
+          "lastname": "Gäckle",
+          "email": "https://supplier.alzura.com/de/de/user/historySendMessage/user/14196/category/POE/orderID/28118200726/orderType/POE",
+          "phone": "+49725891300",
+          "fax": "+497258913015"
+        }
+      },
+      "has_coupon": false,
+      "coupon_status": -1
+    },
+    {
+      "cart_order_id": 4387690,
+      "order": "POE19280160726",
+      "date": "2026-07-16 20:22:36",
+      "status": 3,
+      "is_marketplace": false,
+      "positions": [
+        {
+          "id": 60681,
+          "article_type": "POE",
+          "alzura_id": "6872277",
+          "status": 3,
+          "quantity": 4,
+          "attributes": [
+            {
+              "key": "Hersteller",
+              "value": "LAND ROVER",
+              "generic_key": "manufacturer"
+            },
+            {
+              "key": "Hersteller Artikelnummer",
+              "value": "LR054870",
+              "generic_key": "manufacturer_item_number"
+            },
+            {
+              "key": "Markenschlüssel",
+              "value": "LR",
+              "generic_key": "markenschlüssel"
+            },
+            {
+              "key": "OEN",
+              "value": "LR054870",
+              "generic_key": "oen"
+            },
+            {
+              "key": "Originalteilmarke",
+              "value": "Land Rover",
+              "generic_key": "originalteilmarke"
+            }
+          ],
+          "price": {
+            "net": 3.94,
+            "net_converted": 3.94,
+            "gross": 4.69,
+            "gross_converted": 4.69,
+            "vat": 0.19,
+            "net_original": 3.19
+          },
+          "supplier_item_number": "LR054870",
+          "position_name": "\"O\"-RING",
+          "position_description": "LAND ROVER"
+        },
+        {
+          "id": 60682,
+          "article_type": "POE",
+          "alzura_id": "6872278",
+          "status": 3,
+          "quantity": 4,
+          "attributes": [
+            {
+              "key": "Hersteller",
+              "value": "LAND ROVER",
+              "generic_key": "manufacturer"
+            },
+            {
+              "key": "Hersteller Artikelnummer",
+              "value": "LR054871",
+              "generic_key": "manufacturer_item_number"
+            },
+            {
+              "key": "Markenschlüssel",
+              "value": "LR",
+              "generic_key": "markenschlüssel"
+            },
+            {
+              "key": "OEN",
+              "value": "LR054871",
+              "generic_key": "oen"
+            },
+            {
+              "key": "Originalteilmarke",
+              "value": "Land Rover",
+              "generic_key": "originalteilmarke"
+            }
+          ],
+          "price": {
+            "net": 3.69,
+            "net_converted": 3.69,
+            "gross": 4.39,
+            "gross_converted": 4.39,
+            "vat": 0.19,
+            "net_original": 2.94
+          },
+          "supplier_item_number": "LR054871",
+          "position_name": "\"O\"-RING",
+          "position_description": "LAND ROVER"
+        }
+      ],
+      "sum": {
+        "net": 30.52,
+        "net_converted": 30.52,
+        "gross": 36.31,
+        "gross_converted": 36.31,
+        "vat": 0.19
+      },
+      "total_sum": {
+        "net": 30.52,
+        "net_converted": 30.52,
+        "gross": 36.31,
+        "gross_converted": 36.31,
+        "vat": 0.19
+      },
+      "deposit": {
+        "net": 0.0,
+        "net_converted": 0.0,
+        "gross": 0.0,
+        "gross_converted": 0.0,
+        "vat": 0.19
+      },
+      "is_payed": false,
+      "is_partially_cancelled": false,
+      "reference_number": "",
+      "country": "de",
+      "comment": "<br />\n~ Versandart: Priority-Shipping!<br /> <br />Priorisierter Auftragsbearbeitung & Versand",
+      "currency": {
+        "code_origin": "EUR",
+        "code_converted": "EUR",
+        "factor": 1.0
+      },
+      "shipping": {
+        "deliveryDate": "2026-07-23 00:00:00",
+        "priority": true,
+        "neutral": false,
+        "handling_fee": {
+          "net": 0.0,
+          "net_converted": 0.0,
+          "gross": 0.0,
+          "gross_converted": 0.0,
+          "vat": 0.19
+        },
+        "delivery_address": {
+          "use_alternative_address": false
+        },
+        "method": {
+          "id": 1,
+          "name": "Standardversand",
+          "price": {
+            "net": 0.0,
+            "net_converted": 0.0,
+            "gross": 0.0,
+            "gross_converted": 0.0,
+            "vat": 0.19
+          }
+        },
+        "tracking": [
+          {
+            "service_id": 6,
+            "service": "DHL",
+            "number": "00340434197981620676",
+            "url": "http://nolp.dhl.de/nextt-online-public/set_identcodes.do?lang=de&idc=00340434197981620676"
+          }
+        ]
+      },
+      "payment": {
+        "method": {
+          "id": 1,
+          "name": "SEPA-Lastschrift",
+          "text": "",
+          "price": {
+            "net": 0.0,
+            "net_converted": 0.0,
+            "gross": 0.0,
+            "gross_converted": 0.0,
+            "vat": 0.19
+          }
+        },
+        "price_additional": {
+          "net": 0.0,
+          "net_converted": 0.0,
+          "gross": 0.0,
+          "gross_converted": 0.0,
+          "vat": 0.19
+        }
+      },
+      "invoice": {
+        "has_invoice": true,
+        "has_refund": false,
+        "number": "",
+        "sum": 0.0
+      },
+      "messages": [],
+      "documents": [
+        {
+          "id": 10203883,
+          "type": "DEBIT_AGREEMENT",
+          "reference_number": "12012611470941205675",
+          "endpoint": "https://api-b2b.alzura.com/common/document?type=DEBIT_AGREEMENT&filter[id]=10203883&order=POE19280160726"
+        },
+        {
+          "id": 19280160726,
+          "type": "SELLER_INVOICE",
+          "endpoint": "https://api-b2b.alzura.com/common/document?type=SELLER_INVOICE&filter[id]=19280160726&order=POE19280160726"
+        },
+        {
+          "id": 39420,
+          "type": "PRODUCT_OE_AGREEMENT",
+          "endpoint": "https://api-b2b.alzura.com/common/document?type=PRODUCT_OE_AGREEMENT&filter[id]=39420&order=POE19280160726"
+        }
+      ],
+      "status_comment": "",
+      "tagging_counter": 20,
+      "buyer": {
+        "id": 470941,
+        "recipient_code": "",
+        "address": {
+          "name": "ARS Werksattt",
+          "name_additional": "Inh. Motasem Khaled",
+          "street": "Wallersheimer weg 16",
+          "city": "Koblenz",
+          "zip": "56070",
+          "country": "Deutschland"
+        },
+        "tax": {
+          "tax_number": "",
+          "sales_tax_identification_number": "DE359647825"
+        },
+        "bank": {
+          "bank": "N26 Bank",
+          "owner": "Motasem Khaled",
+          "iban": "DE17 1001 1001 2720 5285 35",
+          "bic_swift": "NTSBDEB1XXX"
+        },
+        "credit_reform": {
+          "index": "1,0-2,6",
+          "limit": "",
+          "text": "2,5\r\nEinschätzung zum Zahlungsausfallrisiko:Statistisches Ausfallrisiko: Durchschn.",
+          "check_date": "2026-06-24"
+        },
+        "cooperation": {
+          "number": "",
+          "name": "",
+          "show_name": false,
+          "show_number": false
+        },
+        "contact": {
+          "name": "Motasem Khaled",
+          "firstname": "Motasem",
+          "lastname": "Khaled",
+          "email": "https://supplier.alzura.com/de/de/user/historySendMessage/user/470941/category/POE/orderID/19280160726/orderType/POE",
+          "phone": "+4917634222264",
+          "fax": ""
+        }
+      },
+      "has_coupon": false,
+      "coupon_status": -1
     }
   ],
   "meta": {
-    "count": 4
+    "count": 8
   }
 }

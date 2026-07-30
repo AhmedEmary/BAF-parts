@@ -39,6 +39,17 @@ class SaleOrderLine(models.Model):
     purchased_qty = fields.Float(string='Purchased Qty', compute='_compute_purchased_qty', store=True)
     unshipped_qty = fields.Float(string='Unshipped Qty', compute='_compute_unshipped_qty', store=True)
 
+    def _baf_skip_repricing(self):
+        """True when this line's price is owned by an external system.
+
+        Lines imported from a marketplace already carry the price the buyer
+        was charged there, so re-deriving one from the BAF catalog would both
+        overwrite that agreed price and break the order total. Modules that
+        import such orders override this; the default is to reprice normally.
+        """
+        self.ensure_one()
+        return False
+
     @api.onchange('sku_lookup', 'brand_lookup')
     def _onchange_sku_lookup(self):
         """When user types an exact SKU, find and set the product (filtered by brand if set)."""
