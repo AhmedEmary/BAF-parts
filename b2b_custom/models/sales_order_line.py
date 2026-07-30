@@ -77,6 +77,11 @@ class SaleOrderLine(models.Model):
             if line.state in ['cancel'] or line.qty_invoiced > 0:
                 continue
 
+            # Marketplace-imported lines keep the price the buyer already paid
+            # there; retail/surcharge above stay filled as reference only.
+            if line._baf_skip_repricing():
+                continue
+
             details = product.baf_get_sales_price_details(partner=partner.sudo()._origin)
             line.price_unit = details['price']
             line.baf_applied_column_key = details['column_key']
@@ -90,7 +95,8 @@ class SaleOrderLine(models.Model):
 
     def _compute_price_unit(self):
         standard = self.filtered(
-            lambda l: not l.product_id or l.state in ['cancel'] or l.qty_invoiced > 0
+            lambda l: (not l.product_id or l.state in ['cancel'] or l.qty_invoiced > 0)
+            and not l._baf_skip_repricing()
         )
         if standard:
             super(SaleOrderLine, standard)._compute_price_unit()

@@ -27,10 +27,15 @@ is set to **Alzura**).
     returns orders not yet retrieved.
 - **Idempotent** — orders are de-duplicated on the Alzura order number stored
   in `b2b_so`; re-running never creates duplicates.
-- **All-or-nothing import** — if any position references a SKU with no matching
-  product, the whole order is rejected (rolled back via a per-order savepoint)
-  rather than imported with missing lines. The batch continues with the next
-  order.
+- **Unmatched SKUs stay visible** — a position whose `supplier_item_number` has
+  no product becomes a text-only note line carrying the SKU, name, qty and net
+  price, so the order still imports and nothing is silently lost.
+- **Per-order isolation** — each order is imported inside its own savepoint, so
+  a failure rolls back that order (including any partner created for it) and
+  the batch continues with the next one.
+- **Marketplace prices are authoritative** — imported lines are exempt from the
+  BAF catalog repricing (`_baf_skip_repricing`), so the order keeps the net
+  prices Alzura charged the buyer.
 - **Auto-confirmed** — each imported order is confirmed into a sale order via
   `action_confirm()` (which creates its delivery picking). Confirmation reserves
   only what is on hand; full reservation is left to the warehouse.
@@ -87,7 +92,14 @@ per new Alzura order.
 
 Per position: product matched on `product.product.sku` against
 `supplier_item_number`; `quantity` → ordered qty, `price.net` → unit price. A
-position whose SKU has no product raises an error that rejects the whole order.
+position whose SKU has no product is kept as a text-only note line
+(`Unmatched SKU <sku>: <name> (qty …, net …)`) so the order still imports.
+
+Line taxes come from the payload, not the product: `price.vat` (`0.19` → 19 %)
+is resolved to a `percent` sale tax of the company at that rate, preferring the
+company's configured `account_sale_tax_id` when several match. With no matching
+rate the product default is left in place and a warning is logged — the rate is
+never created here, since that is accounting configuration.
 
 Fee lines use a get-or-create `Alzura Charge` service product:
 
@@ -105,10 +117,11 @@ method, currency conversion and document links) are summarised into the order
 
 ### Buyer (partner) mapping
 
-Buyers are matched by `res.partner.ref = ALZURA-<buyer id>`, then by a real
-email (Alzura masks the contact email behind a message URL, so only values
-containing `@` are trusted). When not found, a partner is created on first
-import capturing **all** available buyer data:
+Buyers are matched in order by `contact.phone`, then by a real email (Alzura
+masks the contact email behind a message URL, so only values containing `@` are
+trusted), then by VAT, then by `res.partner.ref = ALZURA-<buyer id>`. When none
+matches, a partner is created on first import capturing **all** available buyer
+data:
 
 | Alzura buyer field | Odoo `res.partner` |
 | ------------------ | ------------------ |
@@ -125,6 +138,11 @@ Every buyer touched by an import is tagged **Alzura / Tyre24**
 company, the company is tagged as well. (Up to v1.0 the tag was named *Alzura
 Buyer* — the 1.1 migration moves those partners to *Alzura / Tyre24* and drops
 the old tag.)
+
+When the buyer sits inside a `cooperation`, that cooperation is created (or
+matched on `ref = ALZURA-COOP-<number>`, then name) as a company partner, the
+buyer becomes its child contact, and the **cooperation** is the order's
+`partner_id`.
 
 Bank-account creation is guarded: a malformed IBAN is logged and skipped
 rather than rejecting the order.
@@ -154,9 +172,15 @@ or disable it under *Settings → Technical → Scheduled Actions*.
 Unit tests live in `tests/test_alzura_import.py` and exercise the import logic
 against the bundled fixture `tests/fixtures/latest_orders.json` (no API call) —
 order confirmation, `so_source`, position/charge-line mapping, the
-`alzura_charge` reconciliation, full buyer/partner extraction (address, VAT,
-bank account, masked-email rejection, enrichment notes), idempotency, rejection
-of unmatched SKUs, and the full batch via `_alzura_fetch_orders`.
+`alzura_charge` reconciliation, tax resolution from `price.vat`, exemption from
+the BAF repricing, full buyer/partner extraction (address, VAT, bank account,
+cooperation, masked-email rejection, enrichment notes), idempotency, unmatched
+SKUs kept as note lines, and the full batch via `_alzura_fetch_orders`.
+
+Every fixture order is asserted end-to-end: `amount_untaxed` must equal
+`total_sum.net` and `amount_total` must equal `total_sum.gross`. The gross check
+needs `tax_calculation_rounding_method = round_per_line`, since Alzura rounds
+VAT per line.
 
 ```bash
 odoo-bin -d <db> -i alzura_integration --test-enable --stop-after-init
@@ -185,6 +209,18 @@ No new models. Extensions only:
 | `res.company`       | `alzura_token`, `alzura_token_expiry`, `alzura_country`, `_alzura_request_headers()` |
 | `res.config.settings` | UI for credentials/country + token & fetch buttons          |
 | `sale.order`        | `alzura_internal_number`, `is_alzura_order` (computed, drives view visibility) + order-import methods (`_cron_fetch_alzura_orders`, `_alzura_fetch_orders`, …) — otherwise reuses `b2b_so` / `customer_po` / `so_source` from `general_system_custom` |
+| `sale.order.line`   | `_baf_skip_repricing()` returns True on Alzura orders, plus `_compute_price_unit` / `_compute_discount` guards so the imported price survives a qty/product/partner write |
+
+`is_alzura_order` matches **any** `so.source` named *Alzura*, not just the
+xmlid-backed one, because databases carry hand-made duplicates of the source
+and an order stamped with one must not escape the repricing guard.
+
+## Migrations
+
+| Version   | Does                                                          |
+| --------- | ------------------------------------------------------------- |
+| `1.1.0`   | Renames the *Alzura Buyer* tag to *Alzura / Tyre24* and drops the old one |
+| `1.2.0`   | Repairs Alzura lines that the BAF catalog lookup had repriced: clears the `baf_applied_column_key` / `baf_applied_discount_pct` stamps and recomputes the subtotals. `price_unit` is **not** rewritten — lines whose `price_unit` and `technical_price_unit` disagree are only logged for manual review against the Alzura payload. |
 
 ## License
 

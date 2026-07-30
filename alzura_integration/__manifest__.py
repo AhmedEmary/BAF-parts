@@ -1,6 +1,6 @@
 {
     "name": "Alzura B2B Integration",
-    "version": "19.0.1.1.0",
+    "version": "19.0.1.2.0",
     "category": "Sales/Purchase",
     "summary": "Connect Odoo to the Alzura B2B automotive marketplace for tires, rims & spare parts.",
     "description": """
