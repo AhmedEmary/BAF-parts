@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo noupdate="1">
+
+    <record id="menu_aftermarket_search" model="website.menu">
+        <field name="name">Aftermarket Parts</field>
+        <field name="url">/aftermarket/search</field>
+        <field name="parent_id" ref="website.main_menu"/>
+        <field name="sequence">55</field>
+    </record>
+
+</odoo>

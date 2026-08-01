@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <template id="search_page" name="Aftermarket Parts Search">
+        <t t-call="website.layout">
+            <div id="wrap" class="oe_structure">
+                <div class="container py-5">
+                    <h1>Aftermarket parts</h1>
+                    <p class="text-muted">
+                        Search the full Inter Cars aftermarket catalog by
+                        part number, manufacturer reference or EAN barcode.
+                    </p>
+
+                    <form action="/aftermarket/search" method="get"
+                          class="row g-2 mb-4" role="search">
+                        <div class="col-12 col-md-8">
+                            <input type="text" name="q" t-att-value="q"
+                                   class="form-control form-control-lg"
+                                   placeholder="e.g. OP 520, 61131359287, 5904608005205"
+                                   maxlength="64" autofocus="autofocus"/>
+                        </div>
+                        <div class="col-12 col-md-4">
+                            <button type="submit"
+                                    class="btn btn-primary btn-lg w-100">
+                                Search
+                            </button>
+                        </div>
+                    </form>
+
+                    <div t-if="error" class="alert alert-warning" role="alert">
+                        <t t-esc="error"/>
+                    </div>
+
+                    <t t-if="q">
+                        <t t-if="products">
+                            <h4 class="mt-4">In our shop</h4>
+                            <div class="list-group mb-4">
+                                <a t-foreach="products" t-as="product"
+                                   t-att-href="product.website_url"
+                                   class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
+                                    <span>
+                                        <strong t-esc="product.name"/>
+                                        <span t-if="product.manufacturer_id"
+                                              class="text-muted ms-2"
+                                              t-esc="product.manufacturer_id.name"/>
+                                        <span class="text-muted ms-2"
+                                              t-esc="product.default_code"/>
+                                    </span>
+                                    <span class="text-nowrap"
+                                          t-esc="product.list_price"
+                                          t-options="{'widget': 'monetary', 'display_currency': website.currency_id}"/>
+                                </a>
+                            </div>
+                        </t>
+
+                        <t t-if="cache_rows">
+                            <h4 class="mt-4">Available to order</h4>
+                            <p class="text-muted small">
+                                These parts ship from our supplier — select
+                                one to see its current price.
+                            </p>
+                            <div class="list-group mb-4">
+                                <div t-foreach="cache_rows" t-as="row"
+                                     class="list-group-item d-flex justify-content-between align-items-center">
+                                    <span>
+                                        <strong t-esc="row.short_description or row.ic_index"/>
+                                        <span class="text-muted ms-2"
+                                              t-esc="row.manufacturer"/>
+                                        <span class="text-muted ms-2"
+                                              t-esc="row.ic_index or row.article_number"/>
+                                    </span>
+                                    <form t-attf-action="/aftermarket/get/#{row.tow_kod}"
+                                          method="post" class="ms-3">
+                                        <input type="hidden" name="csrf_token"
+                                               t-att-value="request.csrf_token()"/>
+                                        <input type="hidden" name="q" t-att-value="q"/>
+                                        <button type="submit"
+                                                class="btn btn-outline-primary btn-sm text-nowrap">
+                                            Check price &amp; order
+                                        </button>
+                                    </form>
+                                </div>
+                            </div>
+                        </t>
+
+                        <div t-if="not products and not cache_rows"
+                             class="alert alert-light border" role="alert">
+                            No parts found for
+                            "<strong t-esc="q"/>". Try the manufacturer's
+                            part number or the EAN barcode from the part
+                            label.
+                        </div>
+                    </t>
+                </div>
+            </div>
+        </t>
+    </template>
+
+</odoo>
