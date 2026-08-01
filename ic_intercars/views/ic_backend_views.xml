@@ -56,7 +56,7 @@
                     <group string="IC Account Info (live snapshot)">
                         <field name="account_info_date"/>
                         <field name="account_info" nolabel="1" colspan="2"
-                               widget="ace" options="{'mode': 'json'}"
+                               widget="ace" options="{'mode': 'javascript'}"
                                readonly="1"/>
                     </group>
                 </sheet>
