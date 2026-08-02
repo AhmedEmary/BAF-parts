@@ -1,6 +1,30 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
 
+    <record id="cron_ic_refresh_catalog_csv" model="ir.cron">
+        <field name="name">Inter Cars: Refresh Product Catalog (CSV)</field>
+        <field name="model_id" ref="model_ic_backend"/>
+        <field name="state">code</field>
+        <field name="code">model._cron_refresh_catalog_csv()</field>
+        <field name="interval_number">1</field>
+        <field name="interval_type">days</field>
+        <field name="nextcall"
+               eval="(DateTime.now().replace(hour=4, minute=0, second=0) + relativedelta(days=1)).strftime('%Y-%m-%d %H:%M:%S')"/>
+        <field name="active" eval="False"/>
+    </record>
+
+    <record id="cron_ic_refresh_prices" model="ir.cron">
+        <field name="name">Inter Cars: Refresh Prices of Materialised Products</field>
+        <field name="model_id" ref="model_ic_backend"/>
+        <field name="state">code</field>
+        <field name="code">model._cron_refresh_prices()</field>
+        <field name="interval_number">1</field>
+        <field name="interval_type">days</field>
+        <field name="nextcall"
+               eval="(DateTime.now().replace(hour=5, minute=0, second=0) + relativedelta(days=1)).strftime('%Y-%m-%d %H:%M:%S')"/>
+        <field name="active" eval="False"/>
+    </record>
+
     <record id="cron_ic_reconcile_deliveries" model="ir.cron">
         <field name="name">Inter Cars: Reconcile Deliveries</field>
         <field name="model_id" ref="model_ic_backend"/>

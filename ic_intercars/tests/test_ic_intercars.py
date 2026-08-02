@@ -667,3 +667,173 @@ class TestBackendModel(IcCase):
         snapshot = json.loads(self.backend.account_info)
         self.assertEqual(snapshot['finances'], {},
                          "partial snapshot beats none")
+
+
+@tagged('post_install', '-at_install')
+class TestPriceRefreshCron(IcCase):
+    """Daily cron that re-quotes materialised products and updates
+    their cost + sale price in place."""
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.product = cls.env['product.product']._baf_find_or_create_ic(
+            cls.backend, {
+                'sku': 'ADDFFF', 'brand': 'FILTRON',
+                'shortDescription': 'Oil filter',
+            }, price_net=3.05,
+        )
+        # Distinct SKU + no EAN so the barcode uniqueness constraint
+        # doesn't collide with the first fixture.
+        cls.other = cls.env['product.product']._baf_find_or_create_ic(
+            cls.backend, {
+                'sku': 'BEF134', 'brand': 'VALEO',
+                'shortDescription': 'Radiator', 'eans': [],
+            }, price_net=10.00,
+        )
+
+    def _supplier_price(self, product):
+        return self.env['product.supplierinfo'].search([
+            ('product_tmpl_id', '=', product.product_tmpl_id.id),
+            ('partner_id', '=', self.vendor.id),
+        ], limit=1).price
+
+    def test_refresh_updates_cost_and_sale_price(self):
+        client = self._mock_client(get_price={'lines': [
+            {'sku': 'ADDFFF',
+             'price': {'customerPriceNet': 4.00, 'currencyCode': 'EUR'}},
+            {'sku': 'BEF134',
+             'price': {'customerPriceNet': 12.50, 'currencyCode': 'EUR'}},
+        ]})
+        with patch.object(type(self.backend), 'get_client',
+                          return_value=client):
+            stats = self.backend._baf_refresh_prices()
+        self.assertEqual(stats['quoted'], 2)
+        self.assertEqual(stats['declined'], 0)
+        self.assertEqual(self._supplier_price(self.product), 4.00)
+        self.assertEqual(self._supplier_price(self.other), 12.50)
+        self.assertAlmostEqual(
+            self.product.product_tmpl_id.list_price,
+            round(4.00 * 1.25, 2), places=2,
+            msg="sale price re-derived from the new cost")
+
+    def test_refresh_leaves_declined_skus_untouched(self):
+        original_cost = self._supplier_price(self.product)
+        original_list = self.product.product_tmpl_id.list_price
+        client = self._mock_client(get_price={'lines': [
+            {'sku': 'BEF134',
+             'price': {'customerPriceNet': 12.50, 'currencyCode': 'EUR'}},
+        ]})  # ADDFFF deliberately unquoted
+        with patch.object(type(self.backend), 'get_client',
+                          return_value=client):
+            stats = self.backend._baf_refresh_prices()
+        self.assertEqual(stats['quoted'], 1)
+        self.assertEqual(stats['declined'], 1)
+        self.assertEqual(self._supplier_price(self.product), original_cost,
+                         "unquoted cost must not change")
+        self.assertEqual(self.product.product_tmpl_id.list_price,
+                         original_list,
+                         "unquoted sale price must not change")
+
+    def test_refresh_survives_transport_error(self):
+        original_cost = self._supplier_price(self.product)
+        client = self._mock_client()
+        client.get_price.side_effect = Exception("boom")
+        with patch.object(type(self.backend), 'get_client',
+                          return_value=client):
+            stats = self.backend._baf_refresh_prices()
+        self.assertEqual(stats['quoted'], 0)
+        self.assertEqual(stats['declined'], 2)
+        self.assertEqual(self._supplier_price(self.product), original_cost,
+                         "a broken chunk must never wipe prices")
+
+    def test_refresh_skips_backends_without_matching_products(self):
+        other_vendor = self.env['res.partner'].create({
+            'name': 'Empty IC Vendor', 'supplier_rank': 1,
+        })
+        empty = self.env['ic.backend'].create({
+            'name': 'IC Empty', 'vendor_id': other_vendor.id,
+            'client_id': 'x', 'client_secret': 'y',
+            'token_url': 'https://token.invalid/oauth2/token',
+            'currency_id': self.env.ref('base.EUR').id,
+            'ship_to': 'F17', 'market': 'de',
+        })
+        with patch.object(type(empty), 'get_client') as mocked:
+            stats = empty._baf_refresh_prices()
+        self.assertEqual(
+            stats, {'quoted': 0, 'declined': 0, 'batches': 0},
+            "no products for the backend's vendor → nothing to quote")
+        mocked.assert_not_called()
+
+    def test_cron_wrapper_calls_backend_refresh(self):
+        client = self._mock_client(get_price={'lines': [
+            {'sku': 'ADDFFF',
+             'price': {'customerPriceNet': 2.00, 'currencyCode': 'EUR'}},
+            {'sku': 'BEF134',
+             'price': {'customerPriceNet': 8.00, 'currencyCode': 'EUR'}},
+        ]})
+        with patch.object(type(self.backend), 'get_client',
+                          return_value=client):
+            self.env['ic.backend']._cron_refresh_prices()
+        self.assertEqual(self._supplier_price(self.product), 2.00)
+
+
+@tagged('post_install', '-at_install')
+class TestCatalogRefreshCron(IcCase):
+    """Daily cron that pulls today's ProductInformation CSV and
+    replaces the cache."""
+
+    _MINI_CSV = (
+        b"TOW_KOD;IC_INDEX;TEC_DOC;TEC_DOC_PROD;ARTICLE_NUMBER;MANUFACTURER;"
+        b"SHORT_DESCRIPTION;DESCRIPTION;BARCODES;PACKAGE_WEIGHT;PACKAGE_LENGTH;"
+        b"PACKAGE_WIDTH;PACKAGE_HEIGHT;CUSTOM_CODE;BLOCKED_RETURN\n"
+        b"CRON1;IDX 1;IDX1;1;IDX1;FILTRON;Sample;Sample descr;"
+        b";0,1;1;1;1;12345678;false\n"
+    )
+
+    def test_cron_replaces_cache_from_downloaded_csv(self):
+        self.backend.write({'csv_login': 'F04217',
+                            'csv_password': 'secret'})
+        # Seed a row that must be gone after the refresh.
+        self.env['ic.product.info'].create({'tow_kod': 'OLDROW'})
+        with patch.object(type(self.backend),
+                          '_baf_fetch_product_info_csv',
+                          return_value=self._MINI_CSV):
+            self.env['ic.backend']._cron_refresh_catalog_csv()
+        rows = self.env['ic.product.info'].search([]).mapped('tow_kod')
+        self.assertEqual(rows, ['CRON1'],
+                         "the cron must replace the snapshot, not append")
+
+    @mute_logger('odoo.addons.ic_intercars.models.ic_backend')
+    def test_cron_soft_fails_per_backend(self):
+        self.backend.write({'csv_login': 'F04217',
+                            'csv_password': 'secret'})
+        with patch.object(type(self.backend),
+                          '_baf_fetch_product_info_csv',
+                          side_effect=UserError("IC HTTP 500")):
+            # Must NOT raise — the cron logs and moves on so the next
+            # scheduled run isn't cancelled.
+            self.env['ic.backend']._cron_refresh_catalog_csv()
+
+    def test_cron_ignores_backends_without_csv_credentials(self):
+        # Fixture backend has no csv_login/password.
+        with patch.object(type(self.backend),
+                          '_baf_fetch_product_info_csv') as mocked:
+            self.env['ic.backend']._cron_refresh_catalog_csv()
+        mocked.assert_not_called()
+
+    def test_unzip_helper_returns_csv_from_zip(self):
+        import io as _io
+        import zipfile as _zf
+        buf = _io.BytesIO()
+        with _zf.ZipFile(buf, 'w') as z:
+            z.writestr('inner.csv', b'HEADER\nrow\n')
+        result = self.backend._baf_unzip_csv_if_needed(
+            buf.getvalue(), 'ProductInformation_2026-08-01.csv.zip')
+        self.assertEqual(result, b'HEADER\nrow\n')
+
+    def test_unzip_helper_returns_raw_when_not_zip(self):
+        raw = b"TOW_KOD;IC_INDEX\nA;B\n"
+        self.assertEqual(
+            self.backend._baf_unzip_csv_if_needed(raw, 'file.csv'),
+            raw)

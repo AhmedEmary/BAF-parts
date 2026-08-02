@@ -15,20 +15,12 @@ IC Products (cache) list and clicking *Create Products*.
 """
 
 import base64
-import io
 import logging
-import zipfile
-from datetime import timedelta
-
-import requests
 
 from odoo import _, fields, models
 from odoo.exceptions import UserError
 
 _logger = logging.getLogger(__name__)
-
-_IC_CSV_ROOT = 'https://data.webapi.intercars.eu/customer'
-_MAX_FETCH_ATTEMPTS = 7  # walk back up to a week if today isn't ready yet
 
 
 class IcCsvImportWizard(models.TransientModel):
@@ -89,63 +81,7 @@ class IcCsvImportWizard(models.TransientModel):
                     "Attach a ProductInformation CSV or ZIP file."
                 ))
             raw = base64.b64decode(self.upload_file)
-            return self._unzip_if_needed(raw, self.upload_filename or '')
-        # source == 'fetch'
-        return self._fetch_from_ic()
-
-    def _unzip_if_needed(self, raw, filename):
-        if raw[:2] == b'PK':  # ZIP magic
-            with zipfile.ZipFile(io.BytesIO(raw)) as zf:
-                # Find the CSV member — IC ships one per zip.
-                members = [
-                    n for n in zf.namelist()
-                    if n.lower().endswith('.csv')
-                ]
-                if not members:
-                    raise UserError(_(
-                        "ZIP file %s contains no .csv member."
-                    ) % filename)
-                return zf.read(members[0])
-        return raw
-
-    def _fetch_from_ic(self):
-        self.ensure_one()
-        backend = self.backend_id
-        if not backend.csv_login or not backend.csv_password:
-            raise UserError(_(
-                "IC CSV credentials are missing on the backend "
-                "(fields 'CSV Login' and 'CSV Password')."
-            ))
-
-        base = (
-            f"{_IC_CSV_ROOT}/{backend.csv_login}/ProductInformation"
-        )
-        auth = (backend.csv_login, backend.csv_password)
-
-        # IC generates today's file overnight — if it isn't ready
-        # yet, walk back day by day until we hit one.
-        today = fields.Date.context_today(self)
-        errors = []
-        for delta in range(_MAX_FETCH_ATTEMPTS):
-            d = today - timedelta(days=delta)
-            fname = f"ProductInformation_{d.isoformat()}.csv.zip"
-            url = f"{base}/{fname}"
-            _logger.info("IC CSV: trying %s", url)
-            try:
-                res = requests.get(url, auth=auth, timeout=120)
-            except requests.RequestException as exc:
-                errors.append(f"{fname}: {exc}")
-                continue
-            if res.status_code == 200 and res.content:
-                _logger.info(
-                    "IC CSV: fetched %s (%d bytes)", fname, len(res.content),
-                )
-                return self._unzip_if_needed(res.content, fname)
-            errors.append(
-                f"{fname}: HTTP {res.status_code} "
-                f"({(res.text or '')[:120]})"
-            )
-        raise UserError(_(
-            "Could not fetch a ProductInformation CSV from IC. "
-            "Tried the last %(n)d day(s):\n%(errs)s"
-        ) % {'n': _MAX_FETCH_ATTEMPTS, 'errs': '\n'.join(errors)})
+            return self.backend_id._baf_unzip_csv_if_needed(
+                raw, self.upload_filename or '')
+        # source == 'fetch' — same downloader the daily cron uses
+        return self.backend_id._baf_fetch_product_info_csv()
