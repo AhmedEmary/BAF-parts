@@ -77,7 +77,6 @@ class IcProductInfo(models.Model):
                     coalesce(barcodes, ''), '[^0-9,]', '', 'g'), '')
         """)
         self.env.cr.execute("ANALYZE ic_product_info")
-        self.env.invalidate_all()
 
     # ── Customer search ─────────────────────────────────────────────────
     @api.model

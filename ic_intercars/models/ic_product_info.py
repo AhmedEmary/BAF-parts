@@ -141,6 +141,11 @@ class IcProductInfo(models.Model):
                     cp.write(csv_bytes[chunk_start:chunk_start + (1 << 20)])
 
         cr.execute("ANALYZE ic_product_info")
+        # COPY + TRUNCATE bypass the ORM, so any cached rows still
+        # point at their old tow_kod (and TRUNCATE ... RESTART IDENTITY
+        # recycles the ids into new rows) — invalidate before anything
+        # else reads the table.
+        self.env.invalidate_all()
         rows = self.search_count([])
         elapsed = time.time() - started
         _logger.info(
