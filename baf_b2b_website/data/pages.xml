@@ -4373,13 +4373,12 @@
                         }
 
                         function displayBrand(brand) {
-                            const value = String(brand == null ? '' : brand).trim();
-
-                            if (!value) {
-                                return '';
-                            }
-
-                            return value.toLowerCase() === 'land rover' ? 'LR' : value;
+                            // The /bestellsystem/part-search API already returns
+                            // `brand.display_name` (task #48), so the label is
+                            // whatever the customer configured on product.brand
+                            // (e.g. "Jaguar &amp; Land Rover" for JLR). Do not rewrite
+                            // it client-side.
+                            return String(brand == null ? '' : brand).trim();
                         }
 
                         function getProductMod(product) {
