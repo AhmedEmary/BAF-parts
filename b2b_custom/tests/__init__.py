@@ -4,3 +4,4 @@ from . import test_website_controllers
 from . import test_product_import
 from . import test_product_mass_update
 from . import test_pricefile
+from . import test_pricefile_notify
