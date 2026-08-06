@@ -142,7 +142,7 @@ def _product_to_dict(product, partner):
         'id': product.id,
         'part_number': template.sku or product.default_code or '',
         'name': template.name,
-        'brand': template.brand.name if template.brand else '',
+        'brand': template.brand.display_name if template.brand else '',
         'brand_id': template.brand.id if template.brand else 0,
         'mod': _mod_label(template),
         'type': _type_label(template),
@@ -314,7 +314,7 @@ class BafB2BController(http.Controller):
                         {
                             'product_id': group[:1].id,
                             'brand_id': group[:1].product_tmpl_id.brand.id if group[:1].product_tmpl_id.brand else 0,
-                            'brand': group[:1].product_tmpl_id.brand.name if group[:1].product_tmpl_id.brand else '—',
+                            'brand': group[:1].product_tmpl_id.brand.display_name if group[:1].product_tmpl_id.brand else '—',
                             'name': group[:1].product_tmpl_id.name,
                         }
                         for group in brand_groups.values() if group

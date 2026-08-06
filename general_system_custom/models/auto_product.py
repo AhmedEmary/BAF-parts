@@ -8,12 +8,26 @@ class ProductBrand(models.Model):
     _description = 'Product Brand'
 
     name = fields.Char(string='Brand Name', required=True)
+    # Brand `name` is a technical key (default_code prefix, pricing column key,
+    # discount table key), so it may look like an abbreviation ("JLR", "HON").
+    # `display_label` is what users see everywhere in the app; `name` stays put.
+    display_label = fields.Char(
+        string='Display Label',
+        translate=True,
+        help="Full brand name shown to users (e.g. 'Jaguar & Land Rover' for a "
+             "record technically named 'JLR'). Falls back to the Brand Name when empty.",
+    )
     description = fields.Text(string='Description')
 
     _name_uniq = models.Constraint(
         'unique(name)',
         'A brand with this name already exists.',
     )
+
+    @api.depends('name', 'display_label')
+    def _compute_display_name(self):
+        for brand in self:
+            brand.display_name = brand.display_label or brand.name or ''
     family_id = fields.Many2one(
         'baf.brand.family',
         string='Brand Family',

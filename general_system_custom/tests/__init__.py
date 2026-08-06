@@ -11,3 +11,4 @@ from . import test_delivery_list
 from . import test_outgoing_picking
 from . import test_stock_move_pallet
 from . import test_vendor_purchase_pricing
+from . import test_brand_display_name
