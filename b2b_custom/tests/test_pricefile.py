@@ -563,3 +563,96 @@ class TestPriceFile(HttpCase):
             body,
         )
         self.assertNotIn('value="%d"' % self.brand_hidden.id, body)
+
+    # ── Discount table export (task #49) ────────────────────────────────────
+    def _open_discount_workbook(self):
+        import openpyxl  # noqa: I001 — optional dep, imported inside the test
+        self.authenticate('pricefile_user', 'pricefile_user')
+        response = self.url_open(
+            '/pricefile/discount-download', allow_redirects=False)
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(
+            'spreadsheetml.sheet', response.headers['Content-Type'])
+        return response, openpyxl.load_workbook(
+            io.BytesIO(response.content), read_only=False, data_only=True)
+
+    def test_discount_download_one_sheet_per_visible_brand_with_rates(self):
+        # BMW GR1 covers the customer's BMW brand; JLR sits behind a markup-only
+        # group so it has no discount codes; the hidden brand is not visible.
+        # Expected: one BMW sheet only.
+        self.company_partner.sales_group_ids = [
+            (6, 0, [self.group_bmw_gr1.id, self.group_jlr_markup.id])]
+        response, wb = self._open_discount_workbook()
+        self.assertEqual(wb.sheetnames, [self.brand_public.display_name])
+        expected_name = 'DiscountCodes_%s_%s.xlsx' % (
+            self.company_partner.name.replace(' ', '_'), date.today().isoformat())
+        self.assertIn(expected_name, response.headers['Content-Disposition'])
+
+    def test_discount_download_hides_group_suffixes(self):
+        # The customer's group has suffix 'GR1' and pricing key 'BMW_MINI_T12_GR1'.
+        # Neither must appear anywhere in the exported workbook — the entire
+        # point of the export is that customers can't tell how many groups exist
+        # in the background (task #49).
+        self.company_partner.sales_group_ids = [(6, 0, [self.group_bmw_gr1.id])]
+        _response, wb = self._open_discount_workbook()
+        ws = wb[self.brand_public.display_name]
+        as_text = '\n'.join(
+            '\t'.join('' if c.value is None else str(c.value) for c in row)
+            for row in ws.iter_rows()
+        )
+        self.assertNotIn('GR1', as_text)
+        self.assertNotIn('MOTO', as_text)
+        self.assertNotIn(self.group_bmw_gr1.name, as_text)
+        self.assertNotIn(self.bmw_col, as_text)
+
+    def test_discount_download_pivots_rate_per_type_bucket(self):
+        # BMW GR1 has one row for the T12 bucket at 20% (from setUp).
+        # The exported sheet must have a Discount Code column plus a
+        # per-bucket rate column labelled "TA 1-2-4-6-8", not the raw column key.
+        self.company_partner.sales_group_ids = [(6, 0, [self.group_bmw_gr1.id])]
+        _response, wb = self._open_discount_workbook()
+        ws = wb[self.brand_public.display_name]
+        header = [c.value for c in next(ws.iter_rows(min_row=1, max_row=1))]
+        self.assertEqual(header[0], 'Discount Code')
+        self.assertIn('TA 1-2-4-6-8', header)
+        code_col = 0
+        t12_col = header.index('TA 1-2-4-6-8')
+        by_code = {
+            row[code_col].value: row[t12_col].value
+            for row in ws.iter_rows(min_row=2)
+        }
+        self.assertEqual(by_code['TESTQA1'], 20.0)
+
+    def test_discount_download_marks_motorcycle_column(self):
+        # A moto group on the same family adds a second column labelled with
+        # the "Motorcycle" marker — never the internal MOTO suffix.
+        self.company_partner.sales_group_ids = [
+            (6, 0, [self.group_bmw_gr1.id, self.group_bmw_moto.id])]
+        _response, wb = self._open_discount_workbook()
+        ws = wb[self.brand_public.display_name]
+        header = [c.value for c in next(ws.iter_rows(min_row=1, max_row=1))]
+        self.assertIn('TA 1-2-4-6-8', header)
+        moto_headers = [h for h in header if h and 'Motorcycle' in h]
+        self.assertTrue(moto_headers, 'expected a motorcycle-labelled column')
+        moto_col = header.index(moto_headers[0])
+        row = next(ws.iter_rows(min_row=2, max_row=2))
+        self.assertEqual(row[moto_col].value, 35.0)
+
+    def test_discount_download_redirects_when_no_applicable_rates(self):
+        # Only a markup-only group applies -> no sheet has any content -> the
+        # controller redirects back to /pricefile instead of serving an empty
+        # workbook.
+        self.company_partner.sales_group_ids = [(6, 0, [self.group_jlr_markup.id])]
+        self.authenticate('pricefile_user', 'pricefile_user')
+        response = self.url_open(
+            '/pricefile/discount-download', allow_redirects=False)
+        self.assertEqual(response.status_code, 303)
+        self.assertTrue(
+            urlparse(response.headers['Location']).path.endswith('/pricefile'))
+
+    def test_pricefile_page_advertises_discount_download(self):
+        # Pin the button on the page so any template rename here surfaces.
+        self.authenticate('pricefile_user', 'pricefile_user')
+        response = self.url_open('/pricefile')
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('/pricefile/discount-download', response.content.decode('utf-8'))
