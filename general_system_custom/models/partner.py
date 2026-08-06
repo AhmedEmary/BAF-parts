@@ -1,11 +1,13 @@
 import itertools
-
-from psycopg2.extras import execute_values
+import logging
+import time
 
 from odoo import _, api, fields, models
 from odoo.exceptions import UserError, ValidationError
 
 from . import baf_import_utils as bafutil
+
+_logger = logging.getLogger(__name__)
 
 
 class ResPartner(models.Model):
@@ -450,9 +452,10 @@ class ResPartner(models.Model):
                 created += 1
         return {'created': created, 'updated': updated}
 
-    # Rows buffered before each flush: one product lookup and one INSERT per
-    # batch.
-    _BAF_DIRECT_BATCH = 5000
+    # Chunk size for the streaming COPY into pg_temp. Purely a memory knob —
+    # 20k rows is ~1 MB of CSV, and Postgres consumes each chunk before we
+    # allocate the next one.
+    _BAF_DIRECT_COPY_CHUNK = 20_000
 
     def _baf_import_direct(self, rows):
         """Direct prices: columns SKU, DISCOUNTED PRICE. Only products whose
@@ -463,12 +466,17 @@ class ResPartner(models.Model):
         create products or change matching. Falls back to positional
         [sku, price] when no recognizable header.
 
-        SKU matching is case-insensitive on both sides so a lowercase file
-        against uppercase catalogue rows still matches.
+        SKU matching is case-insensitive: a file lowercased against uppercase
+        catalogue rows still matches. The exact match runs first as a single
+        indexed JOIN; anything not resolved that way falls back to a
+        case-insensitive JOIN over just the residual SKUs.
 
-        `rows` may be a stream, so it is consumed once, in batches. The vendor's
-        existing prices were wiped beforehand, so every matched row is an insert
-        and nothing is ever updated.
+        Rows are streamed straight into a `pg_temp` table via COPY and the
+        entire import happens as three SQL statements (ambiguous scan, exact-
+        match INSERT, residual case-insensitive INSERT). That keeps peak
+        memory at O(chunk) even for six-figure files and avoids the ORM
+        overhead — no per-batch `invalidate_model`, no per-batch ORM read —
+        that made the previous implementation take hours on ~500k-row lists.
 
         Every data row ends up in exactly one counter (created / unmatched /
         invalid / ambiguous), so the file always adds up."""
@@ -495,8 +503,181 @@ class ResPartner(models.Model):
             rows = itertools.chain([first_row], rows)
 
         stats = {'created': 0, 'updated': 0, 'unmatched': 0, 'invalid': 0,
-                 'ambiguous': set()}
-        batch = []
+                 'ambiguous': []}
+        cr = self.env.cr
+        t0 = time.monotonic()
+
+        # 1) Stage the file into pg_temp. ON COMMIT DROP means it dies with the
+        # request's transaction and there's nothing to clean up on error.
+        cr.execute("""
+            CREATE TEMP TABLE baf_direct_import (
+                sku_raw   TEXT NOT NULL,
+                sku_upper TEXT NOT NULL,
+                price     NUMERIC NOT NULL
+            ) ON COMMIT DROP
+        """)
+        file_row_count = self._baf_copy_direct_rows_to_temp(
+            rows, sku_idx, price_idx, stats)
+        _logger.info(
+            "Direct import for vendor %s: staged %d row(s) in %.2fs",
+            self.id, file_row_count, time.monotonic() - t0,
+        )
+        if not file_row_count:
+            return stats
+
+        # 2) SKUs that appear under multiple product templates: unresolvable
+        # from the file alone. Report and skip. `product_template.sku` is
+        # indexed so this is an index-only scan.
+        cr.execute("""
+            SELECT DISTINCT f.sku_raw
+            FROM baf_direct_import f
+            WHERE f.sku_raw IN (
+                SELECT sku FROM product_template
+                WHERE sku IS NOT NULL
+                GROUP BY sku
+                HAVING COUNT(*) > 1
+            )
+            ORDER BY f.sku_raw
+        """)
+        stats['ambiguous'] = [r[0] for r in cr.fetchall()]
+
+        # 3) Exact-match INSERT. A btree hit on product_template.sku is the
+        # fast path for six-figure imports — no per-row Python.
+        company = self.env.company
+        params = {
+            'partner': self.id,
+            'currency': company.currency_id.id,
+            'company': company.id,
+            'uid': self.env.uid,
+        }
+        cr.execute("""
+            WITH deduped AS (
+                -- Two rows for the same SKU: last one wins. `ctid DESC` gives
+                -- us the physically-latest row, which is the last one COPY'd
+                -- and matches "later rows overwrite earlier" from the old code.
+                SELECT DISTINCT ON (sku_raw) sku_raw, price
+                FROM baf_direct_import
+                ORDER BY sku_raw, ctid DESC
+            ),
+            ambiguous AS (
+                SELECT sku FROM product_template
+                WHERE sku IS NOT NULL
+                GROUP BY sku HAVING COUNT(*) > 1
+            )
+            INSERT INTO product_supplierinfo (
+                partner_id, product_tmpl_id, price, product_uom_id, currency_id,
+                company_id, min_qty, discount, delay, sequence,
+                create_uid, create_date, write_uid, write_date)
+            SELECT
+                %(partner)s, pt.id, d.price, pt.uom_id,
+                %(currency)s, %(company)s, 0.0, 0.0, 1, 1,
+                %(uid)s, NOW(), %(uid)s, NOW()
+            FROM deduped d
+            JOIN product_template pt ON pt.sku = d.sku_raw
+            WHERE d.sku_raw NOT IN (SELECT sku FROM ambiguous)
+        """, params)
+        exact_matches = cr.rowcount
+
+        # 4) Case-insensitive fallback for the file rows that didn't match by
+        # exact SKU. Skipped when there are no residuals (the normal case
+        # for imports produced by the pricefile export, which preserves
+        # casing). When residuals exist, we still run a single query rather
+        # than one per SKU.
+        cr.execute("""
+            SELECT COUNT(DISTINCT f.sku_upper)
+            FROM baf_direct_import f
+            WHERE NOT EXISTS (
+                SELECT 1 FROM product_template pt WHERE pt.sku = f.sku_raw
+            )
+        """)
+        residual_upper_skus = cr.fetchone()[0]
+        residual_matches = 0
+        if residual_upper_skus:
+            cr.execute("""
+                WITH residuals AS (
+                    SELECT DISTINCT ON (sku_upper) sku_upper, price
+                    FROM baf_direct_import f
+                    WHERE NOT EXISTS (
+                        SELECT 1 FROM product_template pt
+                        WHERE pt.sku = f.sku_raw
+                    )
+                    ORDER BY sku_upper, ctid DESC
+                ),
+                ambiguous_upper AS (
+                    SELECT UPPER(sku) AS su FROM product_template
+                    WHERE sku IS NOT NULL
+                    GROUP BY UPPER(sku) HAVING COUNT(*) > 1
+                )
+                INSERT INTO product_supplierinfo (
+                    partner_id, product_tmpl_id, price, product_uom_id,
+                    currency_id, company_id, min_qty, discount, delay,
+                    sequence, create_uid, create_date, write_uid, write_date)
+                SELECT
+                    %(partner)s, pt.id, r.price, pt.uom_id,
+                    %(currency)s, %(company)s, 0.0, 0.0, 1, 1,
+                    %(uid)s, NOW(), %(uid)s, NOW()
+                FROM residuals r
+                JOIN product_template pt ON UPPER(pt.sku) = r.sku_upper
+                WHERE r.sku_upper NOT IN (SELECT su FROM ambiguous_upper)
+                  AND NOT EXISTS (
+                    SELECT 1 FROM product_supplierinfo si
+                    WHERE si.partner_id = %(partner)s
+                      AND si.product_tmpl_id = pt.id
+                  )
+            """, params)
+            residual_matches = cr.rowcount
+
+        stats['created'] = exact_matches + residual_matches
+        # Unmatched = file rows whose SKU is not in the catalogue at all,
+        # excluding those already accounted for as ambiguous. Computed from
+        # counts to avoid another scan.
+        stats['unmatched'] = max(
+            0, file_row_count - stats['created'] - len(stats['ambiguous']))
+
+        # One invalidate at the end covers every row inserted above. The old
+        # per-batch invalidate is what made the previous version take hours
+        # on large files.
+        self.env['product.supplierinfo'].invalidate_model()
+        _logger.info(
+            "Direct import for vendor %s done in %.2fs — "
+            "created=%d exact=%d fallback=%d ambiguous=%d unmatched=%d invalid=%d",
+            self.id, time.monotonic() - t0, stats['created'], exact_matches,
+            residual_matches, len(stats['ambiguous']), stats['unmatched'],
+            stats['invalid'],
+        )
+        return stats
+
+    def _baf_copy_direct_rows_to_temp(self, rows, sku_idx, price_idx, stats):
+        """Stream (sku, upper(sku), price) triples into `baf_direct_import`
+        via `COPY ... FROM STDIN`. Returns the number of rows staged.
+
+        Uses COPY TEXT format (tab-separated, backslash escapes) so we can
+        write a tight `_escape` helper without pulling in a CSV writer. Empty
+        SKUs and unparseable prices are counted in `stats` and dropped."""
+        cr = self.env.cr
+        row_count = 0
+        chunk_size = self._BAF_DIRECT_COPY_CHUNK
+        parts = []
+
+        def _escape(cell):
+            # COPY TEXT format: literal tabs / newlines / backslashes must be
+            # backslash-escaped, otherwise Postgres reads them as separators.
+            return (cell.replace('\\', '\\\\')
+                        .replace('\t', '\\t')
+                        .replace('\n', '\\n')
+                        .replace('\r', '\\r'))
+
+        def _flush():
+            if not parts:
+                return
+            payload = ''.join(parts).encode('utf-8')
+            parts.clear()
+            import io as _io
+            cr.copy_expert(
+                "COPY baf_direct_import (sku_raw, sku_upper, price) FROM STDIN",
+                _io.BytesIO(payload),
+            )
+
         for row in rows:
             if not row:
                 continue
@@ -507,75 +688,14 @@ class ResPartner(models.Model):
             if price is None:
                 stats['invalid'] += 1
                 continue
-            batch.append((sku, price))
-            if len(batch) >= self._BAF_DIRECT_BATCH:
-                self._baf_insert_direct_batch(batch, stats)
-                batch = []
-        if batch:
-            self._baf_insert_direct_batch(batch, stats)
-        stats['ambiguous'] = sorted(stats['ambiguous'])
-        return stats
-
-    def _baf_insert_direct_batch(self, batch, stats):
-        """Resolve one batch of (sku, price) tuples against product.template
-        with a single query, then write the matched rows with a single INSERT.
-        Raw SQL on purpose: an ORM create per row re-triggers the inverse-field
-        recompute of product.supplierinfo every time, which is what makes a
-        large price list take hours. Updates `stats` in place: matched rows
-        count as created, the rest as unmatched or ambiguous.
-
-        Matching is by SKU only and case-insensitive: the brand of the matched
-        product is whatever the internal catalogue holds (task #53). A SKU
-        that exists under several brands is reported as ambiguous and dropped
-        — the file has no way to disambiguate on purpose, so pointing the
-        user at their catalogue is the only fix."""
-        skus_from_file = {sku for sku, _price in batch}
-        # Fast happy path: one query catches every row where the file and the
-        # DB agree on casing (the norm — mass-import and the pricefile export
-        # both keep SKU casing consistent).
-        products = self.env['product.template'].search_read(
-            [('sku', 'in', list(skus_from_file))], ['sku', 'uom_id'])
-        by_sku_upper = {}
-        for product in products:
-            by_sku_upper.setdefault(product['sku'].upper(), []).append(product)
-        # Fallback for the residual, case-mismatched SKUs. =ilike is a single
-        # indexed compare, and the residual is empty on a clean catalogue.
-        remaining = {s.upper() for s in skus_from_file} - by_sku_upper.keys()
-        for sku_up in remaining:
-            extra = self.env['product.template'].search_read(
-                [('sku', '=ilike', sku_up)], ['sku', 'uom_id'])
-            for product in extra:
-                by_sku_upper.setdefault(product['sku'].upper(), []).append(product)
-
-        company = self.env.company
-        now = fields.Datetime.now()
-        values = []
-        for sku, price in batch:
-            matches = by_sku_upper.get(sku.upper(), [])
-            if not matches:
-                # No product carries this SKU.
-                stats['unmatched'] += 1
-                continue
-            if len(matches) > 1:
-                # Same SKU under several brands in the catalogue -> unresolvable.
-                stats['ambiguous'].add(sku)
-                continue
-            values.append((
-                self.id, matches[0]['id'], price, matches[0]['uom_id'][0],
-                company.currency_id.id, company.id, 0.0, 0.0, 1, 1,
-                self.env.uid, now, self.env.uid, now,
+            parts.append('%s\t%s\t%s\n' % (
+                _escape(sku), _escape(sku.upper()), float(price),
             ))
-        if not values:
-            return
-        execute_values(self.env.cr, """
-            INSERT INTO product_supplierinfo (
-                partner_id, product_tmpl_id, price, product_uom_id, currency_id,
-                company_id, min_qty, discount, delay, sequence,
-                create_uid, create_date, write_uid, write_date)
-            VALUES %s
-        """, values, page_size=1000)
-        self.env['product.supplierinfo'].invalidate_model()
-        stats['created'] += len(values)
+            row_count += 1
+            if len(parts) >= chunk_size:
+                _flush()
+        _flush()
+        return row_count
 
     @api.constrains('sales_group_ids')
     def _check_sales_group_ids_unique_family(self):

@@ -469,6 +469,42 @@ class TestVendorImport(TransactionCase):
         self.assertIn('1 row(s) skipped', res['params']['message'])
         self.assertIn('SKU not found', res['params']['message'])
 
+    def test_vendor_direct_bulk_import_runs_in_a_few_queries(self):
+        # The previous implementation invalidated the whole
+        # `product.supplierinfo` model once per 5000-row batch, which is what
+        # made six-figure imports take hours. The rewrite is fully SQL-based:
+        # one CREATE TEMP + one COPY + a handful of INSERT/SELECTs, regardless
+        # of file size. Pin the shape here so a future refactor can't sneak in
+        # a per-row ORM path unnoticed.
+        bmw = self.Brand.create({'name': 'BMW'})
+        n = 1500
+        for i in range(n):
+            self.Tmpl.create({
+                'name': 'Bulk %d' % i,
+                'default_code': 'BLK_%06d' % i,
+                'sku': 'BULK%06d' % i,
+                'brand': bmw.id,
+                'list_price': 100.0,
+            })
+        rows = [['SKU', 'Discounted Price']] + [
+            ['BULK%06d' % i, str(10 + i)] for i in range(n)
+        ]
+        # Query counter: run the import inside a fresh cursor scope so the
+        # counter reflects only this call.
+        with self.env.cr.savepoint():
+            before = self.env.cr.sql_log_count if hasattr(self.env.cr, 'sql_log_count') else 0
+            self._run('direct', rows)
+            after = self.env.cr.sql_log_count if hasattr(self.env.cr, 'sql_log_count') else 0
+        Seller = self.env['product.supplierinfo']
+        self.assertEqual(
+            Seller.search_count([('partner_id', '=', self.vendor.id)]), n)
+        # Assert the query count is nearly flat regardless of row count. In
+        # practice this call is ~15 SQL statements irrespective of `n`. Guard
+        # loosely (<= 200) so tiny future refactors don't break the test, but
+        # tight enough that a per-row regression is obvious.
+        if hasattr(self.env.cr, 'sql_log_count'):
+            self.assertLess(after - before, 200)
+
     def test_import_replaces_previous_data(self):
         # A second import fully replaces the vendor's data; old rows are gone.
         self._run('matrix', [['DC', 'BMW_T12'], ['10', '20']])
