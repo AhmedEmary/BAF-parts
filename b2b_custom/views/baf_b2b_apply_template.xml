@@ -902,7 +902,7 @@
                                                     <input type="checkbox" name="brand_ids"
                                                            t-att-value="brand.id"
                                                            t-att-checked="'checked' if brand.id in selected_brand_ids else None"/>
-                                                    <span><t t-esc="brand.name"/></span>
+                                                    <span><t t-esc="brand.display_name"/></span>
                                                 </label>
                                             </t>
                                             <t t-if="not brands">

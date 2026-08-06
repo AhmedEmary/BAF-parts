@@ -48,7 +48,7 @@
                 <strong>SKU:</strong> <span t-field="product.sku"/>
             </div>
             <div t-if="product.brand" class="mb-2 text-muted">
-                <strong>Brand:</strong> <span t-field="product.brand.name"/>
+                <strong>Brand:</strong> <span t-field="product.brand.display_name"/>
             </div>
 
             <div t-if="is_nla" class="mb-3 py-2 px-3"
@@ -125,7 +125,7 @@
             <t t-set="is_blocked" t-value="own_sku_nla or is_replaced"/>
 
             <div t-if="product.brand or (product.sku and not own_sku_nla)" class="mb-1 text-muted small">
-                <span t-if="product.brand"><strong t-out="product.brand.name"/> - </span>
+                <span t-if="product.brand"><strong t-out="product.brand.display_name"/> - </span>
                 <span t-if="product.sku and not own_sku_nla">SKU: <t t-out="product.sku"/></span>
             </div>
 
@@ -160,7 +160,7 @@
                         <t t-set="prod" t-value="request.env['product.template'].sudo().browse(int(prod_id_str))"/>
                         <t t-if="prod.exists()">
                             <t t-if="prod.brand">
-                                - <span class="text-primary"><t t-out="prod.brand.name"/></span> -
+                                - <span class="text-primary"><t t-out="prod.brand.display_name"/></span> -
                             </t>
                             <t t-set="display_sku" t-value="prod.sku or prod.default_code"/>
                             <t t-if="display_sku">

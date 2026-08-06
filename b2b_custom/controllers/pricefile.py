@@ -181,7 +181,7 @@ class PriceFile(CustomerPortal):
         data = buf.getvalue()
         buf.close()
 
-        filename = "PriceList_%s_%s.csv" % (brand.name or 'Brand', date.today().isoformat())
+        filename = "PriceList_%s_%s.csv" % (brand.display_name or 'Brand', date.today().isoformat())
         headers = [
             ('Content-Type', 'text/csv; charset=utf-8'),
             ('Content-Length', str(len(data))),

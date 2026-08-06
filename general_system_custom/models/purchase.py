@@ -140,7 +140,7 @@ class PurchaseOrder(models.Model):
             customer_name = po.sale_order_id.partner_id.name if po.sale_order_id else ""
 
             for line in po.order_line:
-                brand_name = self._sanitize(line.product_id.brand.name)
+                brand_name = self._sanitize(line.product_id.brand.display_name)
                 sku = self._sanitize(line.product_id.default_code)
 
                 row_data = [self._sanitize(po.name)]

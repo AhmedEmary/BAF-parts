@@ -12,7 +12,7 @@
 
         <xpath expr="//td[@name='account_invoice_line_name']" position="before">
             <td><span t-field="line.linked_so_id.name"/></td>
-            <td><span t-field="line.product_id.brand.name"/></td>
+            <td><span t-field="line.product_id.brand.display_name"/></td>
             <td><span t-field="line.product_id.default_code"/></td>
             <td><span t-field="line.hs_code"/></td>
             <td><span t-field="line.origin_country_id.name"/></td>

@@ -127,7 +127,7 @@ class WebsiteSalePagination(Cart):
         row = 1
         for line in order.order_line:
             # Using your custom SKU/Brand logic if available, else standard Odoo fields
-            brand = line.product_id.brand.name if hasattr(line.product_id, 'brand') else ''
+            brand = line.product_id.brand.display_name if hasattr(line.product_id, 'brand') else ''
             sku = line.product_id.sku or ''
             
             worksheet.write(row, 0, brand)

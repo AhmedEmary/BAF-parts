@@ -27,7 +27,7 @@
                             <t t-foreach="brands" t-as="brand">
                                 <option t-att-value="brand.id"
                                         t-att-selected="brand.id == selected_brand_id">
-                                    <t t-out="brand.name"/>
+                                    <t t-out="brand.display_name"/>
                                 </option>
                             </t>
                         </select>
@@ -86,7 +86,7 @@
                                         <td class="whitespace-nowrap py-2 pl-4 pr-3 text-sm text-gray-500 sm:pl-0"><span t-field="line.order_id.customer_po"/></td>
                                         <td class="whitespace-nowrap py-2 pl-4 pr-3 text-sm text-gray-500 sm:pl-0"><span t-field="line.order_id.name"/></td>
                                         <td class="whitespace-nowrap py-2 pl-4 pr-3 text-sm text-gray-500 sm:pl-0"><span t-field="line.create_date" t-options='{"widget": "datetime", "format": "dd-MM-yyyy HH:mm"}'/></td>
-                                        <td class="whitespace-nowrap py-2 pl-4 pr-3 text-sm text-gray-500 sm:pl-0"><span t-field="line.product_id.brand.name"/></td>
+                                        <td class="whitespace-nowrap py-2 pl-4 pr-3 text-sm text-gray-500 sm:pl-0"><span t-field="line.product_id.brand.display_name"/></td>
                                         <td class="whitespace-nowrap py-2 pl-4 pr-3 text-sm text-gray-500 sm:pl-0"><span t-field="line.product_id.sku"/></td>
                                         <td class="whitespace-nowrap py-2 pl-4 pr-3 text-sm text-gray-500 sm:pl-0"><span t-field="line.product_id.name"/></td>
                                         <td class="whitespace-nowrap py-2 pl-4 pr-3 text-sm text-gray-500 sm:pl-0"><span t-field="line.price_unit" t-options='{"widget": "monetary", "display_currency": line.currency_id}'/></td>

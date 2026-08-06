@@ -38,7 +38,7 @@
                                     </div>
                                     
                                     <div class="text-muted small mb-2">
-                                        <span t-if="'brand' in line.product_id and line.product_id.brand" class="fw-bold text-dark"><t t-out="line.product_id.brand.name"/> - </span>
+                                        <span t-if="'brand' in line.product_id and line.product_id.brand" class="fw-bold text-dark"><t t-out="line.product_id.brand.display_name"/> - </span>
                                         <span t-if="'sku' in line.product_id and line.product_id.sku">SKU: <t t-out="line.product_id.sku"/></span>
                                         <span t-elif="'default_code' in line.product_id and line.product_id.default_code">SKU: <t t-out="line.product_id.default_code"/></span>
                                     </div>
