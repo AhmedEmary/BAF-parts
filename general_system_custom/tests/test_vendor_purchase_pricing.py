@@ -386,23 +386,23 @@ class TestVendorImport(TransactionCase):
             ('partner_id', '=', self.vendor.id), ('product_tmpl_id', '=', prod.id)])
         self.assertEqual(si.price, 65.0)
 
-    def test_vendor_direct_brand_disambiguation(self):
+    def test_vendor_direct_ignores_file_brand_column(self):
+        # A BRAND column in the file is intentionally ignored (task #53): the
+        # brand comes from the catalogue. When the SKU is unique in the
+        # catalogue the row still imports; a wrong or unknown brand value
+        # never blocks the import and never overrides the internal brand.
         bmw = self.Brand.create({'name': 'BMW'})
-        mini = self.Brand.create({'name': 'MINI'})
-        p_bmw = self.Tmpl.create({
-            'name': 'A', 'default_code': 'ZZDCA', 'sku': 'ZZDUP1',
+        prod = self.Tmpl.create({
+            'name': 'P', 'default_code': 'ZZDCA', 'sku': 'ZZUNI1',
             'brand': bmw.id, 'list_price': 100.0})
-        p_mini = self.Tmpl.create({
-            'name': 'B', 'default_code': 'ZZDCB', 'sku': 'ZZDUP1',
-            'brand': mini.id, 'list_price': 100.0})
-        res = self._run('direct', [['SKU', 'Discounted Price', 'BRAND'], ['ZZDUP1', '65', 'MINI']])
-        Seller = self.env['product.supplierinfo']
-        self.assertEqual(
-            Seller.search([('partner_id', '=', self.vendor.id),
-                           ('product_tmpl_id', '=', p_mini.id)]).price, 65.0)
-        self.assertFalse(
-            Seller.search([('partner_id', '=', self.vendor.id),
-                           ('product_tmpl_id', '=', p_bmw.id)]))
+        res = self._run('direct', [
+            ['SKU', 'Discounted Price', 'BRAND'],
+            ['ZZUNI1', '65', 'MINI (nonsense)'],
+        ])
+        si = self.env['product.supplierinfo'].search([
+            ('partner_id', '=', self.vendor.id),
+            ('product_tmpl_id', '=', prod.id)])
+        self.assertEqual(si.price, 65.0)
         self.assertEqual(res['params']['type'], 'success')
 
     def test_vendor_direct_ambiguous_sku_warns(self):
@@ -421,7 +421,53 @@ class TestVendorImport(TransactionCase):
             ('product_tmpl_id', 'in', [p_bmw.id, p_mini.id])]))
         self.assertEqual(res['params']['type'], 'warning')
         self.assertIn('1 SKU(s) skipped', res['params']['message'])
-        self.assertIn('Brand column', res['params']['message'])
+        self.assertIn('several brands', res['params']['message'])
+
+    def test_vendor_direct_case_insensitive_sku(self):
+        # SKU casing between the file and the catalogue must not matter: the
+        # file can lowercase, the catalogue can be mixed-case, both directions
+        # still resolve to the same product (task #53).
+        bmw = self.Brand.create({'name': 'BMW'})
+        upper = self.Tmpl.create({
+            'name': 'P1', 'default_code': 'ZZDC-U', 'sku': 'AB12CD',
+            'brand': bmw.id, 'list_price': 100.0})
+        mixed = self.Tmpl.create({
+            'name': 'P2', 'default_code': 'ZZDC-M', 'sku': 'Xy34Zw',
+            'brand': bmw.id, 'list_price': 100.0})
+        res = self._run('direct', [
+            ['SKU', 'Discounted Price'],
+            ['ab12cd', '65'],
+            ['XY34ZW', '77'],
+        ])
+        Seller = self.env['product.supplierinfo']
+        self.assertEqual(
+            Seller.search([('partner_id', '=', self.vendor.id),
+                           ('product_tmpl_id', '=', upper.id)]).price, 65.0)
+        self.assertEqual(
+            Seller.search([('partner_id', '=', self.vendor.id),
+                           ('product_tmpl_id', '=', mixed.id)]).price, 77.0)
+        self.assertEqual(res['params']['type'], 'success')
+
+    def test_vendor_direct_missing_sku_not_imported(self):
+        # The internal database is the reference: a SKU that does not exist
+        # is dropped, no product and no brand is ever created (task #53).
+        bmw = self.Brand.create({'name': 'BMW'})
+        self.Tmpl.create({
+            'name': 'P', 'default_code': 'ZZDC-N', 'sku': 'HASME',
+            'brand': bmw.id, 'list_price': 100.0})
+        n_products_before = self.env['product.template'].search_count([])
+        n_brands_before = self.env['product.brand'].search_count([])
+        res = self._run('direct', [
+            ['SKU', 'Discounted Price'],
+            ['HASME', '65'],
+            ['NOTIN', '77'],
+        ])
+        self.assertEqual(
+            self.env['product.template'].search_count([]), n_products_before)
+        self.assertEqual(
+            self.env['product.brand'].search_count([]), n_brands_before)
+        self.assertIn('1 row(s) skipped', res['params']['message'])
+        self.assertIn('SKU not found', res['params']['message'])
 
     def test_import_replaces_previous_data(self):
         # A second import fully replaces the vendor's data; old rows are gone.
@@ -463,7 +509,7 @@ class TestVendorImport(TransactionCase):
 
     def test_download_template_action(self):
         for method, first_header in [
-            ('direct', ['sku', 'discounted price', 'brand']),
+            ('direct', ['sku', 'discounted price']),
             ('codes', ['dc', 'discount in %']),
             ('matrix', ['#', 'BMW TA 1-2-4-6-8']),
         ]:

@@ -329,14 +329,17 @@ class ResPartner(models.Model):
         ambiguous = stats.get('ambiguous') or []
         if ambiguous:
             lines.append(_(
-                "%d SKU(s) skipped: the same SKU exists under several brands. "
-                "Add a Brand column to the file to disambiguate."
+                "%d SKU(s) skipped: the same SKU exists under several brands "
+                "in the catalogue, so the file row cannot be assigned to one product."
             ) % len(ambiguous))
         return "\n".join(lines)
 
     # Canonical column headers per method (single accepted name per column).
+    # The direct template intentionally has no Brand column: the brand is
+    # assigned automatically from the internal catalogue (task #53) and any
+    # brand value in the file is ignored.
     _BAF_TEMPLATE_ROWS = {
-        'direct': [['sku', 'discounted price', 'brand']],
+        'direct': [['sku', 'discounted price']],
         'codes':  [['dc', 'discount in %']],
         'matrix': [
             ['#', 'BMW TA 1-2-4-6-8', 'BMW TA 3-5-7-9',
@@ -452,10 +455,16 @@ class ResPartner(models.Model):
     _BAF_DIRECT_BATCH = 5000
 
     def _baf_import_direct(self, rows):
-        """Direct prices: columns SKU, PRICE and an OPTIONAL BRAND (named header).
-        Match products by sku (+ brand when given). A SKU that matches several
-        products without a brand to disambiguate is skipped and reported.
-        Falls back to positional [sku, price] when no recognizable header.
+        """Direct prices: columns SKU, DISCOUNTED PRICE. Only products whose
+        SKU already exists in the catalogue are imported; the brand of the
+        matched row comes from the internal database. Any BRAND column in the
+        file is intentionally ignored (task #53): brand assignment is
+        internal-only, so a wrong or unknown brand in the source must never
+        create products or change matching. Falls back to positional
+        [sku, price] when no recognizable header.
+
+        SKU matching is case-insensitive on both sides so a lowercase file
+        against uppercase catalogue rows still matches.
 
         `rows` may be a stream, so it is consumed once, in batches. The vendor's
         existing prices were wiped beforehand, so every matched row is an insert
@@ -478,12 +487,11 @@ class ResPartner(models.Model):
 
         sku_idx = _find({'sku'})
         price_idx = _find({'discounted price'})
-        if sku_idx is not None and price_idx is not None:
-            brand_idx = _find({'brand'})
-        else:
-            # No recognizable header -> positional [sku, price] (no brand), and
-            # the row just consumed is data.
-            sku_idx, price_idx, brand_idx = 0, 1, None
+        if sku_idx is None or price_idx is None:
+            # No recognizable header -> positional [sku, price] and the row
+            # just consumed is data. A stray Brand column, if any, will be
+            # ignored (its index isn't looked at).
+            sku_idx, price_idx = 0, 1
             rows = itertools.chain([first_row], rows)
 
         stats = {'created': 0, 'updated': 0, 'unmatched': 0, 'invalid': 0,
@@ -499,10 +507,7 @@ class ResPartner(models.Model):
             if price is None:
                 stats['invalid'] += 1
                 continue
-            brand = ''
-            if brand_idx is not None and brand_idx < len(row):
-                brand = bafutil.clean_cell(row[brand_idx]).strip()
-            batch.append((sku, brand, price))
+            batch.append((sku, price))
             if len(batch) >= self._BAF_DIRECT_BATCH:
                 self._baf_insert_direct_batch(batch, stats)
                 batch = []
@@ -512,32 +517,47 @@ class ResPartner(models.Model):
         return stats
 
     def _baf_insert_direct_batch(self, batch, stats):
-        """Resolve one batch of (sku, brand, price) tuples against
-        product.template with a single query, then write the matched rows with a
-        single INSERT. Raw SQL on purpose: an ORM create per row re-triggers the
-        inverse-field recompute of product.supplierinfo every time, which is what
-        makes a large price list take hours. Updates `stats` in place: matched
-        rows count as created, the rest as unmatched or ambiguous."""
-        by_sku = {}
+        """Resolve one batch of (sku, price) tuples against product.template
+        with a single query, then write the matched rows with a single INSERT.
+        Raw SQL on purpose: an ORM create per row re-triggers the inverse-field
+        recompute of product.supplierinfo every time, which is what makes a
+        large price list take hours. Updates `stats` in place: matched rows
+        count as created, the rest as unmatched or ambiguous.
+
+        Matching is by SKU only and case-insensitive: the brand of the matched
+        product is whatever the internal catalogue holds (task #53). A SKU
+        that exists under several brands is reported as ambiguous and dropped
+        — the file has no way to disambiguate on purpose, so pointing the
+        user at their catalogue is the only fix."""
+        skus_from_file = {sku for sku, _price in batch}
+        # Fast happy path: one query catches every row where the file and the
+        # DB agree on casing (the norm — mass-import and the pricefile export
+        # both keep SKU casing consistent).
         products = self.env['product.template'].search_read(
-            [('sku', 'in', list({sku for sku, _brand, _price in batch}))],
-            ['sku', 'brand', 'uom_id'])
+            [('sku', 'in', list(skus_from_file))], ['sku', 'uom_id'])
+        by_sku_upper = {}
         for product in products:
-            by_sku.setdefault(product['sku'], []).append(product)
+            by_sku_upper.setdefault(product['sku'].upper(), []).append(product)
+        # Fallback for the residual, case-mismatched SKUs. =ilike is a single
+        # indexed compare, and the residual is empty on a clean catalogue.
+        remaining = {s.upper() for s in skus_from_file} - by_sku_upper.keys()
+        for sku_up in remaining:
+            extra = self.env['product.template'].search_read(
+                [('sku', '=ilike', sku_up)], ['sku', 'uom_id'])
+            for product in extra:
+                by_sku_upper.setdefault(product['sku'].upper(), []).append(product)
 
         company = self.env.company
         now = fields.Datetime.now()
         values = []
-        for sku, brand, price in batch:
-            matches = by_sku.get(sku, [])
-            if brand:
-                matches = [p for p in matches if p['brand'] and p['brand'][1] == brand]
+        for sku, price in batch:
+            matches = by_sku_upper.get(sku.upper(), [])
             if not matches:
-                # No product carries this SKU (or not under that brand).
+                # No product carries this SKU.
                 stats['unmatched'] += 1
                 continue
             if len(matches) > 1:
-                # Ambiguous even after any brand filter -> skip and report.
+                # Same SKU under several brands in the catalogue -> unresolvable.
                 stats['ambiguous'].add(sku)
                 continue
             values.append((
