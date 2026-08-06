@@ -1,10 +1,22 @@
 import gzip
 import io
+import re
 from datetime import date
 
-from odoo import http
-from odoo.addons.general_system_custom.models.baf_product_pricing import resolve_baf_brand_info
+try:
+    import openpyxl
+except ImportError:  # pragma: no cover
+    openpyxl = None
+
+from odoo import http, _
+from odoo.addons.general_system_custom.models.baf_product_pricing import (
+    baf_brand_base_key,
+    baf_family_base_key,
+    BAF_TYPE_SPLIT_FAMILIES,
+    resolve_baf_brand_info,
+)
 from odoo.addons.portal.controllers.portal import CustomerPortal
+from odoo.exceptions import UserError
 from odoo.http import content_disposition, request
 
 
@@ -115,12 +127,212 @@ def pricefile_query(partner, brand, lang):
     return sql, params
 
 
+# Type-bucket labels shared with the discount export. The bucket is the last
+# `_T12` / `_T39` fragment of a discount-line column_key stripped of the
+# group suffix. Only the BMW/MINI family has this split today; every other
+# family has a single bucket keyed to the family base ('JLR', 'MERCEDES', ...).
+_TYPE_BUCKET_LABELS = {
+    'T12': "TA 1-2-4-6-8",
+    'T39': "TA 3-5-7-9",
+}
+# Excel sheet-name reserved chars + 31-char cap. Trims the brand name to fit.
+_SHEET_NAME_INVALID_RE = re.compile(r'[\\/*?:\[\]]')
+
+
+def _safe_sheet_name(name, used):
+    """Return an Excel-valid, unique sheet name derived from `name`."""
+    cleaned = _SHEET_NAME_INVALID_RE.sub(' ', (name or 'Brand')).strip() or 'Brand'
+    cleaned = cleaned[:31]
+    base = cleaned
+    suffix = 2
+    while cleaned in used:
+        # Reserve room for the ' (N)' suffix so the cap is respected.
+        tag = ' (%d)' % suffix
+        cleaned = (base[: 31 - len(tag)]) + tag
+        suffix += 1
+    used.add(cleaned)
+    return cleaned
+
+
+def _applicable_sales_groups(partner, brand):
+    """Every active sales group the partner has for this brand's family: the
+    family-scoped ones (car + optional moto), and the wildcard fallback when no
+    family-scoped group covers the brand. Mirrors `pricefile_query`'s resolution
+    so the exported %s can never disagree with the price on the pricefile."""
+    groups = partner._baf_effective_sales_groups().filtered(lambda g: g.active)
+    family = brand.family_id
+    family_groups = groups.filtered(lambda g: family and g.family_id == family)
+    if family_groups:
+        return family_groups
+    return groups.filtered(lambda g: not g.family_id)[:1]
+
+
+def _column_label(bucket, is_moto):
+    """User-facing header for a (type bucket, moto?) column. Never carries a
+    group name or the group's column suffix — customers must not see internal
+    grouping (task #49)."""
+    parts = []
+    if bucket in _TYPE_BUCKET_LABELS:
+        parts.append(_TYPE_BUCKET_LABELS[bucket])
+    if is_moto:
+        parts.append(_("Motorcycle"))
+    return " ".join(parts) if parts else _("Discount %")
+
+
+def _brand_sales_key_bases(brand):
+    """Every base that `baf_sales_column_key` can take for products of this
+    brand, paired with its public type bucket. Mirrors
+    `_compute_baf_column_key`: for type-split families (BMW/MINI) the base is
+    the brand's own base and there is one per type bucket
+    (e.g. 'QA_BMW_T12', 'QA_BMW_T39'); for every other family the base is the
+    family base and there is a single, bucket-less entry ('JLR'). Returning
+    the same bases the pricing engine writes lets us reconstruct the discount
+    line column_keys exactly and search for them by equality."""
+    brand_name = brand.name or ''
+    family_kind = resolve_baf_brand_info(brand_name)[1]
+    if family_kind in BAF_TYPE_SPLIT_FAMILIES:
+        return [
+            ('T12', resolve_baf_brand_info(brand_name, type_code=1)[0]),
+            ('T39', resolve_baf_brand_info(brand_name, type_code=3)[0]),
+        ]
+    if brand.family_id:
+        return [('', baf_family_base_key(brand.family_id))]
+    return [('', baf_brand_base_key(brand_name))]
+
+
+def _brand_discount_rows(brand, groups):
+    """Return (headers, rows) for one brand's discount worksheet, or (None, None)
+    when the brand has no applicable table-lookup rate for this customer.
+
+    Row shape: `[discount_code, pct_col_1, pct_col_2, ...]` — one column per
+    (type bucket, moto flag) combination that actually has data. Column
+    headers are the public labels only; the group's column suffix (GR1 / GR2 /
+    MOTO / etc.) never leaks into the sheet.
+
+    Discount lines are keyed by (table_type, column_key, discount_code) with
+    column_key = `<base>_<group_suffix>`. That's how the pricing engine looks
+    them up (see pricefile_query / _PRICEFILE_SQL); the lines themselves don't
+    necessarily carry a group_id, so we match on column_key values rebuilt
+    from the customer's applicable groups and the brand's sales-key bases."""
+    if not groups:
+        return None, None
+    lookup_groups = groups.filtered(lambda g: g.pricing_method == 'table_lookup')
+    if not lookup_groups:
+        return None, None
+    bases = [(bucket, base) for bucket, base in _brand_sales_key_bases(brand) if base]
+    if not bases:
+        return None, None
+
+    # {full_column_key: (bucket, is_moto)} — used to decorate lookup results.
+    # 'GR1' matches pricefile_query's default when a group has no explicit
+    # suffix, so column_keys stay in lockstep with the priced pricefile.
+    key_meta = {}
+    for group in lookup_groups:
+        suffix = (group.group_column_suffix or 'GR1').strip()
+        is_moto = group._is_moto_group()
+        for bucket, base in bases:
+            key = '%s_%s' % (base, suffix)
+            key_meta[key] = (bucket, is_moto)
+    if not key_meta:
+        return None, None
+
+    lines = request.env['baf.discount.line'].sudo().search([
+        ('table_type', '=', 'sales'),
+        ('column_key', 'in', list(key_meta.keys())),
+    ])
+    if not lines:
+        return None, None
+
+    # {(bucket, is_moto): {code: pct}} — later flattened to a table.
+    cells = {}
+    for line in lines:
+        meta = key_meta.get(line.column_key)
+        if not meta:
+            continue
+        cells.setdefault(meta, {})[line.discount_code] = line.discount_pct
+
+    if not cells:
+        return None, None
+    # Consistent column order: car buckets first (T12, T39, ''), then moto.
+    def _col_sort_key(col):
+        bucket, is_moto = col
+        bucket_order = {'T12': 0, 'T39': 1, '': 2}.get(bucket, 3)
+        return (int(is_moto), bucket_order)
+    columns = sorted(cells.keys(), key=_col_sort_key)
+    all_codes = sorted({
+        code for col in columns for code in cells[col].keys()
+    })
+    headers = [_("Discount Code")] + [_column_label(*col) for col in columns]
+    rows = []
+    for code in all_codes:
+        row = [code]
+        for col in columns:
+            row.append(cells[col].get(code))
+        rows.append(row)
+    return headers, rows
+
+
 class PriceFile(CustomerPortal):
 
     @http.route(['/pricefile'], type='http', auth='user', website=True)
     def pricefile_page(self, **kw):
         brands = visible_brands(request.env, request.env.user.partner_id)
         return request.render('b2b_custom.pricefile_page', {'brands': brands})
+
+    @http.route(
+        ['/pricefile/discount-download'], type='http', auth='user', website=True,
+        multilang=False, sitemap=False,
+    )
+    def discount_download(self, **kw):
+        """One xlsx file for the customer, one worksheet per visible brand,
+        listing the sales discount codes and effective % that apply to them.
+        Sheets are omitted for brands whose applicable group is markup-only or
+        has no rows, so the file only shows brands the customer actually gets
+        table-lookup rates for. Internal group names / column suffixes never
+        appear (task #49)."""
+        if not openpyxl:
+            raise UserError(_(
+                "The 'openpyxl' Python library is required to export discount "
+                "tables. Please contact your administrator."))
+        partner = request.env.user.partner_id
+        brands = visible_brands(request.env, partner)
+        if not brands:
+            return request.redirect('/pricefile')
+
+        wb = openpyxl.Workbook()
+        # Wipe the default empty sheet: we add per-brand sheets and don't want a
+        # stray "Sheet" left over when we're done.
+        wb.remove(wb.active)
+        used_names = set()
+        for brand in brands:
+            groups = _applicable_sales_groups(partner, brand)
+            headers, rows = _brand_discount_rows(brand, groups)
+            if not headers:
+                continue
+            ws = wb.create_sheet(title=_safe_sheet_name(brand.display_name, used_names))
+            ws.append(headers)
+            for row in rows:
+                ws.append(row)
+
+        if not wb.sheetnames:
+            # Every brand fell out (markup-only, no lines) — no file to serve.
+            return request.redirect('/pricefile')
+
+        buf = io.BytesIO()
+        wb.save(buf)
+        data = buf.getvalue()
+        buf.close()
+
+        filename = "DiscountCodes_%s_%s.xlsx" % (
+            (partner.name or 'Customer').replace(' ', '_'),
+            date.today().isoformat(),
+        )
+        return request.make_response(data, headers=[
+            ('Content-Type',
+             'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'),
+            ('Content-Length', str(len(data))),
+            ('Content-Disposition', content_disposition(filename)),
+        ])
 
     @http.route(
         ['/pricefile/download'], type='http', auth='user', website=True,

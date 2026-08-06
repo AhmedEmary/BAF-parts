@@ -1,7 +1,7 @@
 {
     'name': "B2B custom",
     'summary': "This is a custom sale module for B2B companies",
-    'version': '1.0',
+    'version': '1.1',
     'category': 'Sales/Sales',
     'depends': ['general_system_custom', 'website_sale', 'mail', 'portal', 'auth_signup', 'contacts'],
     'installable': True,
