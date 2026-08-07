@@ -231,18 +231,15 @@
          Extend res.partner form — add Sales Pricing Group field
     ═══════════════════════════════════════════════════════ -->
 
+    <!-- `sales_group_ids` is placed once in partner_view.xml under
+         "BAF Webshop & Pricing"; this record is kept empty to preserve the
+         external id in case anything references it. -->
     <record id="view_partner_form_baf_sales_group" model="ir.ui.view">
         <field name="name">res.partner.form.baf.sales.group</field>
         <field name="model">res.partner</field>
         <field name="inherit_id" ref="base.view_partner_form"/>
         <field name="arch" type="xml">
-            <xpath expr="//field[@name='property_supplier_payment_term_id']" position="after">
-                <field name="sales_group_ids"
-                       string="Sales Pricing Groups"
-                       widget="many2many_tags"
-                       options="{'no_quick_create': True}"
-                       help="Leave empty → customer sees full UPE (MSRP). Assign at most one sales pricing group per brand family (for example one BMW/MINI group and one JLR group)."/>
-            </xpath>
+            <data/>
         </field>
     </record>
 
