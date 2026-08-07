@@ -58,20 +58,9 @@
                 </span>
             </div>
 
-            <div t-if="product.replaced_by_id" class="mb-3 py-2 ps-3"
-                 style="border-left: 3px solid #6c757d; font-size: 1.05rem;">
-                <div class="text-uppercase text-muted small fw-semibold" style="letter-spacing: 0.05em;">
-                    <i class="fa fa-exchange me-1"/> New part number
-                </div>
-                <a t-att-href="product.replaced_by_id.website_url"
-                   class="text-dark text-decoration-none fw-semibold"
-                   style="border-bottom: 1px dotted #6c757d;">
-                    <t t-out="product.replaced_by_id.name"/>
-                    <t t-if="product.replaced_by_id.sku">
-                        <span class="text-muted fw-normal ms-1">(<t t-out="product.replaced_by_id.sku"/>)</span>
-                    </t>
-                </a>
-            </div>
+            <!-- Task #52 removed the "New part number" successor block that
+                 used to render `product.replaced_by_id` here: replaced
+                 products are no longer surfaced to customers. -->
 
             <table class="table table-sm mb-3" style="max-width: 380px; font-size: 1rem;">
                 <tbody>
@@ -120,9 +109,11 @@
 
     <template id="products_item_custom_sku" inherit_id="website_sale.products_item">
         <xpath expr="//h2[hasclass('o_wsale_products_item_title')]" position="after">
+            <!-- Task #52: the shop tile no longer surfaces a "Replaced —
+                 order successor" badge or blocks replaced products. Only
+                 NLA still gets its own callout. -->
             <t t-set="own_sku_nla" t-value="product.sku and product.sku.strip().upper() == 'NLA'"/>
-            <t t-set="is_replaced" t-value="bool(product.replaced_by_id)"/>
-            <t t-set="is_blocked" t-value="own_sku_nla or is_replaced"/>
+            <t t-set="is_blocked" t-value="own_sku_nla"/>
 
             <div t-if="product.brand or (product.sku and not own_sku_nla)" class="mb-1 text-muted small">
                 <span t-if="product.brand"><strong t-out="product.brand.display_name"/> - </span>
@@ -132,9 +123,6 @@
             <div class="mb-2 small">
                 <span t-if="own_sku_nla" class="fw-bold" style="color: #c0392b;">
                     <i class="fa fa-ban me-1"/> No Longer Available
-                </span>
-                <span t-elif="is_replaced" class="fw-bold" style="color: #c0392b;">
-                    <i class="fa fa-exchange me-1"/> Replaced — order successor
                 </span>
                 <t t-else="">
                     <t t-set="is_in_stock" t-value="product.sudo().qty_available &gt; 0"/>
