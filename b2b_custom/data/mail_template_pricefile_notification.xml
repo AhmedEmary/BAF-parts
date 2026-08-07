@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="1">
+        <!-- Sent to approved B2B customers after a pricefile import completes
+             (product.brand._baf_notify_price_update). ctx['brand_names'] is
+             the comma-joined display list of the imported brands; falls back
+             to a generic "your pricefile" when missing. -->
+        <record id="mail_template_pricefile_price_update" model="mail.template">
+            <field name="name">Pricefile: new prices available</field>
+            <field name="model_id" ref="model_product_brand"/>
+            <field name="subject">Neue Preise verfügbar{{ ctx.get('brand_names') and (' – ' + ctx['brand_names']) or '' }}</field>
+            <field name="email_from">{{ (user.email_formatted or object.env.company.email or '') }}</field>
+            <field name="auto_delete" eval="False"/>
+            <field name="body_html" type="html">
+<div style="font-family: Arial, sans-serif; font-size: 14px; color: #2f3a44;">
+    <p>Sehr geehrte Damen und Herren,</p>
+
+    <p>
+        für Ihre freigegebenen Marken<t t-if="ctx.get('brand_names')"> (<b t-out="ctx['brand_names']"/>)</t>
+        stehen neue Preise zur Verfügung.
+    </p>
+
+    <p>
+        Die aktualisierten Preisdateien und Rabattcodes können Sie
+        in Ihrem Kundenportal herunterladen:
+    </p>
+
+    <p>
+        <a t-att-href="(object.env.company.website or '') + '/pricefile'"
+           style="display: inline-block; padding: 10px 18px; background: #017e84;
+                  color: #ffffff; text-decoration: none; border-radius: 4px;
+                  font-weight: bold;">
+            Preisdateien öffnen
+        </a>
+    </p>
+
+    <p style="color: #6b7280; font-size: 12px; margin-top: 24px;">
+        Diese Nachricht wurde automatisch nach Abschluss eines Preis-Imports
+        versendet. Für Rückfragen antworten Sie bitte direkt auf diese E-Mail.
+    </p>
+</div>
+            </field>
+        </record>
+    </data>
+</odoo>

@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Header button on Product Brand form: opens the multi-brand notify
+         wizard preselected with this brand. -->
+    <record id="view_product_brand_form_inherit_baf_notify" model="ir.ui.view">
+        <field name="name">product.brand.form.inherit.b2b.notify</field>
+        <field name="model">product.brand</field>
+        <field name="inherit_id" ref="general_system_custom.view_product_brand_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//sheet" position="before">
+                <header>
+                    <button name="action_notify_price_update"
+                            type="object"
+                            string="Notify customers of new prices"
+                            class="btn-primary"
+                            groups="base.group_user"/>
+                </header>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="view_pricefile_notify_wizard_form" model="ir.ui.view">
+        <field name="name">pricefile.notify.wizard.form</field>
+        <field name="model">pricefile.notify.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Notify customers of new prices">
+                <sheet>
+                    <group>
+                        <field name="brand_ids" widget="many2many_tags"
+                               options="{'no_create': True}"/>
+                        <field name="recipient_count" readonly="1"/>
+                    </group>
+                    <p class="text-muted">
+                        An email with a direct link to the pricefile page will be
+                        sent to every approved B2B customer with access to the
+                        selected brand(s). Contacts of the same company are
+                        deduplicated — one email per commercial partner.
+                    </p>
+                </sheet>
+                <footer>
+                    <button name="action_send" type="object"
+                            string="Send notification" class="btn-primary"/>
+                    <button string="Cancel" class="btn-secondary" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+</odoo>
