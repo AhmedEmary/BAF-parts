@@ -45,6 +45,10 @@
                                options="{'no_create': True}"
                                placeholder="Select allowed brands..."/>
                     </group>
+                    <group string="Delivery Window">
+                        <field name="baf_max_delivery_weeks"
+                               placeholder="No cap"/>
+                    </group>
                 </group>
             </xpath>
 

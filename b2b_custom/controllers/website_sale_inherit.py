@@ -54,9 +54,15 @@ class WebsiteSalePagination(Cart):
             partner = order.partner_id
             default_price = product.baf_get_sales_price(
                 partner=partner.sudo()._origin if partner else None)
+            # Task #51: pass the partner so the customer's delivery-window
+            # cap trims the "allowed" set too — otherwise an untrusted client
+            # could bypass the cap by naming a vendor the UI would hide.
             allowed = {
                 o['vendor_id']
-                for o in product._baf_alternative_direct_vendors(default_price)
+                for o in product._baf_alternative_direct_vendors(
+                    default_price,
+                    partner=partner.sudo()._origin if partner else None,
+                )
             }
             if int(vendor_id) not in allowed:
                 raise UserError(

@@ -80,6 +80,35 @@ class ResPartner(models.Model):
              "rank this vendor as slowest.",
     )
 
+    baf_max_delivery_weeks = fields.Integer(
+        string='Max Delivery Weeks (Customer)',
+        help="Customer-side cap on the delivery frame of the supplier auto-"
+             "selection: only vendors whose Delivery Time Frame is between 1 "
+             "and this value are considered for this customer's orders. "
+             "Empty / 0 = no cap (default behaviour, every vendor is "
+             "eligible and the fastest wins). See task #51.",
+    )
+
+    @api.constrains('baf_max_delivery_weeks')
+    def _check_baf_max_delivery_weeks(self):
+        for partner in self:
+            if partner.baf_max_delivery_weeks < 0:
+                raise ValidationError(_(
+                    "Max Delivery Weeks (Customer) cannot be negative."))
+
+    def _baf_customer_delivery_cap(self):
+        """The delivery-weeks cap this partner (or its commercial parent)
+        imposes on the vendor selection. Falls back to the commercial partner
+        when a child contact has none set, mirroring
+        `_baf_effective_sales_groups`. Returns 0 for "no cap"."""
+        self.ensure_one()
+        if self.baf_max_delivery_weeks:
+            return self.baf_max_delivery_weeks
+        company = self.commercial_partner_id
+        if company and company != self and company.baf_max_delivery_weeks:
+            return company.baf_max_delivery_weeks
+        return 0
+
     baf_delivery_weeks_upper = fields.Integer(
         string='Delivery Upper Bound',
         compute='_compute_baf_delivery_weeks_upper',
