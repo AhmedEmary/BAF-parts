@@ -386,11 +386,10 @@ class TestVendorImport(TransactionCase):
             ('partner_id', '=', self.vendor.id), ('product_tmpl_id', '=', prod.id)])
         self.assertEqual(si.price, 65.0)
 
-    def test_vendor_direct_ignores_file_brand_column(self):
-        # A BRAND column in the file is intentionally ignored (task #53): the
-        # brand comes from the catalogue. When the SKU is unique in the
-        # catalogue the row still imports; a wrong or unknown brand value
-        # never blocks the import and never overrides the internal brand.
+    def test_vendor_direct_file_brand_ignored_when_sku_is_unique(self):
+        # When the SKU is unique in the catalogue, any brand value in the
+        # file is irrelevant — the catalogue's brand is used and the row
+        # imports.
         bmw = self.Brand.create({'name': 'BMW'})
         prod = self.Tmpl.create({
             'name': 'P', 'default_code': 'ZZDCA', 'sku': 'ZZUNI1',
@@ -420,8 +419,11 @@ class TestVendorImport(TransactionCase):
             ('partner_id', '=', self.vendor.id),
             ('product_tmpl_id', 'in', [p_bmw.id, p_mini.id])]))
         self.assertEqual(res['params']['type'], 'warning')
-        self.assertIn('1 SKU(s) skipped', res['params']['message'])
-        self.assertIn('several brands', res['params']['message'])
+        # Duplicate SKUs without a brand column now land in the ambiguous
+        # stash for manual review instead of being silently skipped.
+        self.assertIn('awaiting brand choice', res['params']['message'])
+        self.assertTrue(self.env['baf.direct.import.ambiguous'].search(
+            [('partner_id', '=', self.vendor.id), ('sku', '=', 'ZZDUP2')]))
 
     def test_vendor_direct_case_insensitive_sku(self):
         # SKU casing between the file and the catalogue must not matter: the

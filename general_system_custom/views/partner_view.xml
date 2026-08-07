@@ -110,6 +110,35 @@
                             <field name="price"/>
                         </list>
                     </field>
+                    <div invisible="baf_purchase_method != 'direct' or not baf_direct_import_ambiguous_ids"
+                         class="mt-3">
+                        <separator string="Unresolved SKUs from last import"/>
+                        <div class="text-muted mb-2">
+                            These file rows had a SKU that exists under
+                            several brands. Pick the brand per row and click
+                            Import Resolved to insert them.
+                        </div>
+                        <field name="baf_direct_import_ambiguous_ids">
+                            <list editable="bottom">
+                                <field name="sku" readonly="1"/>
+                                <field name="price" readonly="1"/>
+                                <field name="file_brand" readonly="1"/>
+                                <field name="candidate_brand_ids"
+                                       widget="many2many_tags"
+                                       readonly="1" optional="show"/>
+                                <field name="selected_brand_id"
+                                       domain="[('id', 'in', candidate_brand_ids)]"
+                                       options="{'no_create': True, 'no_open': True}"/>
+                            </list>
+                        </field>
+                        <div class="mt-2">
+                            <button name="action_resolve_direct_import_ambiguous"
+                                    type="object"
+                                    string="Import Resolved"
+                                    class="btn-primary"
+                                    icon="fa-check"/>
+                        </div>
+                    </div>
                 </page>
             </xpath>
 
