@@ -470,7 +470,7 @@ class ProductTemplateBafPricing(models.Model):
 
     # ── Alternative direct vendors (portal) ───────────────────────────────────
 
-    def _baf_alternative_direct_vendors(self, default_price):
+    def _baf_alternative_direct_vendors(self, default_price, partner=None):
         """Alternative direct-vendor options for the portal, ordered by delivery
         time ascending. Qualifying vendors use the 'direct' method and have a
         delivery time frame (> 0) and a sales markup (> 0) set; their sales
@@ -482,9 +482,14 @@ class ProductTemplateBafPricing(models.Model):
         best price kept so far (then it becomes the new best). Frames whose
         cheapest isn't an improvement are dropped entirely.
 
+        A per-customer cap on `res.partner.baf_max_delivery_weeks` filters
+        vendors before this walk.
+
         Returns dicts (delivery-ascending):
         {vendor_id, price, delivery_lower, delivery_label}."""
         self.ensure_one()
+
+        cap = partner._baf_customer_delivery_cap() if partner else 0
 
         by_weeks = {}  # weeks -> list of (price, vendor_id)
         for vendor in self.seller_ids.mapped('partner_id'):
@@ -492,6 +497,8 @@ class ProductTemplateBafPricing(models.Model):
             # what we advertise here can never differ from what we bill.
             price = self._baf_alt_vendor_unit_price(vendor)
             if price is None:
+                continue
+            if cap and (vendor.baf_delivery_weeks or 0) > cap:
                 continue
             by_weeks.setdefault(vendor.baf_delivery_weeks, []).append((price, vendor.id))
 
@@ -517,7 +524,7 @@ class ProductTemplateBafPricing(models.Model):
         default_price = self.baf_get_sales_price(partner=partner)
         return {
             'default_price': default_price,
-            'options': self._baf_alternative_direct_vendors(default_price),
+            'options': self._baf_alternative_direct_vendors(default_price, partner=partner),
         }
 
     def _baf_alt_vendor_unit_price(self, vendor):
@@ -542,9 +549,10 @@ class ProductTemplateBafPricing(models.Model):
 class ProductProductBafPricing(models.Model):
     _inherit = 'product.product'
 
-    def _baf_alternative_direct_vendors(self, default_price):
+    def _baf_alternative_direct_vendors(self, default_price, partner=None):
         self.ensure_one()
-        return self.product_tmpl_id._baf_alternative_direct_vendors(default_price)
+        return self.product_tmpl_id._baf_alternative_direct_vendors(
+            default_price, partner=partner)
 
     def _baf_alt_vendor_unit_price(self, vendor):
         self.ensure_one()
@@ -580,13 +588,20 @@ class ProductProductBafPricing(models.Model):
             ('baf_brand_ids', 'in', brand.id),
         ])
 
-    def baf_get_best_vendor(self):
+    def baf_get_best_vendor(self, customer=None):
         """
-        Auto-select the best eligible vendor for this product. Ranking is:
-        shortest delivery period first, then lowest price, then vendor id
-        (ascending). A vendor with no delivery period set (0/empty) is ranked
-        last (slowest). Returns {vendor, price, method, reason, candidates}. A
-        vendor that cannot price the product is listed but excluded from ranking.
+        Auto-select the best eligible vendor for this product.
+
+        Default ranking (no `customer`): shortest delivery period first,
+        then lowest price, then vendor id. A vendor with no delivery period
+        (0/empty) is ranked last.
+
+        With `customer` carrying a `baf_max_delivery_weeks` cap: candidates
+        outside the window are dropped and the survivors are ranked
+        cheapest-first, then delivery, then vendor id.
+
+        Returns {vendor, price, method, reason, candidates}. A vendor that
+        cannot price the product is listed but excluded from ranking.
         """
         self.ensure_one()
         empty = {'vendor': self.env['res.partner'], 'price': 0.0,
@@ -599,9 +614,13 @@ class ProductProductBafPricing(models.Model):
             ) % {'brand': self.brand.name if self.brand else ''}
             return empty
 
+        cap = customer._baf_customer_delivery_cap() if customer else 0
         candidates = []
         for vendor in eligible:
             details = self.baf_get_purchase_price_details(vendor)
+            out_of_window = bool(
+                cap and (vendor.baf_delivery_weeks or 0) > cap
+            )
             candidates.append({
                 'vendor': vendor,
                 'price': details['price'] if details else None,
@@ -611,19 +630,35 @@ class ProductProductBafPricing(models.Model):
                 'sb_surcharge': details['sb_surcharge'] if details else 0.0,
                 'delivery_weeks': vendor.baf_delivery_weeks or 0,
                 'is_winner': False,
-                'note': '' if details else _("Vendor cannot price this product."),
+                'out_of_window': out_of_window,
+                'note': (
+                    _("Vendor delivery frame exceeds this customer's max.")
+                    if out_of_window else
+                    '' if details else _("Vendor cannot price this product.")
+                ),
             })
 
-        priced = [c for c in candidates if c['price'] is not None]
+        priced = [c for c in candidates
+                  if c['price'] is not None and not c['out_of_window']]
         if not priced:
             empty['candidates'] = candidates
-            empty['reason'] = _("No eligible vendor produced a usable price.")
+            if cap and any(c['price'] is not None and c['out_of_window']
+                           for c in candidates):
+                empty['reason'] = _(
+                    "No eligible vendor delivers within the customer's "
+                    "%(cap)d-week window.") % {'cap': cap}
+            else:
+                empty['reason'] = _(
+                    "No eligible vendor produced a usable price.")
             return empty
 
-        # Rank: shortest delivery first, then cheapest, then lowest id.
-        # A vendor with no delivery period (0/empty) sorts last (slowest).
-        priced.sort(key=lambda c: (baf_delivery_rank(c['delivery_weeks']),
-                                   round(c['price'], 4), c['vendor'].id))
+        if cap:
+            priced.sort(key=lambda c: (round(c['price'], 4),
+                                       baf_delivery_rank(c['delivery_weeks']),
+                                       c['vendor'].id))
+        else:
+            priced.sort(key=lambda c: (baf_delivery_rank(c['delivery_weeks']),
+                                       round(c['price'], 4), c['vendor'].id))
         winner = priced[0]
         winner['is_winner'] = True
 
