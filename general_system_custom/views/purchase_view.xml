@@ -142,6 +142,10 @@
             
             <xpath expr="//field[@name='date_order']" position="after">
                 <field name="send_po_status" readonly="1"/>
+                <field name="baf_customer_account_source"
+                       invisible="not sale_order_id"/>
+                <field name="baf_customer_account_number"
+                       invisible="not sale_order_id"/>
             </xpath>
             
         </field>

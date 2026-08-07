@@ -32,6 +32,36 @@ class PurchaseOrder(models.Model):
         help="Status of the PO email sending process."
     )
 
+    baf_customer_account_source = fields.Selection(
+        selection=[
+            ('default', 'Default (Contact Number)'),
+            ('alternative', 'Alternative'),
+        ],
+        string='Customer Account #',
+        default='default',
+        copy=True,
+        help="Which of the customer's account numbers to send to the supplier "
+             "on this PO. Falls back to the default when no alternative is set.",
+    )
+    baf_customer_account_number = fields.Char(
+        string='Customer Account Number',
+        compute='_compute_baf_customer_account_number',
+        store=True,
+        readonly=True,
+    )
+
+    @api.depends('baf_customer_account_source',
+                 'sale_order_id.partner_id.contact_number',
+                 'sale_order_id.partner_id.baf_alt_account_number')
+    def _compute_baf_customer_account_number(self):
+        for po in self:
+            customer = po.sale_order_id.partner_id if po.sale_order_id else False
+            if not customer:
+                po.baf_customer_account_number = ''
+                continue
+            po.baf_customer_account_number = customer._baf_customer_account_number(
+                use_alt=(po.baf_customer_account_source == 'alternative'))
+
     pallet_count = fields.Integer(string='Pallets', compute='_compute_pallet_count')
 
     def _compute_pallet_count(self):
@@ -115,7 +145,7 @@ class PurchaseOrder(models.Model):
 
         headers = ["PO N."]
         if is_trusted:
-            headers.append("Customer")
+            headers.extend(["Customer", "Customer #"])
 
         headers.extend([
             "Brand", "SKU", "Quantity", "Retail",
@@ -138,6 +168,7 @@ class PurchaseOrder(models.Model):
             is_dropship = bool(po.dest_address_id)
 
             customer_name = po.sale_order_id.partner_id.name if po.sale_order_id else ""
+            customer_number = po.baf_customer_account_number or ""
 
             for line in po.order_line:
                 brand_name = self._sanitize(line.product_id.brand.display_name)
@@ -147,6 +178,7 @@ class PurchaseOrder(models.Model):
 
                 if is_trusted:
                     row_data.append(self._sanitize(customer_name))
+                    row_data.append(self._sanitize(customer_number))
 
                 row_data.extend([
                     brand_name,
