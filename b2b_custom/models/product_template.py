@@ -10,12 +10,7 @@ class ProductTemplate(models.Model):
     replaced_by_id = fields.Many2one(
         'product.template',
         string='Replaced by',
-        help="Internal administrative field only. Task #52 removed every "
-             "customer-facing use of this link: replaced products are shown "
-             "and ordered normally, the successor is not exposed on the shop "
-             "or on the B2B search, and no product is ever blocked because "
-             "of it. Kept in the schema so admins can still record the "
-             "relationship in the backend.",
+        help="Select the product that replaces this product",
     )
     unit_of_sales = fields.Integer(
         string='Unit of Sales',
@@ -27,24 +22,32 @@ class ProductTemplate(models.Model):
     NLA_SKU = 'NLA'
 
     def _baf_is_nla(self):
-        """Return True when this template's own SKU is 'NLA'.
-
-        Task #52 removed the `replaced_by_id` chain walk: replaced products
-        are no longer treated as NLA transitively. NLA is now self-contained:
-        a product is NLA only when its own SKU is literally 'NLA'.
-        """
+        """This template's own SKU is 'NLA'. Chain-terminal-NLA (a successor
+        somewhere down the chain is NLA) is a separate concept — see
+        `_baf_chain_ends_in_nla`."""
         self.ensure_one()
         return (self.sku or '').strip().upper() == self.NLA_SKU
 
-    def _baf_is_order_blocked(self):
-        """Return True when this template must not be ordered.
-
-        Only NLA blocks ordering. Task #52 removed the `replaced_by_id`
-        block: a superseded product is orderable like any other product, and
-        the customer is not steered to the successor.
-        """
+    def _baf_chain_ends_in_nla(self):
+        """A successor down the replacement chain has SKU 'NLA', but this
+        template is not itself NLA. Search results filter these out — the
+        customer sees "part not found" rather than a dead-end successor."""
         self.ensure_one()
-        return self._baf_is_nla()
+        if self._baf_is_nla():
+            return False
+        seen = {self.id}
+        successor = self.replaced_by_id
+        while successor and successor.id not in seen:
+            seen.add(successor.id)
+            if (successor.sku or '').strip().upper() == self.NLA_SKU:
+                return True
+            successor = successor.replaced_by_id
+        return False
+
+    def _baf_is_order_blocked(self):
+        """Blocked from ordering: either NLA or superseded by a successor."""
+        self.ensure_one()
+        return self._baf_is_nla() or bool(self.replaced_by_id)
 
     def _is_add_to_cart_possible(self, parent_combination=None):
         if self._baf_is_order_blocked():

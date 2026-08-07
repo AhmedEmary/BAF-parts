@@ -5,7 +5,7 @@ from . import test_product_import
 from . import test_product_mass_update
 from . import test_pricefile
 from . import test_pricefile_notify
-from . import test_replaced_by_removed
+from . import test_replacement_flow
 from . import test_pricefile_combined_family
 from . import test_cart_alt_vendor_lines
 from . import test_progress_notifier_wiring
