@@ -29,6 +29,7 @@
         'views/mass_product_import_view.xml',
         'views/product_mass_update_view.xml',
         'views/pricefile_notify_view.xml',
+        'views/baf_etk_file_view.xml',
     ],
     'assets': {
         'web.assets_frontend': [

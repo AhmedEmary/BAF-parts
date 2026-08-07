@@ -5,3 +5,4 @@ from . import product_brand
 from . import sales_order_line
 from . import mass_product_import
 from . import product_mass_update
+from . import baf_etk_file
