@@ -68,10 +68,14 @@ class B2BListToPart(http.Controller):
                     # Assuming standard 'sale_delay' or similar field, using 1 here as requested
                     moq = 1 
                     
-                    # Task #52: no longer steer customers to the successor
-                    # of a replaced product; only NLA blocks ordering now.
                     blocked = product_obj.product_tmpl_id._baf_is_order_blocked()
-                    block_note = "Nicht mehr verfügbar – nicht bestellbar" if blocked else ''
+                    replacement = product_obj.product_tmpl_id.replaced_by_id
+                    if blocked and replacement:
+                        block_note = f"Ersetzt durch {replacement.display_name} – nicht bestellbar"
+                    elif blocked:
+                        block_note = "Nicht mehr verfügbar – nicht bestellbar"
+                    else:
+                        block_note = ''
                     for item in input_map[code]:
                         results.append({
                             'brand': item['brand'],

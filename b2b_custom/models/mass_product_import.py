@@ -50,10 +50,7 @@ FUZZY_MAP = {
     'height':        ['height', 'hoehe', 'höhe', 'h cm', 'height cm'],
     'width':         ['width', 'breite', 'w cm', 'width cm'],
     'length':        ['length', 'laenge', 'länge', 'l cm', 'length cm', 'depth', 'tiefe'],
-    # Task #52 removed the 'replaced_by' fuzzy mapping so the mass import no
-    # longer reads a successor column. The previous behaviour auto-created
-    # placeholder products with list_price 0 for successor SKUs that did not
-    # exist yet, which then leaked into the SKU search results.
+    'replaced_by':   ['replaced by', 'replaced_by', 'replacement', 'superseded by', 'nachfolger', 'ersetzt durch'],
     'is_storable':   ['storable', 'is_storable', 'track inventory', 'inventory tracking'],
     'is_published':  ['published', 'is_published', 'website published', 'publish'],
 }
@@ -242,8 +239,7 @@ class MassProductImport(models.TransientModel):
             'height_idx': col_map.get('height'),
             'width_idx': col_map.get('width'),
             'length_idx': col_map.get('length'),
-            # Task #52: 'replaced_by' is no longer a recognised column.
-            'replaced_by_idx': None,
+            'replaced_by_idx': col_map.get('replaced_by'),
             'is_storable_idx': col_map.get('is_storable'),
             'is_published_idx': col_map.get('is_published'),
         }
@@ -350,11 +346,24 @@ class MassProductImport(models.TransientModel):
         volume = height * width * length
         hs_code = self._get_cell_value(row, indices['hs_code_idx'], None)
 
-        # Task #52 removed the successor-column processing: the mass import
-        # no longer reads a "Replaced By" column and no longer auto-creates
-        # placeholder products for successor SKUs.
+        replaced_by_sku_raw = self._get_cell_value(row, indices['replaced_by_idx'])
+        replaced_by_sku = (
+            replaced_by_sku_raw.strip()
+            if replaced_by_sku_raw and not _is_sentinel(replaced_by_sku_raw)
+            else None
+        )
         replaced_by_id = None
         replacement_created = False
+        if replaced_by_sku:
+            replaced_by_id, replacement_created = self._ensure_replacement_template(
+                replaced_by_sku,
+                brand_id,
+                brand_name,
+                brand_family_base,
+                ctx['uom_id'],
+                ctx['categ_id'],
+                ctx['replacement_cache'],
+            )
 
         baf_disc = self._get_cell_value(row, indices['baf_disc_idx'], '0') or '0'
         baf_type = self._parse_int(self._get_cell_value(row, indices['baf_type_idx'])) or 0
@@ -407,7 +416,7 @@ class MassProductImport(models.TransientModel):
             'length': length,
             'volume': volume,
             'replaced_by_id': replaced_by_id,
-            'replaced_by_present': False,
+            'replaced_by_present': bool(replaced_by_sku),
             'replacement_created': replacement_created,
             'baf_disc': baf_disc,
             'baf_type': baf_type,

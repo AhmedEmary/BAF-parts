@@ -113,11 +113,11 @@ def _product_to_dict(product, partner):
         availability = 'NLA'
         availability_type = 'nla'
         delivery_time = ''
+    elif blocked and template.replaced_by_id:
+        availability = 'Ersetzt – Nachfolger bestellen'
+        availability_type = 'replacement'
+        delivery_time = ''
     elif blocked:
-        # Task #52 removed the "Ersetzt – Nachfolger bestellen" branch:
-        # a replaced product is no longer blocked. Anything that lands here
-        # is genuinely unorderable (currently NLA-only, but the branch is
-        # kept for forward compatibility).
         availability = 'Nicht mehr verfügbar'
         availability_type = 'no'
         delivery_time = ''
@@ -136,11 +136,8 @@ def _product_to_dict(product, partner):
 
     moq = int(template.unit_of_sales or 0) or 1
     surcharge_raw = getattr(product, 'surcharge', 0.0) or getattr(template, 'surcharge', 0.0) or 0.0
+    replacement = template.replaced_by_id
 
-    # Task #52: the replacement fields (replacement_url / _name /
-    # _part_number / _product_id) are no longer emitted. The client would
-    # use them only to steer users to the successor, which the spec
-    # explicitly removes.
     return {
         'id': product.id,
         'part_number': template.sku or product.default_code or '',
@@ -158,6 +155,18 @@ def _product_to_dict(product, partner):
         'delivery_time': delivery_time,
         'orderable': not blocked,
         'is_nla': is_nla,
+        'replacement_url': (
+            replacement.website_url if blocked and replacement else ''
+        ),
+        'replacement_name': (
+            replacement.display_name if blocked and replacement else ''
+        ),
+        'replacement_part_number': (
+            replacement.sku or '' if blocked and replacement else ''
+        ),
+        'replacement_product_id': (
+            replacement.product_variant_id.id if blocked and replacement else 0
+        ),
     }
 
 
@@ -214,13 +223,8 @@ class BafB2BController(http.Controller):
         '/bestellsystem/part-search', type='jsonrpc', auth='user', methods=['POST'], csrf=False, website=True,
     )
     def part_search(self, part_numbers=None, brand_choices=None, quantities=None,
-                    **kwargs):
+                    product_ids=None, **kwargs):
         """Search products by SKU.
-
-        Task #52 removed the `product_ids` argument (used by the old
-        "Nachfolger ansehen" flow that jumped to the successor of a
-        replaced product). The endpoint now only searches by SKU; unknown
-        keys are dropped silently.
 
         Returns:
           products:  list of product dicts (unique SKU match, or brand-resolved)
@@ -228,7 +232,8 @@ class BafB2BController(http.Controller):
           not_found: list of part numbers with no match
         """
         part_numbers = list(part_numbers or [])
-        if not part_numbers:
+        product_ids = [int(pid) for pid in (product_ids or []) if pid]
+        if not part_numbers and not product_ids:
             return {'products': [], 'ambiguous': [], 'not_found': []}
 
         partner = request.env.user.partner_id
@@ -241,6 +246,14 @@ class BafB2BController(http.Controller):
                 qty_map[_normalize_sku(key)] = max(1, int(float(value)))
             except (TypeError, ValueError):
                 continue
+
+        # Direct lookup by product id (used by "Nachfolger ansehen" flow)
+        direct_products = []
+        if product_ids:
+            for product in Product.browse(product_ids).exists():
+                if not product.product_tmpl_id.active or not product.product_tmpl_id.sale_ok:
+                    continue
+                direct_products.append(product)
 
         # 1. Normalize + dedupe input
         normalized = []
@@ -311,8 +324,29 @@ class BafB2BController(http.Controller):
 
             # Unambiguous: pick the first variant of the single matching brand
             chosen = next(iter(brand_groups.values()))[:1]
+            # A part whose replacement chain terminates in NLA has no viable
+            # purchase path — treat it as not-found rather than surfacing a
+            # dead-end successor.
+            if chosen.product_tmpl_id._baf_chain_ends_in_nla():
+                not_found.append(item['raw'])
+                continue
             requested_qty = qty_map.get(item['key'])
             for data in _expand_product_options(chosen, partner):
+                if requested_qty:
+                    data['requested_quantity'] = requested_qty
+                products_out.append(data)
+
+        # Append direct product-id lookups (from "Nachfolger ansehen") at the
+        # end. Skip duplicates that were already resolved via SKU above.
+        already_in = {(p['id'], p.get('alt_vendor_id', 0)) for p in products_out}
+        for product in direct_products:
+            for data in _expand_product_options(product, partner):
+                key = (data['id'], data.get('alt_vendor_id', 0))
+                if key in already_in:
+                    continue
+                already_in.add(key)
+                qty_key = _normalize_sku(data.get('part_number'))
+                requested_qty = qty_map.get(qty_key)
                 if requested_qty:
                     data['requested_quantity'] = requested_qty
                 products_out.append(data)
