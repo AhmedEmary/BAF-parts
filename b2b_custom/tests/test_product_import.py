@@ -80,35 +80,34 @@ class TestMassProductImport(TransactionCase):
         barcode = wizard._compute_barcode_from_code('FER_123')
         self.assertEqual(barcode, '000000123')
 
-    def test_04_replaced_by_column_is_ignored(self):
-        """Task #52: the 'replaced by' column is no longer read.
+    def test_04_replaced_by_creates_same_brand_placeholder(self):
+        """Missing replaced_by SKU should create a same-brand placeholder.
 
-        A row referencing an unknown successor SKU must NOT auto-create a
-        placeholder product, and the source row itself must import without
-        `replaced_by_id` set."""
+        The placeholder must use the same default_code as a later real import,
+        so future imports update it instead of creating a duplicate product.
+        """
         self._run_import(
             "sku,brand,product name,replaced by\n"
             "OLD001,BOSCH,Old Bosch Part,NEW001"
         )
 
         old_product = self.env['product.template'].search([('default_code', '=', 'BOS_OLD001')], limit=1)
-        self.assertTrue(old_product.exists())
-        self.assertFalse(
-            old_product.replaced_by_id,
-            "replaced_by_id must remain empty — task #52 removed successor tracking",
-        )
-        self.assertFalse(
-            self.env['product.template'].search([('default_code', '=', 'BOS_NEW001')]),
-            "no successor placeholder must be auto-created from the file column",
-        )
+        replacement = old_product.replaced_by_id
+        self.assertTrue(replacement.exists(), "Replacement placeholder should have been created")
+        self.assertEqual(replacement.sku, 'NEW001')
+        self.assertEqual(replacement.default_code, 'BOS_NEW001')
+        self.assertEqual(replacement.brand.name, 'BOSCH')
 
-    def test_05_replaced_by_column_does_not_link_existing_products(self):
-        """Even when the successor SKU already exists, the mass import
-        does not link the two: the 'replaced by' column is ignored (#52)."""
+    def test_05_replaced_by_prefers_same_brand_match(self):
+        """If the same replacement SKU exists under multiple brands, use the same-brand product."""
+        self.env['product.brand'].create({'name': 'BOSCH'})
+        self.env['product.brand'].create({'name': 'VALEO'})
+
         self._run_import(
             "sku,brand,product name\n"
+            "REP001,VALEO,Valeo Replacement\n"
             "REP001,BOSCH,Bosch Replacement\n"
-            "OLD003,BOSCH,Another Old Bosch Part\n",
+            "OLD002,BOSCH,Old Bosch Part\n",
             file_name='seed_products.csv',
         )
         self._run_import(
@@ -118,7 +117,25 @@ class TestMassProductImport(TransactionCase):
         )
 
         old_product = self.env['product.template'].search([('default_code', '=', 'BOS_OLD003')], limit=1)
-        self.assertFalse(old_product.replaced_by_id)
+        self.assertTrue(old_product.replaced_by_id.exists())
+        self.assertEqual(old_product.replaced_by_id.default_code, 'BOS_REP001')
+
+    def test_05b_replaced_by_creates_target_before_real_row_arrives(self):
+        """If A references B before B's real row appears, B is pre-created and later updated in place."""
+        self._run_import(
+            "sku,brand,product name,replaced by,price\n"
+            "OLDLATE,BOSCH,Old Late Product,NEWLATE,50\n"
+            "NEWLATE,BOSCH,Real Replacement Product,,80",
+            file_name='same_file_replaced_by_late_target.csv',
+        )
+
+        old_product = self.env['product.template'].search([('default_code', '=', 'BOS_OLDLATE')], limit=1)
+        replacement_products = self.env['product.template'].search([('default_code', '=', 'BOS_NEWLATE')])
+
+        self.assertEqual(len(replacement_products), 1, "Replacement placeholder must be updated in place, not duplicated")
+        self.assertEqual(replacement_products.name, 'Real Replacement Product')
+        self.assertEqual(replacement_products.list_price, 80.0)
+        self.assertEqual(old_product.replaced_by_id, replacement_products)
 
     def test_06_import_dimensions_origin_and_normalized_defaults(self):
         """Dimensions/origin import correctly and invalid mod falls back safely."""
@@ -202,10 +219,8 @@ class TestMassProductImport(TransactionCase):
         self.assertTrue(product.exists())
         self.assertEqual(product.volume, 0.0)
 
-    def test_08_replaced_by_never_creates_cross_brand_placeholder(self):
-        """Task #52: a 'replaced by' column pointing at a SKU that exists
-        under another brand no longer creates a same-brand placeholder for
-        the source row. The whole successor mechanism is off."""
+    def test_08_replaced_by_ambiguous_global_sku_creates_same_brand_target(self):
+        """If another brand already uses the replacement SKU, create/use the same-brand target anyway."""
         self._run_import(
             "sku,brand,product name\n"
             "AMB001,BOSCH,Bosch Replacement\n"
@@ -219,12 +234,11 @@ class TestMassProductImport(TransactionCase):
         )
 
         old_product = self.env['product.template'].search([('default_code', '=', 'JAG_OLD004')], limit=1)
+        replacement = self.env['product.template'].search([('default_code', '=', 'JAG_AMB001')], limit=1)
         self.assertTrue(old_product.exists())
-        self.assertFalse(old_product.replaced_by_id)
-        self.assertFalse(
-            self.env['product.template'].search([('default_code', '=', 'JAG_AMB001')]),
-            "no JAGUAR-branded placeholder for AMB001 must be created",
-        )
+        self.assertTrue(replacement.exists())
+        self.assertEqual(replacement.brand.name, 'JAGUAR')
+        self.assertEqual(old_product.replaced_by_id, replacement)
 
     # ── Manual Brand source ──────────────────────────────────────────────────
 
