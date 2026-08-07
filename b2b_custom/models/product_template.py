@@ -10,7 +10,12 @@ class ProductTemplate(models.Model):
     replaced_by_id = fields.Many2one(
         'product.template',
         string='Replaced by',
-        help="Select the product that replaces this product",
+        help="Internal administrative field only. Task #52 removed every "
+             "customer-facing use of this link: replaced products are shown "
+             "and ordered normally, the successor is not exposed on the shop "
+             "or on the B2B search, and no product is ever blocked because "
+             "of it. Kept in the schema so admins can still record the "
+             "relationship in the backend.",
     )
     unit_of_sales = fields.Integer(
         string='Unit of Sales',
@@ -22,36 +27,24 @@ class ProductTemplate(models.Model):
     NLA_SKU = 'NLA'
 
     def _baf_is_nla(self):
-        """Return True when this template — or any product reached by walking
-        the `replaced_by_id` chain — has SKU 'NLA'.
+        """Return True when this template's own SKU is 'NLA'.
 
-        A part is NLA both when:
-          * its own SKU is 'NLA'; or
-          * its replacement (or the replacement's replacement, …) is NLA.
+        Task #52 removed the `replaced_by_id` chain walk: replaced products
+        are no longer treated as NLA transitively. NLA is now self-contained:
+        a product is NLA only when its own SKU is literally 'NLA'.
         """
         self.ensure_one()
-        seen = set()
-        current = self
-        while current and current.id not in seen:
-            seen.add(current.id)
-            sku = (current.sku or '').strip().upper()
-            if sku == self.NLA_SKU:
-                return True
-            current = current.replaced_by_id
-        return False
+        return (self.sku or '').strip().upper() == self.NLA_SKU
 
     def _baf_is_order_blocked(self):
         """Return True when this template must not be ordered.
 
-        Two cases are blocked:
-          * the part is NLA (own SKU or any successor in the chain); or
-          * the part has been superseded — `replaced_by_id` is set, the
-            customer must order the replacement instead.
+        Only NLA blocks ordering. Task #52 removed the `replaced_by_id`
+        block: a superseded product is orderable like any other product, and
+        the customer is not steered to the successor.
         """
         self.ensure_one()
-        if self._baf_is_nla():
-            return True
-        return bool(self.replaced_by_id)
+        return self._baf_is_nla()
 
     def _is_add_to_cart_possible(self, parent_combination=None):
         if self._baf_is_order_blocked():
