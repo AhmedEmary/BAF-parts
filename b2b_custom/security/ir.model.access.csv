@@ -3,3 +3,5 @@ access_mass_product_import,mass.product.import,model_mass_product_import,base.gr
 access_mass_product_import_mapping,mass.product.import.mapping,model_mass_product_import_mapping,base.group_user,1,1,1,1
 access_product_mass_update,product.mass.update,model_product_mass_update,base.group_user,1,1,1,1
 access_pricefile_notify_wizard,pricefile.notify.wizard,model_pricefile_notify_wizard,base.group_user,1,1,1,1
+access_baf_etk_file_user,baf.etk.file.user,model_baf_etk_file,base.group_user,1,0,0,0
+access_baf_etk_file_admin,baf.etk.file.admin,model_baf_etk_file,base.group_system,1,1,1,1

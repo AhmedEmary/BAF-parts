@@ -70,7 +70,7 @@ _PRICEFILE_SQL = """
              WHEN %(moto_split)s AND pt.baf_mod = 'motorcycle' THEN %(moto_suffix)s
              ELSE %(car_suffix)s
          END
-    WHERE pt.active AND pt.sale_ok AND pt.brand = %(brand)s
+    WHERE pt.active AND pt.sale_ok AND pt.brand = ANY(%(brand_ids)s)
 """
 
 
@@ -87,16 +87,25 @@ def _price_expr(group, eu_vat, markup_param, params):
 
 
 def pricefile_query(partner, brand, lang):
-    """Build the (sql, params) that produce the price-file rows for `brand`,
+    """Build (sql, params) for the price-file rows of a single `brand`,
     priced exactly like product_template.baf_get_sales_price(partner)."""
-    # The name-derived string family still drives the two name-based rules: the
-    # BMW/MINI motorcycle split and the JLR EU-VAT tier.
-    family = resolve_baf_brand_info(brand.name)[1]
-    # Group-to-product matching is by brand family RECORD (baf.brand.family): a
-    # group prices this product when its family_id equals the product brand's
-    # family_id; a group with no family_id is the wildcard fallback. Mirrors
-    # baf_get_sales_price_details after the brand-family refactor.
-    product_bfam = brand.family_id
+    return _pricefile_query_for_brands(partner, brand, brand.family_id, lang)
+
+
+def pricefile_query_for_family(partner, family, lang):
+    """Build (sql, params) covering every brand in `family` in one go."""
+    brands = family.brand_ids.filtered(lambda b: True) if family else False
+    if not brands:
+        return None, None
+    return _pricefile_query_for_brands(partner, brands, family, lang)
+
+
+def _pricefile_query_for_brands(partner, brands, product_bfam, lang):
+    # Classify off the family name (BMW/MINI, JLR, ...) so a mislabelled
+    # brand can't slip out of its own moto/EU-VAT rule.
+    label = product_bfam.name if product_bfam else (
+        brands[0].name if len(brands) else '')
+    family = resolve_baf_brand_info(label)[1]
     groups = partner._baf_effective_sales_groups().filtered(lambda g: g.active)
     family_groups = groups.filtered(lambda g: product_bfam and g.family_id == product_bfam)
     wildcard = groups.filtered(lambda g: not g.family_id)[:1]
@@ -114,7 +123,7 @@ def pricefile_query(partner, brand, lang):
 
     params = {
         'lang': lang,
-        'brand': brand.id,
+        'brand_ids': list(brands.ids),
         # Only BMW/MINI products have a motorcycle tier.
         'moto_split': family == 'bmw_mini',
         'car_suffix': car_group.group_column_suffix or 'GR1',
@@ -125,6 +134,14 @@ def pricefile_query(partner, brand, lang):
         moto_expr=_price_expr(moto_group, False, 'moto_markup', params),
     )
     return sql, params
+
+
+def visible_families(env, partner):
+    """Brand families the customer sees — a family is visible when at least
+    one of its brands is."""
+    brands = visible_brands(env, partner)
+    families = brands.mapped('family_id').filtered(lambda f: f.active)
+    return families.sorted('name')
 
 
 # Type-bucket labels shared with the discount export. The bucket is the last
@@ -276,8 +293,32 @@ class PriceFile(CustomerPortal):
 
     @http.route(['/pricefile'], type='http', auth='user', website=True)
     def pricefile_page(self, **kw):
-        brands = visible_brands(request.env, request.env.user.partner_id)
-        return request.render('b2b_custom.pricefile_page', {'brands': brands})
+        partner = request.env.user.partner_id
+        brands = visible_brands(request.env, partner)
+        families = visible_families(request.env, partner)
+        etk = request.env['baf.etk.file']._baf_current()
+        return request.render('b2b_custom.pricefile_page', {
+            'brands': brands,
+            'families': families,
+            'etk_available': bool(etk),
+        })
+
+    @http.route(
+        ['/pricefile/etk'], type='http', auth='user', website=True,
+        multilang=False, sitemap=False,
+    )
+    def etk_download(self, **kw):
+        import base64
+        etk = request.env['baf.etk.file']._baf_current()
+        if not etk or not etk.file_data:
+            return request.redirect('/pricefile')
+        data = base64.b64decode(etk.file_data)
+        filename = etk.file_name or 'ETK.bin'
+        return request.make_response(data, headers=[
+            ('Content-Type', 'application/octet-stream'),
+            ('Content-Length', str(len(data))),
+            ('Content-Disposition', content_disposition(filename)),
+        ])
 
     @http.route(
         ['/pricefile/discount-download'], type='http', auth='user', website=True,
@@ -351,7 +392,40 @@ class PriceFile(CustomerPortal):
 
         lang = request.env.context.get('lang') or 'en_US'
         sql, params = pricefile_query(partner, brand, lang)
+        return self._pricefile_csv_response(
+            sql, params,
+            filename="PriceList_%s_%s.csv" % (
+                brand.display_name or 'Brand', date.today().isoformat()),
+        )
 
+    @http.route(
+        ['/pricefile/family/download'], type='http', auth='user', website=True,
+        multilang=False, sitemap=False,
+    )
+    def pricefile_family_download(self, family_id=None, **kw):
+        partner = request.env.user.partner_id
+        try:
+            fid = int(family_id)
+        except (TypeError, ValueError):
+            return request.redirect('/pricefile')
+        family = visible_families(request.env, partner).filtered(
+            lambda f: f.id == fid)
+        if not family:
+            return request.redirect('/pricefile')
+
+        lang = request.env.context.get('lang') or 'en_US'
+        sql, params = pricefile_query_for_family(partner, family, lang)
+        if not sql:
+            return request.redirect('/pricefile')
+        filename = "PriceList_%s_%s.csv" % (
+            (family.name or 'BrandGroup').replace(' ', '_'),
+            date.today().isoformat(),
+        )
+        return self._pricefile_csv_response(sql, params, filename=filename)
+
+    def _pricefile_csv_response(self, sql, params, filename):
+        """Stream `_PRICEFILE_SQL` as CSV via Postgres COPY (optionally
+        gzipped). Shared by the per-brand and per-family download routes."""
         # Only compress when the client actually advertises support for it
         # (a plain curl request sends no Accept-Encoding and must get a
         # plain .csv, not a gzip blob saved with a .csv extension). Odoo's
@@ -360,15 +434,10 @@ class PriceFile(CustomerPortal):
         gz_ok = 'gzip' in request.httprequest.headers.get('Accept-Encoding', '')
 
         # Raw cursor bypasses the ORM's pending-write buffer: flush so stored
-        # computed fields (baf_sales_column_key, baf_brand_family) and any pending
-        # write() are visible to the COPY below.
+        # computed fields (baf_sales_column_key, baf_brand_family) and any
+        # pending write() are visible to the COPY below.
         request.env.flush_all()
 
-        # COPY streams the CSV straight out of Postgres, so there is no Python
-        # per-row loop even on a six-figure catalogue. When gzip is wanted,
-        # compress on the fly as COPY writes into the GzipFile instead of
-        # buffering the full plain CSV and then gzip-compressing a second
-        # full copy of it.
         buf = io.BytesIO()
         raw_cur = request.env.cr._cnx.cursor()
         try:
@@ -378,8 +447,6 @@ class PriceFile(CustomerPortal):
             raw_cur.execute("SET LOCAL jit = off")
             select_sql = raw_cur.mogrify(sql, params).decode()
             copy_sql = "COPY (%s) TO STDOUT WITH (FORMAT CSV, HEADER true)" % select_sql
-            # utf-8-sig BOM so Excel reads accented text correctly, in both
-            # branches.
             if gz_ok:
                 with gzip.GzipFile(fileobj=buf, mode='wb') as gz:
                     gz.write(b"\xef\xbb\xbf")
@@ -393,7 +460,6 @@ class PriceFile(CustomerPortal):
         data = buf.getvalue()
         buf.close()
 
-        filename = "PriceList_%s_%s.csv" % (brand.display_name or 'Brand', date.today().isoformat())
         headers = [
             ('Content-Type', 'text/csv; charset=utf-8'),
             ('Content-Length', str(len(data))),

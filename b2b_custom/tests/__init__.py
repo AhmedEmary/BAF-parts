@@ -6,3 +6,4 @@ from . import test_product_mass_update
 from . import test_pricefile
 from . import test_pricefile_notify
 from . import test_replaced_by_removed
+from . import test_pricefile_combined_family

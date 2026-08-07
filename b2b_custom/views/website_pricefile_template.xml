@@ -33,6 +33,28 @@
                             <button type="submit" class="btn btn-primary">CSV herunterladen</button>
                         </div>
                     </form>
+                    <t t-if="families">
+                        <hr class="my-4"/>
+                        <h2 class="h4 mb-2">Kombinierte Preisdatei je Markengruppe</h2>
+                        <p class="text-muted">
+                            Eine Datei pro Markengruppe (z. B. BMW/MINI oder
+                            Jaguar &amp; Land Rover), die alle Marken der Gruppe
+                            zusammenfasst.
+                        </p>
+                        <form action="/pricefile/family/download" method="get" class="row g-2 align-items-end">
+                            <div class="col-auto">
+                                <label for="family_id" class="form-label">Markengruppe</label>
+                                <select name="family_id" id="family_id" class="form-select">
+                                    <t t-foreach="families" t-as="family">
+                                        <option t-att-value="family.id" t-esc="family.name"/>
+                                    </t>
+                                </select>
+                            </div>
+                            <div class="col-auto">
+                                <button type="submit" class="btn btn-primary">CSV herunterladen</button>
+                            </div>
+                        </form>
+                    </t>
                     <hr class="my-4"/>
                     <h2 class="h4 mb-2">Rabattcodes</h2>
                     <p class="text-muted">
@@ -42,6 +64,17 @@
                     <a href="/pricefile/discount-download" class="btn btn-outline-primary">
                         Rabattcodes herunterladen (XLSX)
                     </a>
+                    <t t-if="etk_available">
+                        <hr class="my-4"/>
+                        <h2 class="h4 mb-2">ETK</h2>
+                        <p class="text-muted">
+                            Die aktuelle ETK-Datei ist für alle B2B-Kunden identisch
+                            und wird zentral aktualisiert.
+                        </p>
+                        <a href="/pricefile/etk" class="btn btn-outline-primary">
+                            ETK herunterladen
+                        </a>
+                    </t>
                 </t>
                 <t t-else="">
                     <div class="alert alert-info">

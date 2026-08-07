@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_baf_etk_file_list" model="ir.ui.view">
+        <field name="name">baf.etk.file.list</field>
+        <field name="model">baf.etk.file</field>
+        <field name="arch" type="xml">
+            <list default_order="create_date desc, id desc">
+                <field name="name"/>
+                <field name="file_name"/>
+                <field name="create_date"/>
+                <field name="active" widget="boolean_toggle"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_baf_etk_file_form" model="ir.ui.view">
+        <field name="name">baf.etk.file.form</field>
+        <field name="model">baf.etk.file</field>
+        <field name="arch" type="xml">
+            <form string="ETK File">
+                <sheet>
+                    <group>
+                        <field name="name" placeholder="e.g. ETK 2026-08"/>
+                        <field name="file_name" invisible="1"/>
+                        <field name="file_data" filename="file_name"/>
+                        <field name="active"/>
+                    </group>
+                    <p class="text-muted">
+                        This file is identical for every approved B2B
+                        customer. Upload the latest ETK here once per month
+                        and every customer with pricefile access can download
+                        the current version from /pricefile.
+                    </p>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_baf_etk_file" model="ir.actions.act_window">
+        <field name="name">ETK File</field>
+        <field name="res_model">baf.etk.file</field>
+        <field name="view_mode">list,form</field>
+        <field name="context">{'active_test': False}</field>
+    </record>
+
+    <menuitem id="menu_baf_etk_file"
+              name="ETK File"
+              parent="sale.prod_config_main"
+              action="action_baf_etk_file"
+              sequence="90"/>
+</odoo>
