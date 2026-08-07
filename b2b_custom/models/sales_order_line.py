@@ -102,13 +102,19 @@ class SaleOrderLine(models.Model):
             super(SaleOrderLine, standard)._compute_price_unit()
 
     def _baf_assert_product_orderable(self, product):
-        """Raise UserError when the product is NLA. Task #52 removed the
-        replaced-by block: superseded products are orderable like any other."""
+        """Raise UserError when the product is NLA or has a replacement."""
         if not product:
             return
         template = product.product_tmpl_id if product._name == 'product.product' else product
         if not template._baf_is_order_blocked():
             return
+        if template.replaced_by_id:
+            raise UserError(_(
+                "“%(name)s” has been replaced and can no longer be ordered. "
+                "Please order the replacement “%(replacement)s” instead.",
+                name=template.display_name,
+                replacement=template.replaced_by_id.display_name,
+            ))
         raise UserError(_(
             "“%(name)s” is no longer available and cannot be ordered.",
             name=template.display_name,
