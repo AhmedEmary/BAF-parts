@@ -26,6 +26,19 @@ class ResPartner(models.Model):
         "The Contact Number must be unique.",
     )
 
+    baf_alt_account_number = fields.Char(
+        string="Alternative Customer Account Number",
+        copy=False,
+        help="Optional secondary account number sent to suppliers instead of "
+             "the Contact Number.",
+    )
+
+    def _baf_customer_account_number(self, use_alt=False):
+        self.ensure_one()
+        if use_alt and self.baf_alt_account_number:
+            return self.baf_alt_account_number
+        return self.contact_number or ''
+
     is_trusted_vendor = fields.Boolean(
         string="Trusted Vendor",
         help="If checked, the Customer Name column will be included in the PO Excel export sent to this vendor."

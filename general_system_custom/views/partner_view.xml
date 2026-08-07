@@ -19,6 +19,8 @@
 
             <xpath expr="//field[@name='category_id']" position="after">
                 <field name="contact_number"/>
+                <field name="baf_alt_account_number"
+                       placeholder="Optional — supplier-specific customer code"/>
             </xpath>
 
             <xpath expr="//field[@name='property_supplier_payment_term_id']" position="after">
