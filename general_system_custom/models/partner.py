@@ -127,6 +127,70 @@ class ResPartner(models.Model):
         string='Vendor SKU Prices',
     )
 
+    baf_direct_import_ambiguous_ids = fields.One2many(
+        'baf.direct.import.ambiguous', 'partner_id',
+        string='Unresolved Direct-Import Rows',
+    )
+
+    def action_resolve_direct_import_ambiguous(self):
+        """Import every unresolved row that has a brand chosen; skip the
+        rest. Also skips rows that would collide with an existing vendor
+        supplierinfo for the same product (a prior resolve pass already
+        inserted them)."""
+        self.ensure_one()
+        rows = self.baf_direct_import_ambiguous_ids.filtered('selected_brand_id')
+        if not rows:
+            return {
+                'type': 'ir.actions.client', 'tag': 'display_notification',
+                'params': {
+                    'title': _("No brand picked"),
+                    'message': _("Pick a brand on at least one row first."),
+                    'type': 'warning', 'sticky': False,
+                },
+            }
+        Sup = self.env['product.supplierinfo'].sudo()
+        company = self.env.company
+        created = 0
+        skipped = 0
+        for row in rows:
+            tmpl = row._resolved_product_tmpl()
+            if not tmpl:
+                skipped += 1
+                continue
+            if Sup.search_count([
+                ('partner_id', '=', self.id),
+                ('product_tmpl_id', '=', tmpl.id),
+            ]):
+                skipped += 1
+                row.unlink()
+                continue
+            Sup.create({
+                'partner_id': self.id,
+                'product_tmpl_id': tmpl.id,
+                'price': row.price,
+                'product_uom_id': tmpl.uom_id.id,
+                'currency_id': company.currency_id.id,
+                'company_id': company.id,
+                'min_qty': 0.0,
+                'discount': 0.0,
+                'delay': 1,
+                'sequence': 1,
+            })
+            row.unlink()
+            created += 1
+        return {
+            'type': 'ir.actions.client', 'tag': 'display_notification',
+            'params': {
+                'title': _("Ambiguous rows resolved"),
+                'message': _("%(c)d imported, %(s)d skipped.") % {
+                    'c': created, 's': skipped,
+                },
+                'type': 'success' if not skipped else 'warning',
+                'sticky': False,
+                'next': {'type': 'ir.actions.client', 'tag': 'soft_reload'},
+            },
+        }
+
     baf_pricing_file = fields.Binary(string='Pricing File')
     baf_pricing_filename = fields.Char(string='Pricing File Name')
 
@@ -248,6 +312,8 @@ class ResPartner(models.Model):
             "DELETE FROM product_supplierinfo WHERE partner_id IN %s",
             (tuple(self.ids),))
         Seller.invalidate_model()
+        self.env['baf.direct.import.ambiguous'].sudo().search(
+            [('partner_id', 'in', self.ids)]).unlink()
 
     @api.depends('vat', 'country_id')
     def _compute_is_b2b_eu_vat(self):
@@ -341,20 +407,29 @@ class ResPartner(models.Model):
             lines.append(_(
                 "%d row(s) skipped: empty SKU or unreadable price."
             ) % stats['invalid'])
-        ambiguous = stats.get('ambiguous') or []
-        if ambiguous:
+        unresolved = stats.get('unresolved') or 0
+        if unresolved:
+            lines.append(_(
+                "%d row(s) awaiting brand choice: the SKU exists under "
+                "several brands. Open the Vendor Pricing tab to pick a brand "
+                "per row and click \"Import Resolved\"."
+            ) % unresolved)
+        # `ambiguous` still lists every duplicate SKU seen in the file, even
+        # those the brand column resolved automatically. Only report leftovers
+        # not already covered by `unresolved` to avoid double-counting.
+        ambiguous_leftover = max(0, len(stats.get('ambiguous') or []) - unresolved)
+        if ambiguous_leftover and not unresolved:
             lines.append(_(
                 "%d SKU(s) skipped: the same SKU exists under several brands "
                 "in the catalogue, so the file row cannot be assigned to one product."
-            ) % len(ambiguous))
+            ) % ambiguous_leftover)
         return "\n".join(lines)
 
-    # Canonical column headers per method (single accepted name per column).
-    # The direct template intentionally has no Brand column: the brand is
-    # assigned automatically from the internal catalogue (task #53) and any
-    # brand value in the file is ignored.
+    # Canonical column headers per method. The direct template's third
+    # column ('brand') is optional — used to disambiguate duplicate SKUs
+    # when a file row's SKU exists under multiple brands in the catalogue.
     _BAF_TEMPLATE_ROWS = {
-        'direct': [['sku', 'discounted price']],
+        'direct': [['sku', 'discounted price', 'brand']],
         'codes':  [['dc', 'discount in %']],
         'matrix': [
             ['#', 'BMW TA 1-2-4-6-8', 'BMW TA 3-5-7-9',
@@ -471,28 +546,24 @@ class ResPartner(models.Model):
     _BAF_DIRECT_COPY_CHUNK = 20_000
 
     def _baf_import_direct(self, rows):
-        """Direct prices: columns SKU, DISCOUNTED PRICE. Only products whose
-        SKU already exists in the catalogue are imported; the brand of the
-        matched row comes from the internal database. Any BRAND column in the
-        file is intentionally ignored (task #53): brand assignment is
-        internal-only, so a wrong or unknown brand in the source must never
-        create products or change matching. Falls back to positional
-        [sku, price] when no recognizable header.
+        """Direct prices: columns SKU, DISCOUNTED PRICE, and an OPTIONAL
+        BRAND used only to disambiguate duplicate SKUs. Only products whose
+        SKU already exists in the catalogue are imported — no new products
+        or brands are ever created.
 
-        SKU matching is case-insensitive: a file lowercased against uppercase
-        catalogue rows still matches. The exact match runs first as a single
-        indexed JOIN; anything not resolved that way falls back to a
-        case-insensitive JOIN over just the residual SKUs.
+        Rows land in one of these buckets:
+          - created: unique SKU match, or file brand uniquely resolves it.
+          - unresolved: SKU exists under multiple brands and the file brand
+            (if any) doesn't pick one. Stashed in
+            `baf.direct.import.ambiguous` for manual resolution via the
+            vendor form.
+          - unmatched: SKU not in the catalogue.
+          - invalid: empty SKU or unreadable price.
 
-        Rows are streamed straight into a `pg_temp` table via COPY and the
-        entire import happens as three SQL statements (ambiguous scan, exact-
-        match INSERT, residual case-insensitive INSERT). That keeps peak
-        memory at O(chunk) even for six-figure files and avoids the ORM
-        overhead — no per-batch `invalidate_model`, no per-batch ORM read —
-        that made the previous implementation take hours on ~500k-row lists.
-
-        Every data row ends up in exactly one counter (created / unmatched /
-        invalid / ambiguous), so the file always adds up."""
+        SKU matching is case-insensitive: the exact match runs first as a
+        single indexed JOIN; residuals fall back to a case-insensitive JOIN
+        over just the leftover SKUs. Rows are streamed via COPY into a
+        `pg_temp` table so peak memory stays O(chunk)."""
         rows = iter(rows)
         first_row = next(rows, None)
         if first_row is None:
@@ -508,29 +579,37 @@ class ResPartner(models.Model):
 
         sku_idx = _find({'sku'})
         price_idx = _find({'discounted price'})
+        brand_idx = _find({'brand', 'marke', 'manufacturer'})
         if sku_idx is None or price_idx is None:
-            # No recognizable header -> positional [sku, price] and the row
-            # just consumed is data. A stray Brand column, if any, will be
-            # ignored (its index isn't looked at).
-            sku_idx, price_idx = 0, 1
+            # No recognizable header: positional [sku, price] and the row we
+            # just consumed is data.
+            sku_idx, price_idx, brand_idx = 0, 1, None
             rows = itertools.chain([first_row], rows)
 
+        # Wipe any previous unresolved rows for this vendor: the new file
+        # supersedes the previous stash.
+        self.env['baf.direct.import.ambiguous'].sudo().search(
+            [('partner_id', '=', self.id)]).unlink()
+
         stats = {'created': 0, 'updated': 0, 'unmatched': 0, 'invalid': 0,
-                 'ambiguous': []}
+                 'ambiguous': [], 'unresolved': 0}
         cr = self.env.cr
         t0 = time.monotonic()
 
-        # 1) Stage the file into pg_temp. ON COMMIT DROP means it dies with the
-        # request's transaction and there's nothing to clean up on error.
+        # 1) Stage the file into pg_temp. Explicit DROP first so consecutive
+        # imports within the same transaction (e.g. tests) don't collide on
+        # the ON-COMMIT-DROP temp table.
+        cr.execute("DROP TABLE IF EXISTS baf_direct_import")
         cr.execute("""
             CREATE TEMP TABLE baf_direct_import (
-                sku_raw   TEXT NOT NULL,
-                sku_upper TEXT NOT NULL,
-                price     NUMERIC NOT NULL
+                sku_raw    TEXT NOT NULL,
+                sku_upper  TEXT NOT NULL,
+                price      NUMERIC NOT NULL,
+                file_brand TEXT
             ) ON COMMIT DROP
         """)
         file_row_count = self._baf_copy_direct_rows_to_temp(
-            rows, sku_idx, price_idx, stats)
+            rows, sku_idx, price_idx, brand_idx, stats)
         _logger.info(
             "Direct import for vendor %s: staged %d row(s) in %.2fs",
             self.id, file_row_count, time.monotonic() - t0,
@@ -538,9 +617,10 @@ class ResPartner(models.Model):
         if not file_row_count:
             return stats
 
-        # 2) SKUs that appear under multiple product templates: unresolvable
-        # from the file alone. Report and skip. `product_template.sku` is
-        # indexed so this is an index-only scan.
+        # 2) SKUs that appear under multiple product templates. Some rows can
+        # still be resolved when the file carries a brand column that picks
+        # exactly one candidate; the rest are collected below for manual
+        # review on the vendor form.
         cr.execute("""
             SELECT DISTINCT f.sku_raw
             FROM baf_direct_import f
@@ -554,8 +634,10 @@ class ResPartner(models.Model):
         """)
         stats['ambiguous'] = [r[0] for r in cr.fetchall()]
 
-        # 3) Exact-match INSERT. A btree hit on product_template.sku is the
-        # fast path for six-figure imports — no per-row Python.
+        # 3) Exact-match INSERT covering:
+        #    - non-ambiguous SKUs (single product carries them), and
+        #    - ambiguous SKUs where the file's brand column matches exactly
+        #      one of the candidates (case-insensitive brand name compare).
         company = self.env.company
         params = {
             'partner': self.id,
@@ -565,17 +647,10 @@ class ResPartner(models.Model):
         }
         cr.execute("""
             WITH deduped AS (
-                -- Two rows for the same SKU: last one wins. `ctid DESC` gives
-                -- us the physically-latest row, which is the last one COPY'd
-                -- and matches "later rows overwrite earlier" from the old code.
-                SELECT DISTINCT ON (sku_raw) sku_raw, price
+                SELECT DISTINCT ON (sku_raw, COALESCE(UPPER(file_brand), ''))
+                       sku_raw, price, file_brand
                 FROM baf_direct_import
-                ORDER BY sku_raw, ctid DESC
-            ),
-            ambiguous AS (
-                SELECT sku FROM product_template
-                WHERE sku IS NOT NULL
-                GROUP BY sku HAVING COUNT(*) > 1
+                ORDER BY sku_raw, COALESCE(UPPER(file_brand), ''), ctid DESC
             )
             INSERT INTO product_supplierinfo (
                 partner_id, product_tmpl_id, price, product_uom_id, currency_id,
@@ -586,8 +661,22 @@ class ResPartner(models.Model):
                 %(currency)s, %(company)s, 0.0, 0.0, 1, 1,
                 %(uid)s, NOW(), %(uid)s, NOW()
             FROM deduped d
-            JOIN product_template pt ON pt.sku = d.sku_raw
-            WHERE d.sku_raw NOT IN (SELECT sku FROM ambiguous)
+            JOIN product_template pt
+              ON pt.sku = d.sku_raw
+             AND (
+                 -- Non-ambiguous SKU: a single template holds it.
+                 (SELECT COUNT(*) FROM product_template pt2
+                    WHERE pt2.sku = d.sku_raw) = 1
+                 OR
+                 -- Ambiguous SKU + file brand uniquely resolves it.
+                 (d.file_brand IS NOT NULL AND
+                  UPPER((SELECT pb.name FROM product_brand pb WHERE pb.id = pt.brand))
+                    = UPPER(d.file_brand) AND
+                  (SELECT COUNT(*) FROM product_template pt3
+                    LEFT JOIN product_brand pb3 ON pb3.id = pt3.brand
+                    WHERE pt3.sku = d.sku_raw
+                      AND UPPER(COALESCE(pb3.name, '')) = UPPER(d.file_brand)) = 1)
+             )
         """, params)
         exact_matches = cr.rowcount
 
@@ -641,40 +730,77 @@ class ResPartner(models.Model):
             residual_matches = cr.rowcount
 
         stats['created'] = exact_matches + residual_matches
-        # Unmatched = file rows whose SKU is not in the catalogue at all,
-        # excluding those already accounted for as ambiguous. Computed from
-        # counts to avoid another scan.
-        stats['unmatched'] = max(
-            0, file_row_count - stats['created'] - len(stats['ambiguous']))
 
-        # One invalidate at the end covers every row inserted above. The old
-        # per-batch invalidate is what made the previous version take hours
-        # on large files.
+        # 5) Stash truly unresolved ambiguous rows for manual review. One
+        # baf.direct.import.ambiguous record per (sku, file_brand) that the
+        # steps above didn't resolve.
+        cr.execute("""
+            SELECT DISTINCT ON (f.sku_raw, COALESCE(UPPER(f.file_brand), ''))
+                   f.sku_raw, f.price, f.file_brand
+            FROM   baf_direct_import f
+            WHERE  f.sku_raw IN %(ambiguous_skus)s
+              AND  NOT EXISTS (
+                    SELECT 1 FROM product_supplierinfo si
+                     JOIN product_template pt ON pt.id = si.product_tmpl_id
+                     WHERE si.partner_id = %(partner)s
+                       AND pt.sku = f.sku_raw
+              )
+            ORDER  BY f.sku_raw, COALESCE(UPPER(f.file_brand), ''), f.ctid DESC
+        """, {
+            'ambiguous_skus': tuple(stats['ambiguous']) or (None,),
+            'partner': self.id,
+        }) if stats['ambiguous'] else None
+        unresolved_rows = cr.fetchall() if stats['ambiguous'] else []
+        if unresolved_rows:
+            Amb = self.env['baf.direct.import.ambiguous'].sudo()
+            Tmpl = self.env['product.template'].sudo()
+            skus = list({row[0] for row in unresolved_rows})
+            candidates_by_sku = {}
+            for tmpl in Tmpl.search([('sku', 'in', skus)]):
+                candidates_by_sku.setdefault(tmpl.sku, []).append(tmpl.id)
+            Amb.create([
+                {
+                    'partner_id': self.id,
+                    'sku': sku_raw,
+                    'price': float(price),
+                    'file_brand': file_brand or False,
+                    'candidate_ids': [(6, 0, candidates_by_sku.get(sku_raw, []))],
+                }
+                for sku_raw, price, file_brand in unresolved_rows
+            ])
+        stats['unresolved'] = len(unresolved_rows)
+
+        # Unmatched = file rows whose SKU isn't in the catalogue at all
+        # (everything else is either created or awaiting resolution).
+        stats['unmatched'] = max(
+            0,
+            file_row_count - stats['created']
+            - len(stats['ambiguous'])
+        )
+
         self.env['product.supplierinfo'].invalidate_model()
         _logger.info(
             "Direct import for vendor %s done in %.2fs — "
-            "created=%d exact=%d fallback=%d ambiguous=%d unmatched=%d invalid=%d",
+            "created=%d exact=%d fallback=%d ambiguous=%d unresolved=%d "
+            "unmatched=%d invalid=%d",
             self.id, time.monotonic() - t0, stats['created'], exact_matches,
-            residual_matches, len(stats['ambiguous']), stats['unmatched'],
-            stats['invalid'],
+            residual_matches, len(stats['ambiguous']), stats['unresolved'],
+            stats['unmatched'], stats['invalid'],
         )
         return stats
 
-    def _baf_copy_direct_rows_to_temp(self, rows, sku_idx, price_idx, stats):
-        """Stream (sku, upper(sku), price) triples into `baf_direct_import`
-        via `COPY ... FROM STDIN`. Returns the number of rows staged.
-
-        Uses COPY TEXT format (tab-separated, backslash escapes) so we can
-        write a tight `_escape` helper without pulling in a CSV writer. Empty
-        SKUs and unparseable prices are counted in `stats` and dropped."""
+    def _baf_copy_direct_rows_to_temp(self, rows, sku_idx, price_idx,
+                                     brand_idx, stats):
+        """Stream (sku_raw, sku_upper, price, file_brand) tuples into
+        `baf_direct_import` via COPY. Returns the number of rows staged.
+        Empty SKUs and unparseable prices are counted in `stats` and dropped.
+        `brand_idx` is None when the file has no brand column."""
         cr = self.env.cr
         row_count = 0
         chunk_size = self._BAF_DIRECT_COPY_CHUNK
         parts = []
 
         def _escape(cell):
-            # COPY TEXT format: literal tabs / newlines / backslashes must be
-            # backslash-escaped, otherwise Postgres reads them as separators.
             return (cell.replace('\\', '\\\\')
                         .replace('\t', '\\t')
                         .replace('\n', '\\n')
@@ -687,7 +813,8 @@ class ResPartner(models.Model):
             parts.clear()
             import io as _io
             cr.copy_expert(
-                "COPY baf_direct_import (sku_raw, sku_upper, price) FROM STDIN",
+                "COPY baf_direct_import "
+                "(sku_raw, sku_upper, price, file_brand) FROM STDIN",
                 _io.BytesIO(payload),
             )
 
@@ -701,8 +828,12 @@ class ResPartner(models.Model):
             if price is None:
                 stats['invalid'] += 1
                 continue
-            parts.append('%s\t%s\t%s\n' % (
+            file_brand = ''
+            if brand_idx is not None and brand_idx < len(row):
+                file_brand = bafutil.clean_cell(row[brand_idx]).strip()
+            parts.append('%s\t%s\t%s\t%s\n' % (
                 _escape(sku), _escape(sku.upper()), float(price),
+                _escape(file_brand) if file_brand else '\\N',
             ))
             row_count += 1
             if len(parts) >= chunk_size:

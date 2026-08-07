@@ -9,6 +9,7 @@ from . import auto_product
 from . import so_source
 from . import discount_code
 from . import baf_delivery_rule
+from . import baf_direct_import_ambiguous
 
 # 2. Then load Order Lines and logic that depends on the base models
 from . import sales_order_line
