@@ -92,23 +92,22 @@ class TestCombinedPricefileAndEtk(HttpCase):
         self.assertNotIn(self.brand_hidden.family_id.id, family_ids)
 
     # ── Combined query ─────────────────────────────────────────────────────
-    def test_family_query_covers_every_brand_in_the_family(self):
-        # A BMW/MINI download must produce rows for BOTH brands in one file.
-        sql, params = pricefile_query_for_family(
-            self.company, self.fam_bmw, 'en_US')
+    def _skus_for_family(self, family):
+        sql, params = pricefile_query_for_family(self.company, family, 'en_US')
         self.assertIsNotNone(sql)
         self.env.flush_all()
         self.env.cr.execute(sql, params)
-        skus = {row[0] for row in self.env.cr.fetchall()}
+        cols = [d.name for d in self.env.cr.description]
+        sku_idx = cols.index('SKU')
+        return {row[sku_idx] for row in self.env.cr.fetchall()}
+
+    def test_family_query_covers_every_brand_in_the_family(self):
+        skus = self._skus_for_family(self.fam_bmw)
         self.assertIn('C47-BMW-1', skus)
         self.assertIn('C47-MINI-1', skus)
 
     def test_family_query_excludes_brands_outside_family(self):
-        sql, params = pricefile_query_for_family(
-            self.company, self.fam_jlr, 'en_US')
-        self.env.flush_all()
-        self.env.cr.execute(sql, params)
-        skus = {row[0] for row in self.env.cr.fetchall()}
+        skus = self._skus_for_family(self.fam_jlr)
         self.assertIn('C47-JAG-1', skus)
         self.assertIn('C47-LR-1', skus)
         self.assertNotIn('C47-BMW-1', skus)

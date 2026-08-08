@@ -34,105 +34,61 @@ def visible_brands(env, partner):
     )
 
 
-_UPE = "COALESCE(pt.list_price, 0)"
-
-# Mirrors product_template.baf_get_sales_price_details(). The brand is fixed for
-# a whole download, so the customer's applicable group is resolved once in Python
-# and only the per-row lookup is left to Postgres.
-#
-# `dl` dedupes baf_discount_line with DISTINCT ON (column_key, discount_code),
-# keeping the lowest id per key pair (ORDER BY ... id). This mirrors
-# baf.discount.line.get_discount_pct()'s search(...).limit(1) with Odoo's
-# default id-ascending order, which is the row it picks when duplicates exist.
-# Deduping first means the join to `pt` is a single hash join (one row per key
-# pair) instead of a LATERAL subquery re-probed per product row, and it also
-# guarantees the join can never fan a product row out into more than one
-# result row, even if duplicate (table_type, column_key, discount_code) rows
-# exist.
-_PRICEFILE_SQL = """
+# BMW/MINI export columns (task 1.2). Raw UPE + Discount Code — the customer
+# applies the discount table themselves; the pricefile carries the ingredients.
+_PRICEFILE_SQL_BMW_MINI = """
     SELECT
+        COALESCE(pb.name, '') AS "Brand",
+        pt.baf_type_code AS "Type",
         pt.sku AS "SKU",
+        COALESCE(rpl.sku, '') AS "Replaced By",
         COALESCE(pt.name->>%(lang)s, pt.name->>'en_US') AS "Description",
-        round((COALESCE(pt.surcharge, 0) + CASE
-            WHEN %(moto_split)s AND pt.baf_mod = 'motorcycle' THEN {moto_expr}
-            ELSE {car_expr}
-        END)::numeric, 2) AS "Discounted Price"
+        round(COALESCE(pt.list_price, 0)::numeric, 2) AS "UPE",
+        COALESCE(pt.baf_discount_code, '') AS "Discount Code",
+        round(COALESCE(pt.surcharge, 0)::numeric, 2) AS "Surcharge",
+        pt.unit_of_sales AS "Unit of Sale",
+        COALESCE(pt.baf_mod, '') AS "MOD"
     FROM product_template pt
-    LEFT JOIN (
-        SELECT DISTINCT ON (column_key, discount_code)
-               column_key, discount_code, discount_pct
-        FROM baf_discount_line
-        WHERE table_type = 'sales' AND partner_id IS NULL
-        ORDER BY column_key, discount_code, id
-    ) dl
-      ON dl.discount_code = btrim(pt.baf_discount_code)
-     AND dl.column_key = pt.baf_sales_column_key || '_' || CASE
-             WHEN %(moto_split)s AND pt.baf_mod = 'motorcycle' THEN %(moto_suffix)s
-             ELSE %(car_suffix)s
-         END
+    LEFT JOIN product_brand pb ON pb.id = pt.brand
+    LEFT JOIN product_template rpl ON rpl.id = pt.replaced_by_id
+    WHERE pt.active AND pt.sale_ok AND pt.brand = ANY(%(brand_ids)s)
+"""
+
+# JLR + everything else — same layout for all non-BMW/MINI families.
+_PRICEFILE_SQL_JLR = """
+    SELECT
+        COALESCE(pb.name, '') AS "Brand",
+        pt.sku AS "SKU",
+        COALESCE(rpl.sku, '') AS "Replaced By",
+        COALESCE(pt.baf_discount_code, '') AS "Discount Code",
+        round(COALESCE(pt.list_price, 0)::numeric, 2) AS "UPE",
+        COALESCE(pt.name->>%(lang)s, pt.name->>'en_US') AS "Description",
+        round(COALESCE(pt.surcharge, 0)::numeric, 2) AS "Surcharge",
+        pt.unit_of_sales AS "Unit of Sale"
+    FROM product_template pt
+    LEFT JOIN product_brand pb ON pb.id = pt.brand
+    LEFT JOIN product_template rpl ON rpl.id = pt.replaced_by_id
     WHERE pt.active AND pt.sale_ok AND pt.brand = ANY(%(brand_ids)s)
 """
 
 
-def _price_expr(group, eu_vat, markup_param, params):
-    """SQL expression for the sales price before surcharge, under `group`."""
-    if eu_vat:
-        return "%s * 0.95" % _UPE
-    if not group:
-        return _UPE
-    if group.pricing_method == 'markup_pct':
-        params[markup_param] = group.markup_pct or 0.0
-        return "%s * (1 + %%(%s)s / 100.0)" % (_UPE, markup_param)
-    return "%s * (1 - COALESCE(dl.discount_pct, 0) / 100.0)" % _UPE
-
-
 def pricefile_query(partner, brand, lang):
-    """Build (sql, params) for the price-file rows of a single `brand`,
-    priced exactly like product_template.baf_get_sales_price(partner)."""
-    return _pricefile_query_for_brands(partner, brand, brand.family_id, lang)
+    return _pricefile_query_for_brands(brand, brand.family_id, lang)
 
 
 def pricefile_query_for_family(partner, family, lang):
-    """Build (sql, params) covering every brand in `family` in one go."""
-    brands = family.brand_ids.filtered(lambda b: True) if family else False
+    brands = family.brand_ids if family else False
     if not brands:
         return None, None
-    return _pricefile_query_for_brands(partner, brands, family, lang)
+    return _pricefile_query_for_brands(brands, family, lang)
 
 
-def _pricefile_query_for_brands(partner, brands, product_bfam, lang):
-    # Classify off the family name (BMW/MINI, JLR, ...) so a mislabelled
-    # brand can't slip out of its own moto/EU-VAT rule.
+def _pricefile_query_for_brands(brands, product_bfam, lang):
     label = product_bfam.name if product_bfam else (
         brands[0].name if len(brands) else '')
     family = resolve_baf_brand_info(label)[1]
-    groups = partner._baf_effective_sales_groups().filtered(lambda g: g.active)
-    family_groups = groups.filtered(lambda g: product_bfam and g.family_id == product_bfam)
-    wildcard = groups.filtered(lambda g: not g.family_id)[:1]
-
-    car_group = family_groups.filtered(lambda g: not g._is_moto_group())[:1] or wildcard
-    moto_group = family_groups.filtered(lambda g: g._is_moto_group())[:1] or car_group
-
-    # Flat -5 % on JLR for EU-VAT customers, but only when no group already
-    # covers this product (a family-matching or wildcard group always wins).
-    eu_vat = bool(
-        family == 'jlr'
-        and partner.is_b2b_eu_vat
-        and not groups.filtered(lambda g: not g.family_id or g.family_id == product_bfam)
-    )
-
-    params = {
-        'lang': lang,
-        'brand_ids': list(brands.ids),
-        # Only BMW/MINI products have a motorcycle tier.
-        'moto_split': family == 'bmw_mini',
-        'car_suffix': car_group.group_column_suffix or 'GR1',
-        'moto_suffix': 'MOTO',
-    }
-    sql = _PRICEFILE_SQL.format(
-        car_expr=_price_expr(car_group, eu_vat, 'car_markup', params),
-        moto_expr=_price_expr(moto_group, False, 'moto_markup', params),
-    )
+    sql = _PRICEFILE_SQL_BMW_MINI if family == 'bmw_mini' else _PRICEFILE_SQL_JLR
+    params = {'lang': lang, 'brand_ids': list(brands.ids)}
     return sql, params
 
 
