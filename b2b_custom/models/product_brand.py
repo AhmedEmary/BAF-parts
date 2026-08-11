@@ -68,7 +68,7 @@ class ProductBrand(models.Model):
             try:
                 template.with_context(
                     lang=partner.lang or self.env.user.lang,
-                    brand_names=", ".join(sorted(b.display_name for b in self)),
+                    brand_names=", ".join(sorted((b.display_label or b.name) for b in self)),
                 ).send_mail(
                     partner.id,
                     force_send=False,
