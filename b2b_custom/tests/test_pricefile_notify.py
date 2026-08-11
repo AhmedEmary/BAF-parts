@@ -117,6 +117,38 @@ class TestPricefileNotify(TransactionCase):
         for mail in recent:
             self.assertIn(mail.email_to, recipient_emails)
 
+    def test_mail_subject_uses_brand_display_label(self):
+        self.brand_bmw.display_label = 'Bayerische Motoren Werke'
+        Mail = self.env['mail.mail']
+        before_id = Mail.search([], order='id desc', limit=1).id or 0
+        self.brand_bmw._baf_notify_price_update()
+        new_mails = Mail.search([('id', '>', before_id)])
+        self.assertTrue(new_mails)
+        for mail in new_mails:
+            self.assertIn('Bayerische Motoren Werke', mail.subject)
+            self.assertNotIn('PN BMW', mail.subject)
+
+    def test_mail_subject_falls_back_to_name_without_display_label(self):
+        self.brand_bmw.display_label = False
+        Mail = self.env['mail.mail']
+        before_id = Mail.search([], order='id desc', limit=1).id or 0
+        self.brand_bmw._baf_notify_price_update()
+        new_mails = Mail.search([('id', '>', before_id)])
+        self.assertTrue(new_mails)
+        for mail in new_mails:
+            self.assertIn('PN BMW', mail.subject)
+
+    def test_mail_body_link_uses_web_base_url(self):
+        self.env['ir.config_parameter'].sudo().set_param(
+            'web.base.url', 'https://baf-parts.odoo.com')
+        Mail = self.env['mail.mail']
+        before_id = Mail.search([], order='id desc', limit=1).id or 0
+        self.brand_bmw._baf_notify_price_update()
+        new_mails = Mail.search([('id', '>', before_id)])
+        self.assertTrue(new_mails)
+        for mail in new_mails:
+            self.assertIn('https://baf-parts.odoo.com/pricefile', mail.body_html)
+
     def test_action_opens_wizard_with_brand_preselected(self):
         action = self.brand_bmw.action_notify_price_update()
         self.assertEqual(action['res_model'], 'pricefile.notify.wizard')
