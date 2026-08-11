@@ -160,6 +160,19 @@ class TestPriceFile(HttpCase):
         cols, _rows = self._rows(self.company_partner, merc_brand)
         self.assertEqual(cols, JLR_COLUMNS)
 
+    def test_brand_column_shows_display_label_when_set(self):
+        self.brand_public.display_label = 'Bayerische Motoren Werke'
+        self.brand_company.display_label = 'Jaguar & Land Rover'
+        _cols, bmw_rows = self._rows(self.company_partner, self.brand_public)
+        _cols, jag_rows = self._rows(self.company_partner, self.brand_company)
+        self.assertEqual(bmw_rows[0]['Brand'], 'Bayerische Motoren Werke')
+        self.assertEqual(jag_rows[0]['Brand'], 'Jaguar & Land Rover')
+
+    def test_brand_column_falls_back_to_technical_name_when_label_missing(self):
+        self.brand_public.display_label = False
+        _cols, rows = self._rows(self.company_partner, self.brand_public)
+        self.assertEqual(rows[0]['Brand'], self.brand_public.name)
+
     def test_query_only_returns_the_requested_brand(self):
         _cols, rows = self._rows(self.company_partner, self.brand_public)
         skus = {r['SKU'] for r in rows}

@@ -38,7 +38,7 @@ def visible_brands(env, partner):
 # applies the discount table themselves; the pricefile carries the ingredients.
 _PRICEFILE_SQL_BMW_MINI = """
     SELECT
-        COALESCE(pb.name, '') AS "Brand",
+        COALESCE(pb.display_label->>%(lang)s, pb.display_label->>'en_US', pb.name, '') AS "Brand",
         pt.baf_type_code AS "Type",
         pt.sku AS "SKU",
         COALESCE(rpl.sku, '') AS "Replaced By",
@@ -57,7 +57,7 @@ _PRICEFILE_SQL_BMW_MINI = """
 # JLR + everything else — same layout for all non-BMW/MINI families.
 _PRICEFILE_SQL_JLR = """
     SELECT
-        COALESCE(pb.name, '') AS "Brand",
+        COALESCE(pb.display_label->>%(lang)s, pb.display_label->>'en_US', pb.name, '') AS "Brand",
         pt.sku AS "SKU",
         COALESCE(rpl.sku, '') AS "Replaced By",
         COALESCE(pt.baf_discount_code, '') AS "Discount Code",
