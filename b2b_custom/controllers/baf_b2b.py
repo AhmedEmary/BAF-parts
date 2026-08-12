@@ -387,15 +387,26 @@ class BafB2BController(http.Controller):
                 if alt_vendor_id:
                     # Alt-vendor rows must stay as their own cart line; go direct
                     # so `_cart_add`'s merge-by-product doesn't collapse them.
-                    line_vals = {
-                        'order_id': order.id,
-                        'product_id': product.id,
-                        'product_uom_qty': qty,
-                        'baf_alt_vendor_id': alt_vendor_id,
-                    }
-                    if note:
-                        line_vals['baf_line_note'] = note
-                    request.env['sale.order.line'].sudo().create(line_vals)
+                    # Repeat adds for the same vendor bump that vendor's line
+                    # instead of stacking duplicates.
+                    line = order.order_line.filtered(
+                        lambda l: l.product_id.id == product.id
+                        and l.baf_alt_vendor_id.id == alt_vendor_id
+                    )[:1]
+                    if line:
+                        line.sudo().product_uom_qty += qty
+                        if note:
+                            line.sudo().baf_line_note = note
+                    else:
+                        line_vals = {
+                            'order_id': order.id,
+                            'product_id': product.id,
+                            'product_uom_qty': qty,
+                            'baf_alt_vendor_id': alt_vendor_id,
+                        }
+                        if note:
+                            line_vals['baf_line_note'] = note
+                        request.env['sale.order.line'].sudo().create(line_vals)
                 else:
                     result = order.with_context(skip_cart_verification=True)._cart_add(
                         product_id=product.id, quantity=qty,

@@ -43,6 +43,15 @@
                                         <span t-elif="'default_code' in line.product_id and line.product_id.default_code">SKU: <t t-out="line.product_id.default_code"/></span>
                                     </div>
 
+                                    <div t-if="line.baf_alt_vendor_id" class="small mb-2">
+                                        <span class="badge bg-light text-dark border">
+                                            Direktbezug
+                                            <t t-if="line.baf_alt_vendor_id.baf_delivery_weeks">
+                                                (<t t-out="line.baf_alt_vendor_id.baf_delivery_weeks"/>-<t t-out="line.baf_alt_vendor_id.baf_delivery_weeks_upper"/> Wochen)
+                                            </t>
+                                        </span>
+                                    </div>
+
                                     <div t-if="line.baf_line_note" class="small mb-2 baf-cart-line-note">
                                         <span class="fw-bold">Notiz:</span>
                                         <span t-out="line.baf_line_note"/>
