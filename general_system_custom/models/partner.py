@@ -1,9 +1,12 @@
 import itertools
 import logging
+import re
 import time
 
 from odoo import _, api, fields, models
 from odoo.exceptions import UserError, ValidationError
+
+BAF_ALT_ACCOUNT_RE = re.compile(r'^E([1-9]\d*)BF$')
 
 from . import baf_import_utils as bafutil
 
@@ -29,15 +32,56 @@ class ResPartner(models.Model):
     baf_alt_account_number = fields.Char(
         string="Alternative Customer Account Number",
         copy=False,
-        help="Optional secondary account number sent to suppliers instead of "
-             "the Contact Number.",
+        help="Internal Express account number sent to suppliers instead of the "
+             "Contact Number. Format: E<N>BF (e.g. E1BF). Unique across the "
+             "system — once assigned, it may not be reused. Use the "
+             "'Assign Next Express Number' button to pick the next free one.",
     )
+
+    _baf_alt_account_number_uniq = models.Constraint(
+        'unique(baf_alt_account_number)',
+        "The Alternative Customer Account Number must be unique.",
+    )
+
+    @api.constrains('baf_alt_account_number')
+    def _check_baf_alt_account_number_format(self):
+        for partner in self:
+            value = partner.baf_alt_account_number
+            if value and not BAF_ALT_ACCOUNT_RE.match(value):
+                raise ValidationError(_(
+                    "Alternative Customer Account Number must match the "
+                    "pattern E<N>BF (e.g. E1BF, E2BF). Got: %s"
+                ) % value)
 
     def _baf_customer_account_number(self, use_alt=False):
         self.ensure_one()
         if use_alt and self.baf_alt_account_number:
             return self.baf_alt_account_number
         return self.contact_number or ''
+
+    def _baf_next_express_account_number(self):
+        """Return the next free E<N>BF value, one past the current max."""
+        # Flush pending writes so consecutive assignments in the same
+        # transaction each see prior ones.
+        self.env['res.partner'].flush_model(['baf_alt_account_number'])
+        self.env.cr.execute(
+            "SELECT baf_alt_account_number FROM res_partner "
+            "WHERE baf_alt_account_number ~ '^E[1-9][0-9]*BF$'"
+        )
+        max_n = 0
+        for (value,) in self.env.cr.fetchall():
+            m = BAF_ALT_ACCOUNT_RE.match(value)
+            if m:
+                max_n = max(max_n, int(m.group(1)))
+        return 'E%dBF' % (max_n + 1)
+
+    def action_baf_assign_express_account_number(self):
+        for partner in self:
+            if partner.baf_alt_account_number:
+                continue
+            partner.baf_alt_account_number = (
+                partner._baf_next_express_account_number())
+        return True
 
     is_trusted_vendor = fields.Boolean(
         string="Trusted Vendor",

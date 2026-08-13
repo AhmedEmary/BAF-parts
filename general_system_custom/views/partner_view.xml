@@ -19,8 +19,15 @@
 
             <xpath expr="//field[@name='category_id']" position="after">
                 <field name="contact_number"/>
-                <field name="baf_alt_account_number"
-                       placeholder="Optional — supplier-specific customer code"/>
+                <label for="baf_alt_account_number"/>
+                <div class="o_row">
+                    <field name="baf_alt_account_number" nolabel="1"
+                           placeholder="E.g. E1BF"/>
+                    <button name="action_baf_assign_express_account_number"
+                            type="object" string="Assign Next"
+                            class="btn-link" icon="fa-magic"
+                            invisible="baf_alt_account_number"/>
+                </div>
             </xpath>
 
             <xpath expr="//field[@name='property_supplier_payment_term_id']" position="after">

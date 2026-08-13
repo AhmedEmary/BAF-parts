@@ -14,7 +14,7 @@ class TestAltCustomerAccountNumber(TransactionCase):
         Partner = self.env['res.partner']
         self.customer = Partner.create({
             'name': 'Alt Test Customer',
-            'baf_alt_account_number': 'V3BF',
+            'baf_alt_account_number': 'E3BF',
         })
         # Pin a known contact_number: the create() sequence value would otherwise
         # depend on DB state.
@@ -43,7 +43,7 @@ class TestAltCustomerAccountNumber(TransactionCase):
 
     def test_partner_helper_returns_alt_when_requested(self):
         self.assertEqual(
-            self.customer._baf_customer_account_number(use_alt=True), 'V3BF')
+            self.customer._baf_customer_account_number(use_alt=True), 'E3BF')
 
     def test_partner_helper_falls_back_when_alt_missing(self):
         self.assertEqual(
@@ -58,7 +58,7 @@ class TestAltCustomerAccountNumber(TransactionCase):
 
     def test_po_alternative_source_uses_alt(self):
         po = self._make_po(self.customer, source='alternative')
-        self.assertEqual(po.baf_customer_account_number, 'V3BF')
+        self.assertEqual(po.baf_customer_account_number, 'E3BF')
 
     def test_po_alternative_falls_back_when_customer_has_no_alt(self):
         po = self._make_po(self.customer_no_alt, source='alternative')
@@ -68,7 +68,7 @@ class TestAltCustomerAccountNumber(TransactionCase):
         po = self._make_po(self.customer, source='default')
         self.assertEqual(po.baf_customer_account_number, '10012')
         po.baf_customer_account_source = 'alternative'
-        self.assertEqual(po.baf_customer_account_number, 'V3BF')
+        self.assertEqual(po.baf_customer_account_number, 'E3BF')
         po.baf_customer_account_source = 'default'
         self.assertEqual(po.baf_customer_account_number, '10012')
 
@@ -110,7 +110,7 @@ class TestAltCustomerAccountNumber(TransactionCase):
         self.assertIn('Customer', headers)
         self.assertIn('Customer #', headers)
         col = headers.index('Customer #')
-        self.assertEqual(rows[0][col], 'V3BF')
+        self.assertEqual(rows[0][col], 'E3BF')
 
     def test_xlsx_omits_customer_columns_for_untrusted_vendor(self):
         self.vendor.is_trusted_vendor = False
