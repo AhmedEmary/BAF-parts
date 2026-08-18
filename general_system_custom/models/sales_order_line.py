@@ -102,7 +102,7 @@ class SaleOrderLine(models.Model):
         for line in self:
             line.unshipped_qty = line.product_uom_qty - line.qty_invoiced
 
-    @api.depends('product_id', 'baf_alt_vendor_id',
+    @api.depends('product_id', 'baf_alt_vendor_id', 'order_id.website_id',
                  'order_id.partner_id.baf_max_delivery_weeks')
     def _compute_purchase_vendor_id(self):
         for line in self:
@@ -111,6 +111,13 @@ class SaleOrderLine(models.Model):
                 line.purchase_vendor_id = line.baf_alt_vendor_id
                 continue
             if not line.product_id:
+                line.purchase_vendor_id = False
+                continue
+            # A webshop line without a chosen vendor is the default option:
+            # the customer deliberately skipped the direct-vendor offers, so
+            # it is fulfilled through the general flow — never auto-sourced
+            # from a vendor they did not pick.
+            if line.order_id.website_id:
                 line.purchase_vendor_id = False
                 continue
             best = line.product_id.baf_get_best_vendor(

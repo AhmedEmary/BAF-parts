@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Own list rather than product.product_supplierinfo_tree_view: that one is
+         not editable, and making it so would change the product Purchase tab. -->
+    <record id="view_baf_vendor_supplierinfo_list" model="ir.ui.view">
+        <field name="name">product.supplierinfo.list.baf.direct</field>
+        <field name="model">product.supplierinfo</field>
+        <field name="arch" type="xml">
+            <list string="Direct Prices" editable="bottom" multi_edit="1">
+                <field name="partner_id" column_invisible="True"/>
+                <field name="product_tmpl_id" string="Product"
+                       options="{'no_create': True}"/>
+                <field name="baf_sku"/>
+                <field name="baf_product_name"/>
+                <field name="baf_brand_id" options="{'no_create': True}"/>
+                <field name="product_code" optional="hide"/>
+                <field name="product_name" optional="hide"/>
+                <field name="min_qty" optional="hide"/>
+                <field name="product_uom_id" groups="uom.group_uom" optional="hide"
+                       options="{'no_quick_create': True}" widget="many2one_uom"/>
+                <field name="price"/>
+                <field name="currency_id" groups="base.group_multi_currency"/>
+                <field name="discount" optional="hide"/>
+                <field name="delay" optional="hide"/>
+                <field name="date_start" optional="hide"/>
+                <field name="date_end" optional="hide"/>
+                <field name="company_id" optional="hide"
+                       groups="base.group_multi_company"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_baf_supplierinfo_search_inherit" model="ir.ui.view">
+        <field name="name">product.supplierinfo.search.inherit.baf</field>
+        <field name="model">product.supplierinfo</field>
+        <field name="inherit_id" ref="product.product_supplierinfo_search_view"/>
+        <field name="arch" type="xml">
+            <field name="product_tmpl_id" position="after">
+                <field name="baf_sku"/>
+                <field name="baf_product_name"/>
+                <field name="baf_brand_id"/>
+                <field name="price"/>
+            </field>
+            <filter name="groupby_vendor" position="after">
+                <filter string="Brand" name="groupby_brand" domain="[]"
+                        context="{'group_by': 'baf_brand_id'}"/>
+            </filter>
+        </field>
+    </record>
+</odoo>
