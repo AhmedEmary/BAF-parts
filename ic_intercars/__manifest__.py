@@ -3,6 +3,15 @@
     'summary': "Inter Cars (IC S.A.) REST API integration for BAF: "
                "credentials backend, live pricing/inventory, drop-ship "
                "requisitions, delivery/invoice reconciliation.",
+
+    'description': """
+Inter Cars Integration
+======================
+
+REST API integration with Inter Cars (IC S.A.): credentials backend, live
+pricing and inventory lookups, drop-ship requisitions, and delivery/invoice
+reconciliation. See README.md for setup and USER_GUIDE.md for daily use.
+""",
     'category': 'Purchases/Purchase',
     'version': '1.0',
     'depends': [
