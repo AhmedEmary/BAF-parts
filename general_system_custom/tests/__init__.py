@@ -12,6 +12,8 @@ from . import test_outgoing_picking
 from . import test_stock_move_pallet
 from . import test_vendor_purchase_pricing
 from . import test_direct_import_ambiguous
+from . import test_vendor_direct_prices_button
+from . import test_vendor_import_progress
 from . import test_alt_customer_account
 from . import test_alt_account_format
 from . import test_website_default_line_vendor

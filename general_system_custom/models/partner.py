@@ -14,7 +14,8 @@ _logger = logging.getLogger(__name__)
 
 
 class ResPartner(models.Model):
-    _inherit = 'res.partner'
+    _name = 'res.partner'
+    _inherit = ['res.partner', 'baf.progress.notifier']
 
     contact_number = fields.Char(
         string="Contact Number",
@@ -190,10 +191,58 @@ class ResPartner(models.Model):
         'discount.code.value', 'partner_id',
         string='Discount Code Values',
     )
-    baf_supplierinfo_ids = fields.One2many(
-        'product.supplierinfo', 'partner_id',
-        string='Vendor SKU Prices',
+    # No One2many to product.supplierinfo: a direct vendor holds 100k+ rows and
+    # an inline list loaded and re-wrote all of them on every form open/save.
+    baf_direct_price_count = fields.Integer(
+        string='Direct Prices',
+        compute='_compute_baf_direct_price_count',
+        help="Number of direct price rows (product.supplierinfo) this vendor has.",
     )
+
+    @api.depends('baf_purchase_method')
+    def _compute_baf_direct_price_count(self):
+        # Read on every contact form, so skip the aggregate for non-direct ones.
+        self.baf_direct_price_count = 0
+        direct = self.filtered(lambda p: p.baf_purchase_method == 'direct')
+        if not direct.ids:
+            return
+        counts = {
+            partner.id: count
+            for partner, count
+            in self.env['product.supplierinfo']._read_group(
+                [('partner_id', 'in', direct.ids)],
+                ['partner_id'],
+                ['__count'],
+            )
+        }
+        for partner in direct:
+            partner.baf_direct_price_count = counts.get(partner.id, 0)
+
+    def action_baf_view_direct_prices(self):
+        """Open this vendor's product.supplierinfo rows in a standard list."""
+        self.ensure_one()
+        return {
+            'type': 'ir.actions.act_window',
+            'name': _("Direct Prices - %s") % (self.display_name or ''),
+            'res_model': 'product.supplierinfo',
+            'view_mode': 'list,form',
+            'views': [
+                (self.env.ref(
+                    'general_system_custom.view_baf_vendor_supplierinfo_list'
+                ).id, 'list'),
+                (self.env.ref('product.product_supplierinfo_form_view').id, 'form'),
+            ],
+            'search_view_id': (
+                self.env.ref('product.product_supplierinfo_search_view').id,
+                'search',
+            ),
+            'domain': [('partner_id', '=', self.id)],
+            'context': {
+                'default_partner_id': self.id,
+                # Base form/list hide the product column unless told otherwise.
+                'visible_product_tmpl_id': False,
+            },
+        }
 
     baf_direct_import_ambiguous_ids = fields.One2many(
         'baf.direct.import.ambiguous', 'partner_id',
@@ -415,6 +464,8 @@ class ResPartner(models.Model):
             raise UserError(_("Set a Purchase Pricing Method first."))
         if not self.baf_pricing_file:
             raise UserError(_("Upload a file first."))
+        self._baf_push_import_progress(_(
+            "Reading %s...") % (self.baf_pricing_filename or _("file")))
         try:
             if self.baf_purchase_method == 'direct':
                 # Direct price lists run to hundreds of thousands of rows: pull
@@ -684,6 +735,9 @@ class ResPartner(models.Model):
         )
         if not file_row_count:
             return stats
+        self._baf_push_import_progress(_(
+            "Read %s rows. Checking for duplicate SKUs..."
+        ) % '{:,}'.format(file_row_count))
 
         # 2) SKUs that appear under multiple product templates. Some rows can
         # still be resolved when the file carries a brand column that picks
@@ -701,6 +755,8 @@ class ResPartner(models.Model):
             ORDER BY f.sku_raw
         """)
         stats['ambiguous'] = [r[0] for r in cr.fetchall()]
+
+        self._baf_push_import_progress(_("Matching SKUs against the catalogue..."))
 
         # 3) Exact-match INSERT covering:
         #    - non-ambiguous SKUs (single product carries them), and
@@ -747,6 +803,10 @@ class ResPartner(models.Model):
              )
         """, params)
         exact_matches = cr.rowcount
+
+        self._baf_push_import_progress(_(
+            "Matched %s rows. Retrying the rest case-insensitively..."
+        ) % '{:,}'.format(exact_matches))
 
         # 4) Case-insensitive fallback for the file rows that didn't match by
         # exact SKU. Skipped when there are no residuals (the normal case
@@ -798,6 +858,10 @@ class ResPartner(models.Model):
             residual_matches = cr.rowcount
 
         stats['created'] = exact_matches + residual_matches
+
+        if stats['ambiguous']:
+            self._baf_push_import_progress(
+                _("Saving rows that need a brand choice..."))
 
         # 5) Stash truly unresolved ambiguous rows for manual review. One
         # baf.direct.import.ambiguous record per (sku, file_brand) that the
@@ -857,6 +921,11 @@ class ResPartner(models.Model):
         )
         return stats
 
+    _BAF_IMPORT_PROGRESS_EVERY = 100_000
+
+    def _baf_push_import_progress(self, message):
+        self._baf_notify(_("Importing Vendor Pricing"), message, immediate=True)
+
     def _baf_copy_direct_rows_to_temp(self, rows, sku_idx, price_idx,
                                      brand_idx, stats):
         """Stream (sku_raw, sku_upper, price, file_brand) tuples into
@@ -867,6 +936,8 @@ class ResPartner(models.Model):
         row_count = 0
         chunk_size = self._BAF_DIRECT_COPY_CHUNK
         parts = []
+        started_at = time.time()
+        next_progress = self._BAF_IMPORT_PROGRESS_EVERY
 
         def _escape(cell):
             return (cell.replace('\\', '\\\\')
@@ -906,6 +977,13 @@ class ResPartner(models.Model):
             row_count += 1
             if len(parts) >= chunk_size:
                 _flush()
+            # The sheet is streamed, so the total is unknown until the end:
+            # report rows staged so far rather than a percentage.
+            if row_count >= next_progress:
+                next_progress += self._BAF_IMPORT_PROGRESS_EVERY
+                self._baf_notify_progress(
+                    _("Importing Vendor Pricing"), _("Read"), _("rows"),
+                    row_count, 0, started_at, immediate=True)
         _flush()
         return row_count
 

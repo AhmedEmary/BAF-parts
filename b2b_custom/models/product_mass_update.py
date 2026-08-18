@@ -37,7 +37,7 @@ SUPPORTED_FIELDS = [
 class ProductMassUpdate(models.Model):
     _name = 'product.mass.update'
     _description = 'Product Mass Update Job'
-    _inherit = ['mail.thread', 'mail.activity.mixin']
+    _inherit = ['mail.thread', 'mail.activity.mixin', 'baf.progress.notifier']
     _order = 'create_date desc'
 
     name = fields.Char(default=lambda self: _('Mass Update'), required=True)
@@ -260,35 +260,9 @@ class ProductMassUpdate(models.Model):
         return domain
 
     def _push_progress(self, processed, total, started_at):
-        """Push a progress toast over the user's bus channel.
-
-        Bus messages flush on commit, so calling this just before cr.commit()
-        delivers the toast immediately — same pattern as the mass import.
-        """
-        elapsed = time.time() - started_at
-        if total and total > 0:
-            pct = min(100.0, (processed / total) * 100.0)
-            eta_s = int((elapsed / processed) * (total - processed)) if processed else 0
-            message = _(
-                "Updated %(d)s / %(t)s products (%(p).1f%%). ETA ~%(em)dm %(es)ds"
-            ) % {
-                'd': f'{processed:,}', 't': f'{total:,}',
-                'p': pct, 'em': eta_s // 60, 'es': eta_s % 60,
-            }
-        else:
-            message = _("Updated %(d)s products so far (%(e).0fs elapsed)") % {
-                'd': f'{processed:,}', 'e': elapsed,
-            }
-        self.env['bus.bus']._sendone(
-            self.env.user.partner_id,
-            'simple_notification',
-            {
-                'title': _("Mass Product Update"),
-                'message': message,
-                'type': 'info',
-                'sticky': False,
-            },
-        )
+        self._baf_notify_progress(
+            _("Mass Product Update"), _("Updated"), _("products"),
+            processed, total, started_at)
 
     def action_launch(self):
         """Run the whole job synchronously, batch by batch, until done.

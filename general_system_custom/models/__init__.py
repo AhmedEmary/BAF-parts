@@ -1,11 +1,13 @@
 from sys import dont_write_bytecode
 
 # 1. Base / Core Models MUST load first
+from . import baf_progress_notifier
 from . import brand_family
 from . import baf_pricing
 from . import baf_product_pricing
 from . import partner
 from . import auto_product
+from . import product_supplierinfo
 from . import so_source
 from . import discount_code
 from . import baf_delivery_rule
