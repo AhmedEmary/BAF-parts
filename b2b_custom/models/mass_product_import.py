@@ -61,6 +61,7 @@ FUZZY_MAP = {
 
 class MassProductImport(models.TransientModel):
     _name = 'mass.product.import'
+    _inherit = ['baf.progress.notifier']
     _description = 'Mass Product Import via Direct SQL'
 
     state = fields.Selection([
@@ -564,17 +565,37 @@ class MassProductImport(models.TransientModel):
             'res_model': 'mass.product.import',
             'res_id': self.id,
         })
-        self._process_direct_sql(attachment.id)
+        stats = self._process_direct_sql(attachment.id) or {}
         return {
             'type': 'ir.actions.client',
             'tag': 'display_notification',
             'params': {
-                'title': 'Import Completed',
-                'message': 'Your products were successfully imported!',
+                'title': _("Import Completed"),
+                'message': self._import_summary(stats),
                 'type': 'success',
-                'sticky': False,
+                'sticky': True,
             }
         }
+
+    def _import_summary(self, stats):
+        """One line per outcome, so every row of the file is accounted for."""
+        if not stats:
+            return _("Your products were successfully imported!")
+        lines = [_("%(rows)s row(s) imported in %(mins)dm %(secs)ds.") % {
+            'rows': '{:,}'.format(stats.get('rows', 0)),
+            'mins': int(stats.get('seconds', 0)) // 60,
+            'secs': int(stats.get('seconds', 0)) % 60,
+        }]
+        if stats.get('skipped'):
+            lines.append(_("%s row(s) skipped: sentinel/no-op values.")
+                         % '{:,}'.format(stats['skipped']))
+        if stats.get('links'):
+            lines.append(_("%s replacement link(s) set.")
+                         % '{:,}'.format(stats['links']))
+        if stats.get('placeholders'):
+            lines.append(_("%s replacement placeholder(s) created.")
+                         % '{:,}'.format(stats['placeholders']))
+        return "\n".join(lines)
 
     def _get_file_headers(self):
         headers, _rows, _total_rows = self._read_import_source(self.file_data, self.file_name)
@@ -601,36 +622,9 @@ class MassProductImport(models.TransientModel):
         return column_key
 
     def _push_import_progress(self, done, total, started_at):
-        """Send a toast with current progress over the user's bus channel.
-
-        Bus messages are flushed on commit, so calling this just before
-        cr.commit() in _execute_sql_batch delivers the toast immediately.
-        """
-        elapsed = time.time() - started_at
-        if total and total > 0:
-            pct = min(100.0, (done / total) * 100.0)
-            eta_s = int((elapsed / done) * (total - done)) if done else 0
-            message = _(
-                "Imported %(d)s / %(t)s rows (%(p).1f%%). ETA ~%(em)dm %(es)ds"
-            ) % {
-                'd': f'{done:,}', 't': f'{total:,}',
-                'p': pct, 'em': eta_s // 60, 'es': eta_s % 60,
-            }
-        else:
-            message = _("Imported %(d)s rows so far (%(e).0fs elapsed)") % {
-                'd': f'{done:,}', 'e': elapsed,
-            }
-
-        self.env['bus.bus']._sendone(
-            self.env.user.partner_id,
-            'simple_notification',
-            {
-                'title': _("Mass Product Import"),
-                'message': message,
-                'type': 'info',
-                'sticky': False,
-            },
-        )
+        self._baf_notify_progress(
+            _("Mass Product Import"), _("Imported"), _("rows"),
+            done, total, started_at)
 
     def _ensure_replacement_template(self, replacement_sku, brand_id, brand_name, brand_family_base, uom_id, categ_id, replacement_cache):
         """Ensure the replacement template exists *before* importing the source row.
@@ -734,7 +728,7 @@ class MassProductImport(models.TransientModel):
         total_start_time = time.time()
         attachment = self.env['ir.attachment'].browse(attachment_id)
         if not attachment:
-            return
+            return {}
 
         ctx = self._prepare_import_context()
         _headers, rows, total_rows = self._read_import_source(attachment.datas, self.file_name)
@@ -804,6 +798,13 @@ class MassProductImport(models.TransientModel):
             (time.time() - total_start_time) / 60.0,
             rows_committed, skipped_sentinel, replacement_links_set, replacement_placeholders_created,
         )
+        return {
+            'rows': rows_committed,
+            'skipped': skipped_sentinel,
+            'links': replacement_links_set,
+            'placeholders': replacement_placeholders_created,
+            'seconds': time.time() - total_start_time,
+        }
 
     def _execute_sql_batch(self, query, data_batch, batch_counter, tax_ids=None):
         self.env.flush_all()
