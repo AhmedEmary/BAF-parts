@@ -8,9 +8,9 @@ twice-daily schedule. Imported orders are **confirmed** (not left as draft
 quotations).
 
 No new sales models are introduced: incoming orders are mapped onto the
-existing `sale.order` / `sale.order.line`, reusing the custom `b2b_so`,
-`customer_po` and `so_source` fields from `general_system_custom` (the source
-is set to **Alzura**).
+existing `sale.order` / `sale.order.line`, reusing the custom `customer_po`
+and `so_source` fields from `general_system_custom` (the source is set to
+**Alzura**).
 
 ## Features
 
@@ -26,7 +26,7 @@ is set to **Alzura**).
   - Relies on Alzura's "since the last call" tagging, so each run only
     returns orders not yet retrieved.
 - **Idempotent** — orders are de-duplicated on the Alzura order number stored
-  in `b2b_so`; re-running never creates duplicates.
+  in `customer_po`; re-running never creates duplicates.
 - **Unmatched SKUs stay visible** — a position whose `supplier_item_number` has
   no product becomes a text-only note line carrying the SKU, name, qty and net
   price, so the order still imports and nothing is silently lost.
@@ -43,7 +43,7 @@ is set to **Alzura**).
 ## Dependencies
 
 `base`, `base_setup`, `general_system_custom` (for the `sale.order`
-`b2b_so` / `customer_po` / `so_source` fields and the `product.product.sku`
+`customer_po` / `so_source` fields and the `product.product.sku`
 used for product matching).
 
 ## Installation
@@ -76,10 +76,9 @@ per new Alzura order.
 
 | Alzura field                          | Odoo `sale.order`                          |
 | ------------------------------------- | ------------------------------------------ |
-| `order` (e.g. `PAC1234567890719`)     | `b2b_so` — **de-dup key**                  |
-| `cart_order_id` (Alzura internal order number) | `alzura_internal_number` (form field visible on Alzura orders, optional list column, searchable) |
+| `order` (e.g. `PAC1234567890719`)     | `customer_po` — **de-dup key**             |
 | (constant)                            | `so_source` → **Alzura**                   |
-| `reference_number`                    | `customer_po` + `client_order_ref` (falls back to `cart_order_id`, then `order`) |
+| `reference_number`                    | `client_order_ref` (falls back to `order`) |
 | `date`                                | `date_order`                               |
 | `buyer`                               | `partner_id` (see below)                   |
 | `positions[]`                         | `order_line`                               |
@@ -208,7 +207,7 @@ No new models. Extensions only:
 | ------------------- | ------------------------------------------------------------- |
 | `res.company`       | `alzura_token`, `alzura_token_expiry`, `alzura_country`, `_alzura_request_headers()` |
 | `res.config.settings` | UI for credentials/country + token & fetch buttons          |
-| `sale.order`        | `alzura_internal_number`, `is_alzura_order` (computed, drives view visibility) + order-import methods (`_cron_fetch_alzura_orders`, `_alzura_fetch_orders`, …) — otherwise reuses `b2b_so` / `customer_po` / `so_source` from `general_system_custom` |
+| `sale.order`        | `is_alzura_order` (computed, drives the line repricing skip) + order-import methods (`_cron_fetch_alzura_orders`, `_alzura_fetch_orders`, …) — otherwise reuses `customer_po` / `so_source` from `general_system_custom` |
 | `sale.order.line`   | `_baf_skip_repricing()` returns True on Alzura orders, plus `_compute_price_unit` / `_compute_discount` guards so the imported price survives a qty/product/partner write |
 
 `is_alzura_order` matches **any** `so.source` named *Alzura*, not just the

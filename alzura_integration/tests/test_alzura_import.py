@@ -120,8 +120,9 @@ class TestAlzuraImport(TransactionCase):
         order = self._import(0)
         self.assertTrue(order)
         self.assertEqual(order.state, "sale", "order must be confirmed, not draft")
-        self.assertTrue(order.b2b_so.startswith("TEST-ALZ-"))
+        self.assertTrue(order.customer_po.startswith("TEST-ALZ-"))
         self.assertEqual(order.so_source, self.alzura_source)
+        self.assertFalse(order.b2b_so, "the import must leave b2b_so free")
 
     def test_idempotent_reimport(self):
         data = self._order(0)
@@ -130,23 +131,24 @@ class TestAlzuraImport(TransactionCase):
         second = self.SaleOrder._alzura_import_order(self.company, data)
         self.assertFalse(second, "re-importing the same order must be skipped")
         self.assertEqual(
-            self.SaleOrder.search_count([("b2b_so", "=", data["order"])]), 1
+            self.SaleOrder.search_count([("customer_po", "=", data["order"])]), 1
         )
 
-    def test_alzura_internal_number_imported(self):
-        # cart_order_id is the number the buyer sees in the Alzura frontend.
-        order = self._import(0)
-        self.assertEqual(order.alzura_internal_number, "4285747")
-        # With no buyer reference it becomes the customer reference, so the
-        # default "Order" search box finds the SO by the number customers quote.
-        self.assertEqual(order.client_order_ref, "4285747")
+    def test_alzura_order_number_is_customer_po(self):
+        # The Alzura order number (POE...) is the number buyers quote, so it is
+        # stamped as the PO number and, with no buyer reference, as the
+        # customer reference too.
+        data = self._order(0)
+        order = self.SaleOrder._alzura_import_order(self.company, data)
+        self.assertEqual(order.customer_po, data["order"])
+        self.assertEqual(order.client_order_ref, data["order"])
         found = self.SaleOrder.search(
-            [("client_order_ref", "ilike", "4285747"), ("id", "=", order.id)]
+            [("customer_po", "ilike", data["order"]), ("id", "=", order.id)]
         )
         self.assertEqual(found, order)
 
     def test_is_alzura_order_flag(self):
-        # Drives visibility of the Alzura fields in the form/list views.
+        # Drives the catalog repricing skip on the imported order lines.
         order = self._import(0)
         self.assertTrue(order.is_alzura_order)
         plain = self.SaleOrder.create(
@@ -163,7 +165,8 @@ class TestAlzuraImport(TransactionCase):
         data["reference_number"] = "CUSTOMER-REF-7"
         order = self.SaleOrder._alzura_import_order(self.company, data)
         self.assertEqual(order.client_order_ref, "CUSTOMER-REF-7")
-        self.assertEqual(order.alzura_internal_number, "4285747")
+        # The PO number stays the Alzura order number regardless.
+        self.assertEqual(order.customer_po, data["order"])
 
     # --- position lines --------------------------------------------------
 
@@ -491,7 +494,8 @@ class TestAlzuraImport(TransactionCase):
         self.assertEqual(result["rejected"], 0)
         self.assertEqual(result["total"], 4)
 
-        # Re-running the same payload imports nothing new (idempotent on b2b_so).
+        # Re-running the same payload imports nothing new (idempotent on
+        # customer_po).
         with patch.object(
             type(self.SaleOrder), "_alzura_orders_payload", return_value=body
         ):

@@ -13,16 +13,10 @@ ALZURA_ORDERS_URL = "https://api-b2b.alzura.com/common/latestorders"
 class SaleOrder(models.Model):
     _inherit = "sale.order"
 
-    alzura_internal_number = fields.Char(
-        string="Alzura Internal Order No.",
-        copy=False,
-        help="Alzura internal order number (cart_order_id) shown to the buyer "
-        "in the Alzura frontend. Customers usually quote this number when "
-        "they contact us about an order.",
-    )
     is_alzura_order = fields.Boolean(
         compute="_compute_is_alzura_order",
-        help="True when the order source is Alzura; drives view visibility.",
+        help="True when the order source is Alzura; drives the catalog "
+        "repricing skip on the order lines.",
     )
 
     @api.model
@@ -147,7 +141,7 @@ class SaleOrder(models.Model):
             return {}
 
     def _alzura_import_order(self, company, order_data):
-        """Create one sale.order from an Alzura order dict. Idempotent via b2b_so.
+        """Create one sale.order from an Alzura order dict. Idempotent via customer_po.
 
         Returns the created order, or False if it already exists / is invalid.
         """
@@ -156,7 +150,8 @@ class SaleOrder(models.Model):
             return False
 
         existing = self.sudo().search(
-            [("b2b_so", "=", alzura_ref), ("company_id", "=", company.id)], limit=1
+            [("customer_po", "=", alzura_ref), ("company_id", "=", company.id)],
+            limit=1,
         )
         if existing:
             return False
@@ -166,10 +161,6 @@ class SaleOrder(models.Model):
         )
         reference = order_data.get("reference_number") or ""
         shipping = order_data.get("shipping") or {}
-        # Alzura internal order number: what the buyer sees in the Alzura
-        # frontend and quotes when contacting us, so it must be searchable.
-        internal_number = order_data.get("cart_order_id")
-        internal_number = str(internal_number) if internal_number else False
         source = self.env.ref(
             "alzura_integration.so_source_alzura", raise_if_not_found=False
         )
@@ -183,11 +174,11 @@ class SaleOrder(models.Model):
                 order_data.get("buyer") or {},
                 order_data.get("country"),
             ).id,
-            "b2b_so": alzura_ref,
             "so_source": source.id if source else False,
-            "alzura_internal_number": internal_number,
-            "customer_po": reference,
-            "client_order_ref": reference or internal_number or alzura_ref,
+            # The Alzura order number (POE...) is what the buyer quotes when
+            # contacting us: it is the PO number of the order.
+            "customer_po": alzura_ref,
+            "client_order_ref": reference or alzura_ref,
             "date_order": self._alzura_parse_dt(order_data.get("date")),
             "order_line": self._alzura_build_lines(
                 order_data.get("positions") or [], company
