@@ -24,6 +24,7 @@
                 <field name="baf_discount_code" string="Disc Code" optional="show" readonly="1"/>
                 <field name="baf_discount_pct" string="Disc %" optional="show" readonly="1"/>
                 <field name="baf_column_key" string="Column" optional="show" readonly="1"/>
+                <field name="baf_cost_unknown" string="Cost Unknown" optional="show" readonly="1"/>
                 <field name="price_unit" string="Unit Price" readonly="0" force_save="1"/>
                 <field name="price_subtotal" widget="monetary"/>
                 <field name="qty_received" optional="show"/>
@@ -91,6 +92,7 @@
                 <field name="baf_discount_code" string="Disc Code" optional="show" readonly="1"/>
                 <field name="baf_discount_pct" string="Disc %" optional="show" readonly="1"/>
                 <field name="baf_column_key" string="Column" optional="show" readonly="1"/>
+                <field name="baf_cost_unknown" string="Cost Unknown" optional="show" readonly="1"/>
             </xpath>
 
             <xpath expr="//field[@name='order_line']/list//field[@name='price_unit']" position="attributes">

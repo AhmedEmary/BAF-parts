@@ -3,6 +3,11 @@ import logging
 from odoo.exceptions import UserError
 _logger = logging.getLogger(__name__)
 
+# Costing gaps: the line has no usable cost and each state needs a different
+# fix. Kept apart from 'legacy' (pre-existing lines, never costed) and 'none'
+# (no product), which are hidden in the views but keep their stored margin.
+BAF_COST_GAP_STATES = ('no_vendor', 'no_price', 'no_delivery_window')
+
 
 class SaleOrderLine(models.Model):
     _inherit = 'sale.order.line'
@@ -38,6 +43,36 @@ class SaleOrderLine(models.Model):
     brand_id = fields.Many2one('product.brand', related='product_id.brand', store=True, string="Brand", readonly=True)
     purchased_qty = fields.Float(string='Purchased Qty', compute='_compute_purchased_qty', store=True)
     unshipped_qty = fields.Float(string='Unshipped Qty', compute='_compute_unshipped_qty', store=True)
+
+    baf_cost_status = fields.Selection(
+        selection=[
+            ('ok', 'Costed'),
+            ('no_vendor', 'No Eligible Vendor'),
+            ('no_price', 'Vendor Cannot Price'),
+            ('no_delivery_window', 'None In Delivery Window'),
+            ('legacy', 'Not Costed'),
+            ('none', 'N/A'),
+        ],
+        string='Cost Status', compute='_compute_purchase_price',
+        store=True, readonly=True, precompute=False,
+        groups='base.group_user',
+        help="How this line's Cost was resolved. Each gap state needs a "
+             "different fix: onboard a vendor for the brand, extend the "
+             "vendor's discount table, or widen the customer's delivery window.",
+    )
+    # Read-only on purpose: the cost actually paid is the vendor's price, so a
+    # hand-typed figure could only ever disagree with the purchase order.
+    #
+    # precompute=False everywhere in this chain, overriding sale_margin: the
+    # engine needs purchase_vendor_id, which is itself a plain stored compute,
+    # so Odoo cannot precompute Cost anyway and warns on every registry load.
+    # margin / margin_percent follow, since they now depend on baf_cost_status.
+    purchase_price = fields.Float(
+        compute='_compute_purchase_price', store=True, readonly=True,
+        precompute=False,
+    )
+    margin = fields.Float(precompute=False)
+    margin_percent = fields.Float(precompute=False)
 
     def _baf_skip_repricing(self):
         """True when this line's price is owned by an external system.
@@ -101,6 +136,70 @@ class SaleOrderLine(models.Model):
     def _compute_unshipped_qty(self):
         for line in self:
             line.unshipped_qty = line.product_uom_qty - line.qty_invoiced
+
+    def _baf_costing_price(self, vendor):
+        """Engine purchase price for `vendor`, or None when it cannot price
+        this part. sudo() on both sides: a portal cart-add reaches res.partner
+        and baf.discount.line, which a portal user cannot read."""
+        self.ensure_one()
+        details = self.product_id.sudo().baf_get_purchase_price_details(
+            vendor.sudo())
+        return details['price'] if details else None
+
+    @api.model
+    def _baf_gap_status(self, candidates):
+        """Tell the three costing gaps apart from what baf_get_best_vendor
+        already reports per candidate."""
+        if not candidates:
+            return 'no_vendor'
+        if any(c['price'] is not None and c['out_of_window'] for c in candidates):
+            return 'no_delivery_window'
+        return 'no_price'
+
+    def _baf_resolve_cost(self):
+        """(price, status) from the pricing engine for this line's costing
+        vendor: the Selected Vendor when set, otherwise the best vendor."""
+        self.ensure_one()
+        if not self.product_id:
+            return 0.0, 'none'
+        if self.purchase_vendor_id:
+            price = self._baf_costing_price(self.purchase_vendor_id)
+            if price is None:
+                return 0.0, 'no_price'
+            return price, 'ok'
+        best = self.product_id.sudo().baf_get_best_vendor(
+            customer=self.order_id.partner_id.sudo())
+        if best['vendor']:
+            return best['price'], 'ok'
+        return 0.0, self._baf_gap_status(best['candidates'])
+
+    @api.depends('product_id', 'purchase_vendor_id', 'order_id.partner_id',
+                 'order_id.partner_id.baf_max_delivery_weeks')
+    def _compute_purchase_price(self):
+        """Cost is the price we expect to pay the costing vendor. Replaces
+        sale_margin's standard_price lookup, which BAF imports never fill.
+
+        product_uom_qty is deliberately absent: the engine prices per unit, so
+        quantity cannot change Cost. Margin still follows quantity through
+        sale_margin's own compute.
+        """
+        for line in self:
+            line.purchase_price, line.baf_cost_status = line._baf_resolve_cost()
+
+    @api.depends('price_subtotal', 'product_uom_qty', 'purchase_price',
+                 'baf_cost_status')
+    def _compute_margin(self):
+        """A line with no resolvable cost reports no margin rather than the
+        full subtotal. 'legacy' is deliberately not in the blanked set: those
+        lines predate costing and keep the value they already have, so editing
+        an old order never rewrites its margin. The views hide it instead.
+        """
+        gaps = self.filtered(
+            lambda l: l.baf_cost_status in BAF_COST_GAP_STATES)
+        super(SaleOrderLine, self - gaps)._compute_margin()
+        for line in gaps:
+            line.margin = 0.0
+            line.margin_percent = 0.0
 
     @api.depends('product_id', 'baf_alt_vendor_id', 'order_id.website_id',
                  'order_id.partner_id.baf_max_delivery_weeks')
@@ -185,6 +284,19 @@ class SaleOrderLine(models.Model):
             product_names = ", ".join(lines_without_vendor.mapped('product_id.name'))
             raise UserError(f"Please select a Vendor for the following products before creating a PO:\n{product_names}")
 
+        unpriceable = [
+            "%s - %s" % (line.product_id.display_name,
+                         line.purchase_vendor_id.display_name)
+            for line in lines_to_process
+            if line.product_id.sudo().baf_get_purchase_price_details(
+                line.purchase_vendor_id) is None
+        ]
+        if unpriceable:
+            raise UserError(
+                "These vendors have no price for the part. Extend the "
+                "vendor's discount table before ordering:\n%s"
+                % "\n".join(unpriceable))
+
         grouped_lines = {}
         for line in lines_to_process:
             vendor = line.purchase_vendor_id
@@ -215,16 +327,8 @@ class SaleOrderLine(models.Model):
 
             pol_vals_list = []
             for line in so_lines:
-                # Use BAF purchase price engine
+                # Guarded above: every line here is priceable by its vendor.
                 details = line.product_id.baf_get_purchase_price_details(vendor)
-                if details:
-                    final_cost = details['price']
-                    discount_pct = details['discount_pct']
-                    column_key = details['column_key']
-                else:
-                    final_cost = line.price_unit
-                    discount_pct = 0.0
-                    column_key = False
 
                 pol_vals_list.append({
                     'order_id': po.id,
@@ -233,11 +337,11 @@ class SaleOrderLine(models.Model):
                     'product_qty': line.qty_to_purchase,
                     'product_uom_id': line.product_uom_id.id,
                     'retail_price': line.product_id.list_price,
-                    'price_unit': final_cost,
+                    'price_unit': details['price'],
                     'surcharge': line.product_id.surcharge or 0.0,
                     'baf_discount_code': line.product_id.baf_discount_code or False,
-                    'baf_discount_pct': discount_pct,
-                    'baf_column_key': column_key,
+                    'baf_discount_pct': details['discount_pct'],
+                    'baf_column_key': details['column_key'],
                     'date_planned': fields.Datetime.now(),
                 })
 

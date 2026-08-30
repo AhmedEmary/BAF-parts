@@ -76,6 +76,38 @@
                        domain="[('baf_purchase_method','!=',False)]"/>
             </xpath>
 
+            <xpath expr="//field[@name='order_line']/list/field[@name='purchase_price']" position="attributes">
+                <attribute name="optional">show</attribute>
+            </xpath>
+            <xpath expr="//field[@name='order_line']/list/field[@name='margin']" position="attributes">
+                <attribute name="optional">show</attribute>
+                <attribute name="invisible">baf_cost_status != 'ok'</attribute>
+            </xpath>
+            <xpath expr="//field[@name='order_line']/list/field[@name='margin_percent']" position="attributes">
+                <attribute name="optional">show</attribute>
+                <attribute name="invisible">price_subtotal == 0 or baf_cost_status != 'ok'</attribute>
+            </xpath>
+            <!-- sale_margin renders "Margin <value> (<pct>)" after tax_totals.
+                 Hide it whenever a line has no cost: the sum silently omits
+                 those lines, so the total would read as complete. -->
+            <xpath expr="//label[@for='margin']/.." position="attributes">
+                <attribute name="invisible">baf_cost_gap_count &gt; 0</attribute>
+                <attribute name="groups">base.group_user</attribute>
+            </xpath>
+            <xpath expr="//label[@for='margin']/.." position="after">
+                <div class="d-flex float-end text-danger" groups="base.group_user"
+                     invisible="baf_cost_gap_count == 0">
+                    <field name="baf_cost_gap_count" invisible="1"/>
+                    <field name="baf_cost_gap_summary" nolabel="1" readonly="1" class="oe_inline"/>
+                </div>
+            </xpath>
+
+            <xpath expr="//field[@name='order_line']/list/field[@name='margin_percent']" position="after">
+                <field name="baf_cost_status" optional="show" widget="badge"
+                       decoration-danger="baf_cost_status in ('no_vendor', 'no_price', 'no_delivery_window')"
+                       decoration-muted="baf_cost_status in ('legacy', 'none')"/>
+            </xpath>
+
         </field>
     </record>
 
