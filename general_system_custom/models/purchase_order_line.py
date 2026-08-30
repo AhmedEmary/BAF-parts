@@ -29,6 +29,23 @@ class PurchaseOrderLine(models.Model):
         help="Discount-table column key used (e.g. BMW_T12).",
     )
 
+    baf_cost_unknown = fields.Boolean(
+        string='Cost Unknown',
+        compute='_compute_baf_cost_unknown',
+        help="The vendor on this order has no price for this part, so the "
+             "unit price did not come from the BAF pricing engine.",
+    )
+
+    @api.depends('product_id', 'order_id.partner_id')
+    def _compute_baf_cost_unknown(self):
+        # Not stored: a stored computed column would make Odoo recompute
+        # _compute_price_unit_and_date_planned_and_name for every existing PO
+        # line and rewrite its price at today's vendor prices.
+        for line in self:
+            line.baf_cost_unknown = bool(line.product_id) and (
+                line.product_id.baf_get_purchase_price_details(
+                    line.order_id.partner_id) is None)
+
     # Inbound reconciliation
     qty_split = fields.Float(
         string='Qty Allocated',

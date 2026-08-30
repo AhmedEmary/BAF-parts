@@ -1,9 +1,11 @@
-from odoo import models, fields, api
+from odoo import models, fields, api, _
 from odoo.exceptions import UserError
 import base64
 from io import BytesIO
 import openpyxl
 from openpyxl.styles import Font
+
+from .sales_order_line import BAF_COST_GAP_STATES
 
 
 class SaleOrder(models.Model):
@@ -91,6 +93,15 @@ class SaleOrder(models.Model):
         currency_field='currency_id',
     )
 
+    baf_cost_gap_count = fields.Integer(
+        string='Lines Without Cost', compute='_compute_baf_cost_gap',
+        groups='base.group_user',
+    )
+    baf_cost_gap_summary = fields.Char(
+        string='Cost Gaps', compute='_compute_baf_cost_gap',
+        groups='base.group_user',
+    )
+
     @api.depends('order_line.qty_delivered', 'order_line.price_unit', 'order_line.product_uom_qty')
     def _compute_amount_delivered(self):
         for order in self:
@@ -121,6 +132,43 @@ class SaleOrder(models.Model):
             'view_mode': 'list,form',
             'domain': [('id', 'in', pallets.ids)],
         }
+
+    @api.depends('order_line.baf_cost_status')
+    def _compute_baf_cost_gap(self):
+        """Warn about lines the pricing engine could not cost, keeping the
+        three causes apart because each needs a different fix.
+
+        The order margin is hidden while any line is uncosted: sale.order.margin
+        is a plain sum of the line margins, so an uncosted line contributes
+        nothing and the total reads as complete when it is not. This message
+        takes its place, next to where the number would have been."""
+        labels = [
+            ('no_vendor', _("no eligible vendor")),
+            ('no_price', _("vendor cannot price")),
+            ('no_delivery_window', _("none inside the delivery window")),
+        ]
+        for order in self:
+            gaps = order.order_line.filtered(
+                lambda l: l.baf_cost_status in BAF_COST_GAP_STATES)
+            order.baf_cost_gap_count = len(gaps)
+            if not gaps:
+                order.baf_cost_gap_summary = ''
+                continue
+            causes = [
+                (count, label) for state, label in labels
+                if (count := len(gaps.filtered(
+                    lambda l: l.baf_cost_status == state)))
+            ]
+            # One cause covers every gap: naming it once beats "2 x <cause>".
+            detail = (causes[0][1] if len(causes) == 1
+                      else ', '.join('%d %s' % c for c in causes))
+            order.baf_cost_gap_summary = _(
+                "Margin unavailable: %(count)d %(noun)s without cost (%(detail)s)"
+            ) % {
+                'count': len(gaps),
+                'noun': _("line") if len(gaps) == 1 else _("lines"),
+                'detail': detail,
+            }
 
     @api.depends('purchase_ids')
     def _compute_purchase_count(self):
