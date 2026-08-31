@@ -1,3 +1,4 @@
+import base64
 import gzip
 import io
 import re
@@ -252,20 +253,30 @@ class PriceFile(CustomerPortal):
         partner = request.env.user.partner_id
         brands = visible_brands(request.env, partner)
         families = visible_families(request.env, partner)
-        etk = request.env['baf.etk.file']._baf_current()
+        Etk = request.env['baf.etk.file']
+        etk_families = families.filtered(lambda f: Etk._baf_current(f))
         return request.render('b2b_custom.pricefile_page', {
             'brands': brands,
             'families': families,
-            'etk_available': bool(etk),
+            'etk_families': etk_families,
         })
 
     @http.route(
         ['/pricefile/etk'], type='http', auth='user', website=True,
         multilang=False, sitemap=False,
     )
-    def etk_download(self, **kw):
-        import base64
-        etk = request.env['baf.etk.file']._baf_current()
+    def etk_download(self, family_id=None, **kw):
+        """Serve one brand family's ETK. Entitlement is re-checked here, not
+        just hidden in the template, so a crafted URL can't reach a family the
+        customer isn't entitled to."""
+        partner = request.env.user.partner_id
+        try:
+            fid = int(family_id)
+        except (TypeError, ValueError):
+            return request.redirect('/pricefile')
+        family = visible_families(request.env, partner).filtered(
+            lambda f: f.id == fid)
+        etk = request.env['baf.etk.file']._baf_current(family)
         if not etk or not etk.file_data:
             return request.redirect('/pricefile')
         data = base64.b64decode(etk.file_data)

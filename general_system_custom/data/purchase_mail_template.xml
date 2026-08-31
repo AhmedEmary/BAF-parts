@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Vendors receive the Excel workbook only, never a PDF. Clearing
+         report_template_ids is what makes that hold: the mail composer's
+         _compute_attachment_ids regenerates attachments from the template and
+         overwrites default_attachment_ids whenever the template carries a
+         report, so setting the attachment in the calling code is not enough.
+
+         This has to be a <function>, not a <record>: Odoo ships these three
+         templates inside <data noupdate="1">, and _load_records skips any
+         update whose ir.model.data row carries noupdate — a plain <record>
+         override is silently ignored. A function tag in a file that is not
+         noupdate runs on every install and upgrade. -->
+    <function model="mail.template" name="write" eval="[
+        [ref('purchase.email_template_edi_purchase'),
+         ref('purchase.email_template_edi_purchase_done'),
+         ref('purchase.email_template_edi_purchase_reminder')],
+        {'report_template_ids': [(5, 0, 0)]},
+    ]"/>
+</odoo>

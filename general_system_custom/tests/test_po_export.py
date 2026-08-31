@@ -136,3 +136,58 @@ class TestGroupedPOExport(TransactionCase):
         ws_drop = wb["Dropship Orders"]
         headers = [cell.value for cell in ws_drop[1]]
         self.assertIn("Delivery Address", headers)
+
+    def test_purchase_templates_attach_no_report(self):
+        """No vendor-facing purchase mail template may carry a PDF report."""
+        for xmlid in (
+            'purchase.email_template_edi_purchase',
+            'purchase.email_template_edi_purchase_done',
+            'purchase.email_template_edi_purchase_reminder',
+        ):
+            template = self.env.ref(xmlid)
+            self.assertFalse(
+                template.report_template_ids,
+                "%s must not attach a report" % xmlid)
+
+    def test_rfq_send_attaches_excel(self):
+        """ The form buttons (Send RFQ / Send PO) attach the same workbook """
+        po = self.env['purchase.order'].create({
+            'partner_id': self.vendor_untrusted.id,
+            'order_line': [Command.create({
+                'product_id': self.product.id,
+                'product_qty': 2.0,
+                'price_unit': 50.0,
+            })],
+        })
+
+        action = po.action_rfq_send()
+
+        self.assertEqual(po.send_po_status, 'success')
+        attachment_id = action['context']['default_attachment_ids'][0]
+        attachment = self.env['ir.attachment'].browse(attachment_id)
+        wb = openpyxl.load_workbook(io.BytesIO(base64.b64decode(attachment.datas)))
+        headers = [cell.value for cell in wb.active[1]]
+        self.assertIn("SKU", headers)
+        row_values = [cell.value for cell in wb.active[2]]
+        self.assertIn('SKU123', row_values)
+
+    def test_rfq_send_attaches_excel_on_confirmed_order(self):
+        """ Confirmed POs take the same path - Excel, still no PDF """
+        po = self.env['purchase.order'].create({
+            'partner_id': self.vendor_untrusted.id,
+            'order_line': [Command.create({
+                'product_id': self.product.id,
+                'product_qty': 1.0,
+                'price_unit': 50.0,
+            })],
+        })
+        po.button_confirm()
+        self.assertEqual(po.state, 'purchase')
+
+        action = po.action_rfq_send()
+
+        template = self.env['mail.template'].browse(
+            action['context']['default_template_id'])
+        self.assertFalse(template.report_template_ids)
+        attachment_id = action['context']['default_attachment_ids'][0]
+        self.assertTrue(self.env['ir.attachment'].browse(attachment_id).exists())
