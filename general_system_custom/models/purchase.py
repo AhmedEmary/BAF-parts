@@ -124,12 +124,13 @@ class PurchaseOrder(models.Model):
             return ""
         return value
 
-    def action_send_grouped_po_email(self):
-        """
-        Reliable Excel generation with sanitization and error handling.
+    def _baf_po_excel_attachment(self):
+        """Build the vendor Excel workbook for these orders and return it as an
+        ir.attachment. Shared by the bulk action and the form buttons; the
+        single-vendor guard makes it safe on any recordset size.
         """
         if not self:
-            return
+            return self.env['ir.attachment']
 
         partners = self.mapped('partner_id')
         if len(set(partners)) > 1:
@@ -240,6 +241,13 @@ class PurchaseOrder(models.Model):
             'mimetype': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
         })
 
+        return attachment
+
+    def action_send_grouped_po_email(self):
+        """Bulk action: one Excel for the whole selection, one composer."""
+        attachment = self._baf_po_excel_attachment()
+        if not attachment:
+            return
         self.write({'send_po_status': 'success'})
 
         # 8. Open Composer
@@ -262,3 +270,15 @@ class PurchaseOrder(models.Model):
             'target': 'new',
             'context': ctx,
         }
+
+    def action_rfq_send(self):
+        """Send RFQ / Send PO from the form: same Excel, never a PDF. The PDF
+        is dropped at its source by clearing report_template_ids on the
+        purchase mail templates (data/purchase_mail_template.xml)."""
+        action = super().action_rfq_send()
+        attachment = self._baf_po_excel_attachment()
+        if attachment:
+            action.setdefault('context', {})['default_attachment_ids'] = [
+                attachment.id]
+            self.write({'send_po_status': 'success'})
+        return action

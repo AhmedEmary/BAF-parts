@@ -9,6 +9,7 @@
         'security/ir.model.access.csv',
         'data/ir_sequence_data.xml',
         'data/so_source_data.xml',
+        'data/purchase_mail_template.xml',
         'reports/pallet_label_report.xml',
         'reports/pallet_list_report.xml',
         'reports/invoice_report_axio.xml',

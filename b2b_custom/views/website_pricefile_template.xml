@@ -64,16 +64,27 @@
                     <a href="/pricefile/discount-download" class="btn btn-outline-primary">
                         Rabattcodes herunterladen (XLSX)
                     </a>
-                    <t t-if="etk_available">
+                    <t t-if="etk_families">
                         <hr class="my-4"/>
                         <h2 class="h4 mb-2">ETK</h2>
                         <p class="text-muted">
-                            Die aktuelle ETK-Datei ist für alle B2B-Kunden identisch
-                            und wird zentral aktualisiert.
+                            Wählen Sie eine Markengruppe und laden Sie die
+                            aktuelle ETK-Datei herunter. Aufgeführt sind nur
+                            Markengruppen, für die eine Datei hinterlegt ist.
                         </p>
-                        <a href="/pricefile/etk" class="btn btn-outline-primary">
-                            ETK herunterladen
-                        </a>
+                        <form action="/pricefile/etk" method="get" class="row g-2 align-items-end">
+                            <div class="col-auto">
+                                <label for="etk_family_id" class="form-label">Markengruppe</label>
+                                <select name="family_id" id="etk_family_id" class="form-select">
+                                    <t t-foreach="etk_families" t-as="etk_family">
+                                        <option t-att-value="etk_family.id" t-esc="etk_family.name"/>
+                                    </t>
+                                </select>
+                            </div>
+                            <div class="col-auto">
+                                <button type="submit" class="btn btn-primary">ETK herunterladen</button>
+                            </div>
+                        </form>
                     </t>
                 </t>
                 <t t-else="">

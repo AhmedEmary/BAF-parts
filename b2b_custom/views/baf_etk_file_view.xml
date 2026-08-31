@@ -5,6 +5,7 @@
         <field name="model">baf.etk.file</field>
         <field name="arch" type="xml">
             <list default_order="create_date desc, id desc">
+                <field name="family_id"/>
                 <field name="name"/>
                 <field name="file_name"/>
                 <field name="create_date"/>
@@ -20,16 +21,17 @@
             <form string="ETK File">
                 <sheet>
                     <group>
-                        <field name="name" placeholder="e.g. ETK 2026-08"/>
+                        <field name="family_id"/>
+                        <field name="name" placeholder="e.g. ETK BMW/MINI"/>
                         <field name="file_name" invisible="1"/>
                         <field name="file_data" filename="file_name"/>
                         <field name="active"/>
                     </group>
                     <p class="text-muted">
-                        This file is identical for every approved B2B
-                        customer. Upload the latest ETK here once per month
-                        and every customer with pricefile access can download
-                        the current version from /pricefile.
+                        One ETK file per brand family. To publish a new
+                        version, replace the file on this record — every B2B
+                        customer entitled to this family downloads it from
+                        /pricefile.
                     </p>
                 </sheet>
             </form>

@@ -5,7 +5,10 @@ import io
 from datetime import date
 from urllib.parse import urlparse
 
+from psycopg2 import IntegrityError
+
 from odoo.tests import HttpCase, tagged
+from odoo.tools import mute_logger
 
 from odoo.addons.b2b_custom.controllers.pricefile import (
     pricefile_query_for_family,
@@ -162,50 +165,152 @@ class TestCombinedPricefileAndEtk(HttpCase):
             body,
         )
 
-    def test_etk_current_returns_latest_active(self):
+    def test_etk_current_is_per_family(self):
         Etk = self.env['baf.etk.file']
-        self.assertFalse(Etk._baf_current())
-        older = Etk.create({
-            'name': 'Old ETK', 'file_name': 'old.bin',
-            'file_data': base64.b64encode(b'older-payload'),
+        self.assertFalse(Etk._baf_current(self.fam_bmw))
+        bmw = Etk.create({
+            'name': 'BMW ETK', 'file_name': 'bmw.bin',
+            'family_id': self.fam_bmw.id,
+            'file_data': base64.b64encode(b'bmw-payload'),
         })
-        newer = Etk.create({
-            'name': 'New ETK', 'file_name': 'new.bin',
-            'file_data': base64.b64encode(b'newer-payload'),
+        jlr = Etk.create({
+            'name': 'JLR ETK', 'file_name': 'jlr.bin',
+            'family_id': self.fam_jlr.id,
+            'file_data': base64.b64encode(b'jlr-payload'),
         })
-        self.assertEqual(Etk._baf_current(), newer)
-        newer.active = False
-        self.assertEqual(Etk._baf_current(), older)
+        self.assertEqual(Etk._baf_current(self.fam_bmw), bmw)
+        self.assertEqual(Etk._baf_current(self.fam_jlr), jlr)
+        bmw.active = False
+        self.assertFalse(Etk._baf_current(self.fam_bmw))
+        self.assertFalse(Etk._baf_current(self.env['baf.brand.family']))
 
-    def test_etk_download_serves_current_file(self):
-        etk = self.env['baf.etk.file'].create({
-            'name': 'Test ETK',
-            'file_name': 'etk.bin',
-            'file_data': base64.b64encode(b'etk-payload'),
+    def test_etk_one_file_per_family(self):
+        Etk = self.env['baf.etk.file']
+        Etk.create({
+            'name': 'BMW ETK', 'file_name': 'bmw.bin',
+            'family_id': self.fam_bmw.id,
+            'file_data': base64.b64encode(b'bmw-payload'),
         })
+        with self.assertRaises(IntegrityError):
+            with mute_logger('odoo.sql_db'):
+                Etk.create({
+                    'name': 'BMW ETK 2', 'file_name': 'bmw2.bin',
+                    'family_id': self.fam_bmw.id,
+                    'file_data': base64.b64encode(b'bmw-payload-2'),
+                })
+                self.env.flush_all()
+
+    def _download_etk(self, family_id):
         self.authenticate('c47_pricefile_user', 'c47_pricefile_user')
-        response = self.url_open('/pricefile/etk', allow_redirects=False)
+        return self.url_open(
+            '/pricefile/etk?family_id=%s' % family_id, allow_redirects=False)
+
+    def test_etk_download_serves_the_family_file(self):
+        etk = self.env['baf.etk.file'].create({
+            'name': 'BMW ETK',
+            'file_name': 'bmw-etk.bin',
+            'family_id': self.fam_bmw.id,
+            'file_data': base64.b64encode(b'bmw-etk-payload'),
+        })
+        response = self._download_etk(self.fam_bmw.id)
         self.assertEqual(response.status_code, 200)
-        self.assertIn('etk.bin', response.headers['Content-Disposition'])
-        self.assertEqual(response.content, b'etk-payload')
+        self.assertIn(
+            'etk_c47_bmw_mini.bin', response.headers['Content-Disposition'])
+        self.assertEqual(response.content, b'bmw-etk-payload')
         etk.unlink()
 
-    def test_etk_download_redirects_when_no_file_available(self):
+    def test_etk_download_redirects_when_family_has_no_file(self):
         self.env['baf.etk.file'].sudo().search([]).unlink()
-        self.authenticate('c47_pricefile_user', 'c47_pricefile_user')
-        response = self.url_open('/pricefile/etk', allow_redirects=False)
+        response = self._download_etk(self.fam_bmw.id)
         self.assertEqual(response.status_code, 303)
         self.assertTrue(
             urlparse(response.headers['Location']).path.endswith('/pricefile'))
 
-    def test_pricefile_page_shows_etk_download_only_when_uploaded(self):
+    def test_etk_download_rejects_family_the_partner_cant_see(self):
+        other_family = self.env['baf.brand.family'].create(
+            {'name': 'C47 ETK Other'})
+        self.env['product.brand'].create(
+            {'name': 'C47-ETK-Other', 'family_id': other_family.id})
+        self.env['baf.etk.file'].create({
+            'name': 'Other ETK', 'file_name': 'other.bin',
+            'family_id': other_family.id,
+            'file_data': base64.b64encode(b'other-payload'),
+        })
+        response = self._download_etk(other_family.id)
+        self.assertEqual(response.status_code, 303)
+        self.assertTrue(
+            urlparse(response.headers['Location']).path.endswith('/pricefile'))
+
+    def test_etk_download_rejects_garbage_id(self):
+        response = self._download_etk('not-a-number')
+        self.assertEqual(response.status_code, 303)
+
+    def _etk_form_options(self, body):
+        """The <option>s of the ETK form only — the combined-pricefile form
+        above it lists every visible family, ETK file or not."""
+        start = body.find('action="/pricefile/etk"')
+        if start == -1:
+            return ''
+        return body[start:body.index('</form>', start)]
+
+    def test_pricefile_page_lists_only_families_with_a_file(self):
         self.env['baf.etk.file'].sudo().search([]).unlink()
         self.authenticate('c47_pricefile_user', 'c47_pricefile_user')
-        response = self.url_open('/pricefile')
-        self.assertNotIn('/pricefile/etk', response.content.decode('utf-8'))
+        body = self.url_open('/pricefile').content.decode('utf-8')
+        self.assertNotIn('action="/pricefile/etk"', body)
+
         self.env['baf.etk.file'].create({
-            'name': 'Test ETK', 'file_name': 'etk.bin',
-            'file_data': base64.b64encode(b'etk-payload'),
+            'name': 'BMW ETK', 'file_name': 'bmw-etk.bin',
+            'family_id': self.fam_bmw.id,
+            'file_data': base64.b64encode(b'bmw-etk-payload'),
         })
-        response = self.url_open('/pricefile')
-        self.assertIn('/pricefile/etk', response.content.decode('utf-8'))
+        options = self._etk_form_options(
+            self.url_open('/pricefile').content.decode('utf-8'))
+        self.assertIn(
+            '<option value="%d">%s</option>' % (self.fam_bmw.id, self.fam_bmw.name),
+            options)
+        self.assertNotIn(
+            '<option value="%d">%s</option>' % (self.fam_jlr.id, self.fam_jlr.name),
+            options)
+
+        self.env['baf.etk.file'].create({
+            'name': 'JLR ETK', 'file_name': 'jlr-etk.bin',
+            'family_id': self.fam_jlr.id,
+            'file_data': base64.b64encode(b'jlr-etk-payload'),
+        })
+        options = self._etk_form_options(
+            self.url_open('/pricefile').content.decode('utf-8'))
+        self.assertIn(
+            '<option value="%d">%s</option>' % (self.fam_bmw.id, self.fam_bmw.name),
+            options)
+        self.assertIn(
+            '<option value="%d">%s</option>' % (self.fam_jlr.id, self.fam_jlr.name),
+            options)
+
+    def test_etk_file_is_renamed_after_its_family(self):
+        etk = self.env['baf.etk.file'].create({
+            'name': 'BMW ETK',
+            'file_name': 'Katalog 2026.zip',
+            'family_id': self.fam_bmw.id,
+            'file_data': base64.b64encode(b'bmw-etk-payload'),
+        })
+        # 'C47 BMW/MINI' -> every run of non-alphanumerics becomes one '_'.
+        self.assertEqual(etk.file_name, 'etk_c47_bmw_mini.zip')
+
+        etk.write({'family_id': self.fam_jlr.id})
+        self.assertEqual(etk.file_name, 'etk_c47_jlr.zip')
+
+        etk.write({'file_name': 'Neuer Katalog.7z'})
+        self.assertEqual(etk.file_name, 'etk_c47_jlr.7z')
+
+    def test_etk_download_uses_the_renamed_file(self):
+        self.env['baf.etk.file'].create({
+            'name': 'BMW ETK',
+            'file_name': 'Katalog 2026.zip',
+            'family_id': self.fam_bmw.id,
+            'file_data': base64.b64encode(b'bmw-etk-payload'),
+        })
+        response = self._download_etk(self.fam_bmw.id)
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(
+            'etk_c47_bmw_mini.zip', response.headers['Content-Disposition'])
