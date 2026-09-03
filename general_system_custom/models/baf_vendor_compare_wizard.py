@@ -38,7 +38,6 @@ class BafVendorPriceCompare(models.TransientModel):
         sale_line = self.env['sale.order.line'].browse(line_id)
         if not sale_line.exists() or not sale_line.product_id:
             return vals
-
         best = sale_line.product_id.baf_get_best_vendor()
 
         line_vals = []
@@ -74,7 +73,9 @@ class BafVendorPriceCompare(models.TransientModel):
         self.ensure_one()
         if not self.selected_vendor_id:
             raise UserError(_("Pick a vendor before applying."))
-        self.sale_line_id.purchase_vendor_id = self.selected_vendor_id
+        # Persist as the line's alternative vendor: purchase_vendor_id is a
+        # live derivation that reflects this choice on the next read.
+        self.sale_line_id.baf_alt_vendor_id = self.selected_vendor_id
         return {'type': 'ir.actions.act_window_close'}
 
 

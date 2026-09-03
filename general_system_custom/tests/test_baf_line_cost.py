@@ -77,9 +77,12 @@ class TestBafLineCost(TransactionCase):
         self.assertEqual(line.baf_cost_status, 'ok')
         self.assertAlmostEqual(line.purchase_price, 75.0, places=2)
 
-    def test_cost_falls_back_to_best_vendor_on_webshop_line(self):
+    def test_webshop_line_auto_selects_and_costs_at_best_vendor(self):
+        # A webshop line without a picked alt vendor now auto-selects the
+        # best vendor (same rule as backend), so purchase_vendor_id is set
+        # and the cost matches the best vendor's price.
         line = self._line(self._order(website=True))
-        self.assertFalse(line.purchase_vendor_id)
+        self.assertTrue(line.purchase_vendor_id)
         self.assertEqual(line.baf_cost_status, 'ok')
         self.assertAlmostEqual(line.purchase_price, 60.0, places=2)
 
@@ -113,13 +116,15 @@ class TestBafLineCost(TransactionCase):
         self.assertEqual(line.baf_cost_status, 'no_price')
         self.assertEqual(line.purchase_price, 0.0)
 
-    def test_no_vendor_inside_the_customer_delivery_window(self):
+    def test_customer_delivery_cap_does_not_gate_costing(self):
+        # The customer's delivery cap no longer filters costing candidates:
+        # slow vendors keep their price and the line costs normally.
         self.customer.baf_max_delivery_weeks = 1
         self.vendor_direct.baf_delivery_weeks = 5
         self.vendor_matrix.baf_delivery_weeks = 5
         line = self._line(self._order(website=True))
-        self.assertEqual(line.baf_cost_status, 'no_delivery_window')
-        self.assertEqual(line.purchase_price, 0.0)
+        self.assertEqual(line.baf_cost_status, 'ok')
+        self.assertGreater(line.purchase_price, 0.0)
 
     # ── Cost is engine-only ──────────────────────────────────────────────────
 

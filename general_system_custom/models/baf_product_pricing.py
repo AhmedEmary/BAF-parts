@@ -592,13 +592,10 @@ class ProductProductBafPricing(models.Model):
         """
         Auto-select the best eligible vendor for this product.
 
-        Default ranking (no `customer`): shortest delivery period first,
-        then lowest price, then vendor id. A vendor with no delivery period
-        (0/empty) is ranked last.
-
-        With `customer` carrying a `baf_max_delivery_weeks` cap: candidates
-        outside the window are dropped and the survivors are ranked
-        cheapest-first, then delivery, then vendor id.
+        Ranking: shortest delivery period first, then lowest price, then
+        vendor id. A vendor with no delivery period (0/empty) is ranked
+        last. The `customer` argument is kept for signature compat with
+        callers that still pass it — it does not influence the pick.
 
         Returns {vendor, price, method, reason, candidates}. A vendor that
         cannot price the product is listed but excluded from ranking.
@@ -614,13 +611,9 @@ class ProductProductBafPricing(models.Model):
             ) % {'brand': self.brand.name if self.brand else ''}
             return empty
 
-        cap = customer._baf_customer_delivery_cap() if customer else 0
         candidates = []
         for vendor in eligible:
             details = self.baf_get_purchase_price_details(vendor)
-            out_of_window = bool(
-                cap and (vendor.baf_delivery_weeks or 0) > cap
-            )
             candidates.append({
                 'vendor': vendor,
                 'price': details['price'] if details else None,
@@ -630,35 +623,18 @@ class ProductProductBafPricing(models.Model):
                 'sb_surcharge': details['sb_surcharge'] if details else 0.0,
                 'delivery_weeks': vendor.baf_delivery_weeks or 0,
                 'is_winner': False,
-                'out_of_window': out_of_window,
-                'note': (
-                    _("Vendor delivery frame exceeds this customer's max.")
-                    if out_of_window else
-                    '' if details else _("Vendor cannot price this product.")
-                ),
+                'note': '' if details else _("Vendor cannot price this product."),
             })
 
-        priced = [c for c in candidates
-                  if c['price'] is not None and not c['out_of_window']]
+        priced = [c for c in candidates if c['price'] is not None]
         if not priced:
             empty['candidates'] = candidates
-            if cap and any(c['price'] is not None and c['out_of_window']
-                           for c in candidates):
-                empty['reason'] = _(
-                    "No eligible vendor delivers within the customer's "
-                    "%(cap)d-week window.") % {'cap': cap}
-            else:
-                empty['reason'] = _(
-                    "No eligible vendor produced a usable price.")
+            empty['reason'] = _(
+                "No eligible vendor produced a usable price.")
             return empty
 
-        if cap:
-            priced.sort(key=lambda c: (round(c['price'], 4),
-                                       baf_delivery_rank(c['delivery_weeks']),
-                                       c['vendor'].id))
-        else:
-            priced.sort(key=lambda c: (baf_delivery_rank(c['delivery_weeks']),
-                                       round(c['price'], 4), c['vendor'].id))
+        priced.sort(key=lambda c: (baf_delivery_rank(c['delivery_weeks']),
+                                   round(c['price'], 4), c['vendor'].id))
         winner = priced[0]
         winner['is_winner'] = True
 

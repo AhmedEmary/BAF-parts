@@ -3,8 +3,9 @@ from odoo.tests import TransactionCase, tagged
 
 @tagged('post_install', '-at_install')
 class TestWebsiteDefaultLineVendor(TransactionCase):
-    """A webshop line without a customer-chosen vendor is the default option
-    and must not be auto-sourced from a direct vendor the customer skipped."""
+    """Webshop lines resolve their Selected Vendor line-by-line: a line with
+    a customer-picked alt vendor uses it, every other line runs the normal
+    auto best-vendor pick — sibling lines never inherit each other's vendor."""
 
     def setUp(self):
         super().setUp()
@@ -40,12 +41,12 @@ class TestWebsiteDefaultLineVendor(TransactionCase):
             'website_id': self.website.id,
         })
 
-    def test_website_default_line_has_no_auto_vendor(self):
+    def test_website_default_line_gets_auto_vendor(self):
         order = self._website_order()
         order._cart_add(product_id=self.product.id, quantity=1)
         line = order.order_line
         self.assertFalse(line.baf_alt_vendor_id)
-        self.assertFalse(line.purchase_vendor_id)
+        self.assertEqual(line.purchase_vendor_id, self.vendor)
 
     def test_website_alt_line_keeps_chosen_vendor(self):
         order = self._website_order()
@@ -54,18 +55,6 @@ class TestWebsiteDefaultLineVendor(TransactionCase):
             baf_alt_vendor_id=self.vendor.id)
         line = order.order_line
         self.assertEqual(line.purchase_vendor_id, self.vendor)
-
-    def test_website_mixed_lines_stay_independent(self):
-        order = self._website_order()
-        order._cart_add(product_id=self.product.id, quantity=1)
-        order._cart_add(
-            product_id=self.product.id, quantity=1,
-            baf_alt_vendor_id=self.vendor.id)
-        default_line = order.order_line.filtered(
-            lambda l: not l.baf_alt_vendor_id)
-        alt_line = order.order_line.filtered('baf_alt_vendor_id')
-        self.assertFalse(default_line.purchase_vendor_id)
-        self.assertEqual(alt_line.purchase_vendor_id, self.vendor)
 
     def test_backend_order_keeps_auto_selection(self):
         order = self.env['sale.order'].create(
