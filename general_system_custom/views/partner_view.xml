@@ -30,10 +30,6 @@
                 </div>
             </xpath>
 
-            <xpath expr="//field[@name='property_supplier_payment_term_id']" position="after">
-                <field name="is_trusted_vendor"/>
-            </xpath>
-
             <div name="button_box" position="inside">
                 <button name="action_baf_view_direct_prices"
                         type="object"
@@ -45,11 +41,15 @@
                 </button>
             </div>
 
+            <!-- Vendor-only settings: hide the whole Purchase block (Buyer,
+                 Group RFQ, Vendor Payment Terms, Payment Method, Receipt
+                 Reminder) until the contact is marked as a vendor. -->
+            <xpath expr="//page[@name='sales_purchases']//group[@name='purchase']" position="attributes">
+                <attribute name="invisible">not baf_is_vendor</attribute>
+            </xpath>
+
             <xpath expr="//page[@name='sales_purchases']" position="inside">
-                <separator string="BAF Webshop &amp; Pricing"/>
-                <group>
-                    <field name="baf_is_vendor"/>
-                </group>
+                <separator string="Customer Pricing &amp; Webshop"/>
                 <group>
                     <group string="Pricing Groups">
                         <field name="sales_group_ids"
@@ -58,6 +58,8 @@
                                help="At most one group per brand family. Leave empty for guest prices."/>
                         <field name="is_b2b_eu_vat" readonly="1"
                                help="Auto-detected from VAT number + EU country. Grants −5 % on JLR when no JLR group is assigned."/>
+                        <field name="baf_max_delivery_weeks"
+                               placeholder="No cap"/>
                     </group>
                     <group string="Webshop Brand Visibility">
                         <field name="visible_brand_ids"
@@ -65,10 +67,10 @@
                                options="{'no_create': True}"
                                placeholder="Select allowed brands..."/>
                     </group>
-                    <group string="Delivery Window">
-                        <field name="baf_max_delivery_weeks"
-                               placeholder="No cap"/>
-                    </group>
+                </group>
+                <separator string="Vendor"/>
+                <group>
+                    <field name="baf_is_vendor"/>
                 </group>
             </xpath>
 

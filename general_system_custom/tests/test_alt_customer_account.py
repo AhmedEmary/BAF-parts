@@ -19,10 +19,7 @@ class TestAltCustomerAccountNumber(TransactionCase):
         # Pin a known contact_number: the create() sequence value would otherwise
         # depend on DB state.
         self.customer.contact_number = '10012'
-        self.vendor = Partner.create({
-            'name': 'Alt Test Vendor',
-            'is_trusted_vendor': True,
-        })
+        self.vendor = Partner.create({'name': 'Alt Test Vendor'})
         self.customer_no_alt = Partner.create({
             'name': 'Customer With No Alt',
             'contact_number': '10099',
@@ -104,16 +101,7 @@ class TestAltCustomerAccountNumber(TransactionCase):
         })
         return po
 
-    def test_xlsx_includes_customer_number_column_for_trusted_vendor(self):
-        po = self._po_with_one_line(self.customer, source='alternative')
-        headers, rows = self._grouped_xlsx_headers_and_rows(po)
-        self.assertIn('Customer', headers)
-        self.assertIn('Customer #', headers)
-        col = headers.index('Customer #')
-        self.assertEqual(rows[0][col], 'E3BF')
-
-    def test_xlsx_omits_customer_columns_for_untrusted_vendor(self):
-        self.vendor.is_trusted_vendor = False
+    def test_xlsx_never_includes_customer_columns(self):
         po = self._po_with_one_line(self.customer, source='alternative')
         headers, _rows = self._grouped_xlsx_headers_and_rows(po)
         self.assertNotIn('Customer', headers)

@@ -137,21 +137,16 @@ class PurchaseOrder(models.Model):
             raise UserError(_("Different suppliers detected. Please select orders from a single supplier."))
 
         vendor = partners[0]
-        is_trusted = vendor.is_trusted_vendor
 
         if not openpyxl:
             raise UserError(_("The 'openpyxl' library is missing."))
 
         wb = openpyxl.Workbook()
 
-        headers = ["PO N."]
-        if is_trusted:
-            headers.extend(["Customer", "Customer #"])
-
-        headers.extend([
-            "Brand", "SKU", "Quantity", "Retail",
-            "Surcharge", "Unit Net", "Total"
-        ])
+        headers = [
+            "PO N.", "Brand", "SKU", "Quantity", "Retail",
+            "Surcharge", "Unit Net", "Total",
+        ]
 
         ws_std = wb.active
         ws_std.title = "Standard Orders"
@@ -168,28 +163,20 @@ class PurchaseOrder(models.Model):
         for po in self:
             is_dropship = bool(po.dest_address_id)
 
-            customer_name = po.sale_order_id.partner_id.name if po.sale_order_id else ""
-            customer_number = po.baf_customer_account_number or ""
-
             for line in po.order_line:
                 brand_name = self._sanitize(line.product_id.brand.display_name)
                 sku = self._sanitize(line.product_id.default_code)
 
-                row_data = [self._sanitize(po.name)]
-
-                if is_trusted:
-                    row_data.append(self._sanitize(customer_name))
-                    row_data.append(self._sanitize(customer_number))
-
-                row_data.extend([
+                row_data = [
+                    self._sanitize(po.name),
                     brand_name,
                     sku,
                     line.product_qty or 0.0,
                     line.retail_price or 0.0,
                     line.surcharge or 0.0,
                     line.price_unit or 0.0,
-                    line.price_subtotal or 0.0
-                ])
+                    line.price_subtotal or 0.0,
+                ]
 
                 if is_dropship:
                     addr = po.dest_address_id
