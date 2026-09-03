@@ -33,7 +33,10 @@ class SaleOrderLine(models.Model):
     reserved_qty = fields.Float(string='Reserved Qty', default=0.0, store=True, copy=False)
     percentage_reserved = fields.Float(string='Percentage Completed', compute='_compute_percentage_reserved', store=True, aggregator="avg")
     qty_to_purchase = fields.Float(string='Qty to Purchase', compute='_compute_qty_to_purchase', store=True)
-    purchase_vendor_id = fields.Many2one('res.partner', string='Selected Vendor', compute='_compute_purchase_vendor_id', store=True, readonly=False)
+    purchase_vendor_id = fields.Many2one(
+        'res.partner', string='Selected Vendor',
+        compute='_compute_purchase_vendor_id', store=True, readonly=False,
+    )
     baf_alt_vendor_id = fields.Many2one(
         'res.partner', string='Chosen Alternative Vendor', copy=False,
         help="Set when the customer picks an alternative direct vendor on the "
@@ -64,7 +67,7 @@ class SaleOrderLine(models.Model):
     # hand-typed figure could only ever disagree with the purchase order.
     #
     # precompute=False everywhere in this chain, overriding sale_margin: the
-    # engine needs purchase_vendor_id, which is itself a plain stored compute,
+    # engine needs purchase_vendor_id, which is a live (non-stored) compute,
     # so Odoo cannot precompute Cost anyway and warns on every registry load.
     # margin / margin_percent follow, since they now depend on baf_cost_status.
     purchase_price = fields.Float(
@@ -148,12 +151,12 @@ class SaleOrderLine(models.Model):
 
     @api.model
     def _baf_gap_status(self, candidates):
-        """Tell the three costing gaps apart from what baf_get_best_vendor
-        already reports per candidate."""
+        """Tell the two costing gaps apart from what baf_get_best_vendor
+        already reports per candidate. The 'no_delivery_window' state is
+        kept in the field selection for historical data but is no longer
+        produced (the customer's delivery cap no longer filters candidates)."""
         if not candidates:
             return 'no_vendor'
-        if any(c['price'] is not None and c['out_of_window'] for c in candidates):
-            return 'no_delivery_window'
         return 'no_price'
 
     def _baf_resolve_cost(self):
@@ -173,8 +176,7 @@ class SaleOrderLine(models.Model):
             return best['price'], 'ok'
         return 0.0, self._baf_gap_status(best['candidates'])
 
-    @api.depends('product_id', 'purchase_vendor_id', 'order_id.partner_id',
-                 'order_id.partner_id.baf_max_delivery_weeks')
+    @api.depends('product_id', 'purchase_vendor_id', 'order_id.partner_id')
     def _compute_purchase_price(self):
         """Cost is the price we expect to pay the costing vendor. Replaces
         sale_margin's standard_price lookup, which BAF imports never fill.
@@ -201,8 +203,7 @@ class SaleOrderLine(models.Model):
             line.margin = 0.0
             line.margin_percent = 0.0
 
-    @api.depends('product_id', 'baf_alt_vendor_id', 'order_id.website_id',
-                 'order_id.partner_id.baf_max_delivery_weeks')
+    @api.depends('product_id', 'baf_alt_vendor_id')
     def _compute_purchase_vendor_id(self):
         for line in self:
             # A customer-chosen alternative wins over the auto best-vendor.
@@ -210,13 +211,6 @@ class SaleOrderLine(models.Model):
                 line.purchase_vendor_id = line.baf_alt_vendor_id
                 continue
             if not line.product_id:
-                line.purchase_vendor_id = False
-                continue
-            # A webshop line without a chosen vendor is the default option:
-            # the customer deliberately skipped the direct-vendor offers, so
-            # it is fulfilled through the general flow — never auto-sourced
-            # from a vendor they did not pick.
-            if line.order_id.website_id:
                 line.purchase_vendor_id = False
                 continue
             best = line.product_id.baf_get_best_vendor(

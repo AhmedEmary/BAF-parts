@@ -18,7 +18,9 @@ class MassVendorWizard(models.TransientModel):
         active_ids = self.env.context.get('active_ids', [])
         if not active_ids:
             raise UserError("No sale order lines selected.")
+        # Route through baf_alt_vendor_id so the choice persists — the
+        # Selected Vendor is a live derivation that reads this field back.
         self.env['sale.order.line'].browse(active_ids).write(
-            {'purchase_vendor_id': self.vendor_id.id}
+            {'baf_alt_vendor_id': self.vendor_id.id}
         )
         return {'type': 'ir.actions.act_window_close'}
