@@ -5,7 +5,7 @@
         <field name="name">BAF B2B: Zugang freigeschaltet</field>
         <field name="model_id" ref="base.model_res_partner"/>
         <field name="subject">Ihr BAF Parts B2B-Zugang ist bereit</field>
-        <field name="email_from">{{ (user.email_formatted or '') }}</field>
+        <field name="email_from">{{ (object.company_id.email_formatted or user.email_formatted or '') }}</field>
         <field name="email_to">{{ object.email or '' }}</field>
         <field name="partner_to">{{ object.id }}</field>
         <field name="lang">{{ object.lang or 'de_DE' }}</field>
@@ -59,7 +59,7 @@
         <field name="name">BAF B2B: Neuer Registrierungsantrag</field>
         <field name="model_id" ref="base.model_res_partner"/>
         <field name="subject">Neuer B2B-Antrag: {{ object.name or '' }}</field>
-        <field name="email_from">{{ (user.email_formatted or '') }}</field>
+        <field name="email_from">{{ (object.company_id.email_formatted or user.email_formatted or '') }}</field>
         <field name="auto_delete" eval="False"/>
         <field name="body_html" type="html">
 <div style="margin:0;padding:0;font-family:Inter,Arial,sans-serif;background:#f7f7f7;">

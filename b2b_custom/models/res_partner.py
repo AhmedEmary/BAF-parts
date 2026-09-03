@@ -229,13 +229,27 @@ class ResPartner(models.Model):
                 self.id, B2B_NOTIFY_PARAM,
             )
             return
+        # Public form → the current user is the portal 'Public user' which
+        # has no email. Fall back to the company's formatted email; if that
+        # is unset too, let the outgoing mail server's from_filter fill in.
+        company = self.company_id or self.env.company
+        email_from = (
+            company.email_formatted
+            or self.env.user.email_formatted
+            or company.email
+            or ''
+        )
         try:
             template.sudo().with_context(
                 lang=self.env.user.lang or 'de_DE',
             ).send_mail(
                 self.id,
                 force_send=False,
-                email_values={'email_to': recipients, 'recipient_ids': False},
+                email_values={
+                    'email_to': recipients,
+                    'recipient_ids': False,
+                    'email_from': email_from,
+                },
             )
         except Exception:
             _logger.exception(
