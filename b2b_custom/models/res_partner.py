@@ -1,7 +1,17 @@
+import logging
+
 from markupsafe import Markup
 
 from odoo import _, api, fields, models
 from odoo.exceptions import UserError
+
+_logger = logging.getLogger(__name__)
+
+# System parameter that stores the recipient(s) for the "new B2B
+# application" notification. Comma-separated list of emails. When unset,
+# the notification falls back to res.company.email of the partner's
+# company (or the current company).
+B2B_NOTIFY_PARAM = 'b2b_custom.registration_notification_email'
 
 
 class ResPartner(models.Model):
@@ -179,4 +189,56 @@ class ResPartner(models.Model):
                 'type': 'contact',
                 'function': (vals.get('function') or '').strip(),
             })
+        partner._baf_b2b_notify_new_application()
         return partner
+
+    def _baf_b2b_notify_recipients(self):
+        """Return the comma-separated email list that should receive new
+        B2B-application notifications. Reads the system parameter first,
+        falls back to res.company.email so we always have SOMEONE to notify."""
+        self.ensure_one()
+        ICP = self.env['ir.config_parameter'].sudo()
+        raw = (ICP.get_param(B2B_NOTIFY_PARAM) or '').strip()
+        emails = [e.strip() for e in raw.split(',') if e.strip()]
+        if not emails:
+            company = self.company_id or self.env.company
+            if company and company.email:
+                emails = [company.email.strip()]
+        return ','.join(emails)
+
+    def _baf_b2b_notify_new_application(self):
+        """Send the "new B2B application" email to the internal recipient(s).
+        Silent on failure so the public form never 500s because email is
+        misconfigured — the partner is already saved at this point."""
+        self.ensure_one()
+        template = self.env.ref(
+            'b2b_custom.mail_template_baf_b2b_new_application',
+            raise_if_not_found=False,
+        )
+        if not template:
+            _logger.warning(
+                "BAF B2B: new-application notification skipped, "
+                "template mail_template_baf_b2b_new_application missing.")
+            return
+        recipients = self._baf_b2b_notify_recipients()
+        if not recipients:
+            _logger.warning(
+                "BAF B2B: new-application notification for partner %s "
+                "skipped — no recipient email (set system parameter %s "
+                "or the company's email).",
+                self.id, B2B_NOTIFY_PARAM,
+            )
+            return
+        try:
+            template.sudo().with_context(
+                lang=self.env.user.lang or 'de_DE',
+            ).send_mail(
+                self.id,
+                force_send=False,
+                email_values={'email_to': recipients, 'recipient_ids': False},
+            )
+        except Exception:
+            _logger.exception(
+                "BAF B2B: failed to queue new-application notification "
+                "for partner %s (recipients=%s).", self.id, recipients,
+            )

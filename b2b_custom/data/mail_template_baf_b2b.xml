@@ -55,4 +55,80 @@
         </field>
     </record>
 
+    <record id="mail_template_baf_b2b_new_application" model="mail.template">
+        <field name="name">BAF B2B: Neuer Registrierungsantrag</field>
+        <field name="model_id" ref="base.model_res_partner"/>
+        <field name="subject">Neuer B2B-Antrag: {{ object.name or '' }}</field>
+        <field name="email_from">{{ (user.email_formatted or '') }}</field>
+        <field name="auto_delete" eval="False"/>
+        <field name="body_html" type="html">
+<div style="margin:0;padding:0;font-family:Inter,Arial,sans-serif;background:#f7f7f7;">
+    <table align="center" border="0" cellpadding="0" cellspacing="0" width="640" style="background:#ffffff;border:1px solid #d8d8d8;border-radius:18px;overflow:hidden;">
+        <tr>
+            <td style="padding:24px 32px;background:#000000;color:#ffffff;">
+                <div style="font-size:11px;font-weight:900;letter-spacing:0.16em;text-transform:uppercase;color:#cfcfcf;">BAF Parts B2B</div>
+                <div style="margin-top:8px;font-size:22px;font-weight:900;letter-spacing:-0.03em;">Neuer B2B-Registrierungsantrag</div>
+            </td>
+        </tr>
+        <tr>
+            <td style="padding:24px 32px;color:#000000;font-size:14px;line-height:1.55;font-weight:600;">
+                <p style="margin:0 0 14px;">Ein neuer Interessent hat den B2B-Zugang beantragt. Bitte prüfen und freischalten.</p>
+                <table border="0" cellpadding="0" cellspacing="0" width="100%" style="border-collapse:collapse;font-size:13px;">
+                    <tr>
+                        <td style="padding:8px 12px;background:#f3f3f3;color:#555555;width:35%;">Firma</td>
+                        <td style="padding:8px 12px;background:#f3f3f3;font-weight:900;"><t t-out="object.name or ''"/></td>
+                    </tr>
+                    <tr>
+                        <td style="padding:8px 12px;color:#555555;">E-Mail</td>
+                        <td style="padding:8px 12px;">
+                            <a t-att-href="'mailto:%s' % (object.email or '')" style="color:#004b7a;"><t t-out="object.email or ''"/></a>
+                        </td>
+                    </tr>
+                    <tr t-if="object.phone">
+                        <td style="padding:8px 12px;background:#f3f3f3;color:#555555;">Telefon</td>
+                        <td style="padding:8px 12px;background:#f3f3f3;"><t t-out="object.phone or ''"/></td>
+                    </tr>
+                    <tr t-if="object.vat">
+                        <td style="padding:8px 12px;color:#555555;">USt-IdNr.</td>
+                        <td style="padding:8px 12px;"><t t-out="object.vat or ''"/></td>
+                    </tr>
+                    <tr t-if="object.street or object.city or object.zip">
+                        <td style="padding:8px 12px;background:#f3f3f3;color:#555555;">Adresse</td>
+                        <td style="padding:8px 12px;background:#f3f3f3;">
+                            <t t-if="object.street"><t t-out="object.street"/><br/></t>
+                            <t t-if="object.street2"><t t-out="object.street2"/><br/></t>
+                            <t t-out="(object.zip or '')"/> <t t-out="(object.city or '')"/><br/>
+                            <t t-if="object.country_id"><t t-out="object.country_id.name"/></t>
+                        </td>
+                    </tr>
+                    <tr t-if="object.website">
+                        <td style="padding:8px 12px;color:#555555;">Website</td>
+                        <td style="padding:8px 12px;">
+                            <a t-att-href="object.website" style="color:#004b7a;"><t t-out="object.website"/></a>
+                        </td>
+                    </tr>
+                    <tr t-if="object.visible_brand_ids">
+                        <td style="padding:8px 12px;background:#f3f3f3;color:#555555;">Interessierte Marken</td>
+                        <td style="padding:8px 12px;background:#f3f3f3;">
+                            <t t-out="', '.join(object.visible_brand_ids.mapped('name'))"/>
+                        </td>
+                    </tr>
+                    <tr t-if="object.baf_b2b_application_note">
+                        <td style="padding:8px 12px;color:#555555;vertical-align:top;">Notiz</td>
+                        <td style="padding:8px 12px;white-space:pre-wrap;"><t t-out="object.baf_b2b_application_note"/></td>
+                    </tr>
+                </table>
+                <p style="margin:24px 0 0;text-align:center;">
+                    <a t-att-href="'/odoo/action-base.action_partner_form/%d' % object.id"
+                       style="display:inline-block;background:#000000;color:#ffffff;border-radius:999px;padding:12px 24px;font-weight:900;font-size:14px;text-decoration:none;">
+                        Antrag im Backend öffnen
+                    </a>
+                </p>
+            </td>
+        </tr>
+    </table>
+</div>
+        </field>
+    </record>
+
 </odoo>

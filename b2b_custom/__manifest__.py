@@ -1,7 +1,7 @@
 {
     'name': "B2B custom",
     'summary': "This is a custom sale module for B2B companies",
-    'version': '1.6',
+    'version': '1.7',
     'category': 'Sales/Sales',
     'depends': ['general_system_custom', 'website_sale', 'mail', 'portal', 'auth_signup', 'contacts'],
     'installable': True,
@@ -13,6 +13,7 @@
         'data/mail_template_pricefile_notification.xml',
         'data/product_mass_update_data.xml',
         'data/enable_oos_orders.xml',
+        'views/res_config_settings_view.xml',
         'views/res_partner_b2b_view.xml',
         'views/baf_b2b_apply_template.xml',
         'views/baf_login_template.xml',

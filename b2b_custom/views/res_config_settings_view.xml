@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="res_config_settings_view_form_baf_b2b" model="ir.ui.view">
+        <field name="name">res.config.settings.view.form.baf.b2b</field>
+        <field name="model">res.config.settings</field>
+        <field name="inherit_id" ref="website.res_config_settings_view_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//block[@id='website_info_settings']" position="after">
+                <block title="BAF B2B" id="baf_b2b_settings">
+                    <setting id="baf_b2b_notify_emails_setting"
+                             string="B2B Application Notifications"
+                             help="Comma-separated list of email addresses that receive a notification whenever a new B2B application is submitted through the public form. Leave empty to fall back to the company's email.">
+                        <field name="baf_b2b_notify_emails"
+                               placeholder="sales@example.com, admin@example.com"/>
+                    </setting>
+                </block>
+            </xpath>
+        </field>
+    </record>
+
+</odoo>
