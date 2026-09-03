@@ -84,11 +84,6 @@ class ResPartner(models.Model):
                 partner._baf_next_express_account_number())
         return True
 
-    is_trusted_vendor = fields.Boolean(
-        string="Trusted Vendor",
-        help="If checked, the Customer Name column will be included in the PO Excel export sent to this vendor."
-    )
-
     baf_is_vendor = fields.Boolean(
         string='Is a Vendor',
         help="Tick to mark this contact as a purchase vendor and show the "

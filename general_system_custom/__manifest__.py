@@ -2,7 +2,7 @@
     'name': "Auto parts Sale",
     'summary': "This is a custom sale module for Auto parts companies",
     'category': 'Sales/Sales',
-    'version': '1.12',
+    'version': '1.13',
     'depends': ['base', 'bus', 'product', 'sale_management', 'sale_margin', 'stock', 'sale_stock', 'purchase', 'stock_dropshipping', 'barcodes', 'stock_barcode', 'accountant', 'portal', 'website_sale'],
     'installable': True,
     'data': [
