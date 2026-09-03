@@ -1,6 +1,9 @@
 import json
 import logging
+import random
 import time
+
+from psycopg2.errors import SerializationFailure
 
 from odoo import _, api, fields, modules, models
 from odoo.exceptions import UserError, ValidationError
@@ -10,6 +13,13 @@ from odoo.tools.safe_eval import safe_eval
 _logger = logging.getLogger(__name__)
 
 BATCH_SIZE = 500
+# Concurrent writers on product.template (users editing, inventory jobs,
+# other mass jobs, webshop cache invalidations) can trigger a Postgres
+# SerializationFailure on the batch commit. Retry a handful of times with
+# jittered exponential backoff before giving up on the batch. last_processed_id
+# only advances on a committed batch, so the retry re-selects the same window.
+BATCH_MAX_RETRIES = 5
+BATCH_RETRY_BASE_DELAY = 0.4  # seconds; doubled per attempt + jitter
 # Stay under Odoo's default --limit-time-real-cron (120s). Cron processes a few
 # batches per tick; the job resumes on the next tick. Larger budgets risk the
 # worker getting SIGTERM'd mid-write, leaving the job stuck in 'processing'.
@@ -315,9 +325,7 @@ class ProductMassUpdate(models.Model):
         try:
             more = True
             while more:
-                more = self._process_one_batch()
-                if not in_test:
-                    self.env.cr.commit()
+                more = self._process_one_batch_with_retry(in_test)
                 # Throttle: one toast per 5% threshold crossed.
                 pct_now = (self.processed_count / total) * 100.0 if total else 0.0
                 if pct_now - last_pct_pushed >= 5.0:
@@ -329,6 +337,11 @@ class ProductMassUpdate(models.Model):
             _logger.exception("Mass update job %s failed during sync run", self.id)
             if not in_test:
                 self.env.cr.rollback()
+                # rollback clears Postgres state but not the ORM's pending
+                # write cache; without reset() the failure-path write below
+                # replays the failed batch and blows up with
+                # "current transaction is aborted".
+                self.env.reset()
             fresh = self.browse(self.id)
             fresh.write({
                 'state': 'failed',
@@ -501,11 +514,12 @@ class ProductMassUpdate(models.Model):
 
         while more and time.monotonic() < deadline:
             try:
-                more = self._process_one_batch()
+                more = self._process_one_batch_with_retry(in_test)
             except Exception as e:
                 _logger.exception("Mass update job %s failed (manual run)", self.id)
                 if not in_test:
                     self.env.cr.rollback()
+                    self.env.reset()
                 fresh = self.browse(self.id)
                 fresh.write({
                     'state': 'failed',
@@ -522,9 +536,6 @@ class ProductMassUpdate(models.Model):
                 return {'type': 'ir.actions.client', 'tag': 'soft_reload'}
 
             batches += 1
-            # Commit each batch so progress survives a timeout/cancel.
-            if not in_test:
-                self.env.cr.commit()
 
         total_elapsed = time.monotonic() - started
         if more:
@@ -580,11 +591,12 @@ class ProductMassUpdate(models.Model):
                 'started_processed': job.processed_count,
             })
             try:
-                more = job._process_one_batch()
+                more = job._process_one_batch_with_retry(in_test)
             except Exception as e:
                 _logger.exception("Mass update job %s failed", job.id)
                 if not in_test:
                     self.env.cr.rollback()
+                    self.env.reset()
                 job_fresh = self.browse(job.id)
                 job_fresh.write({
                     'state': 'failed',
@@ -605,8 +617,6 @@ class ProductMassUpdate(models.Model):
             stats['batches'] += 1
             if not more:
                 stats['finished'] = True
-            if not in_test:
-                self.env.cr.commit()
 
         # End-of-tick summary, one chatter entry per job touched this tick.
         for job_id, stats in job_stats.items():
@@ -666,6 +676,47 @@ class ProductMassUpdate(models.Model):
             'processed_count': self.processed_count + len(products),
         })
         return True
+
+    def _process_one_batch_with_retry(self, in_test):
+        """Run one batch and commit; retry on transient SerializationFailure.
+
+        Concurrent writers on product.template (users editing products,
+        inventory jobs, other mass jobs, webshop cache invalidations) can
+        steal a row's row-version between our SELECT and the batch UPDATE,
+        so Postgres aborts this transaction. Roll back, reset the ORM
+        cache, sleep with exponential backoff + jitter, and retry the same
+        batch. last_processed_id and processed_count are written in the
+        SAME transaction as the batch write, so a rolled-back batch is
+        fully un-done and the retry re-selects the identical window.
+        """
+        for attempt in range(1, BATCH_MAX_RETRIES + 1):
+            try:
+                more = self._process_one_batch()
+                if not in_test:
+                    self.env.cr.commit()
+                return more
+            except SerializationFailure as e:
+                if not in_test:
+                    self.env.cr.rollback()
+                    self.env.reset()
+                if attempt >= BATCH_MAX_RETRIES:
+                    _logger.warning(
+                        "Mass update job %s: batch abandoned after %d "
+                        "SerializationFailure retries at "
+                        "last_processed_id=%s",
+                        self.id, attempt, self.last_processed_id,
+                    )
+                    raise
+                delay = BATCH_RETRY_BASE_DELAY * (2 ** (attempt - 1))
+                delay += random.uniform(0, delay / 2)
+                _logger.info(
+                    "Mass update job %s: SerializationFailure on batch "
+                    "(attempt %d/%d), retrying in %.2fs — %s",
+                    self.id, attempt, BATCH_MAX_RETRIES, delay, e,
+                )
+                time.sleep(delay)
+        # Loop always returns or re-raises; safety guard for linters.
+        return False
 
     # ---------------------------------------------------------------------
     # Notifications
