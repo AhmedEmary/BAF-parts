@@ -118,6 +118,7 @@
         <field name="arch" type="xml">
             <field name="partner_id" position="after">
                 <field name="so_source"/>
+                <field name="customer_po" optional="show"/>
             </field>
         </field>
     </record>
