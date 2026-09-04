@@ -11,20 +11,13 @@
                 <t t-foreach="lines_to_show" t-as="line">
                     <t t-set="is_combo" t-value="line.product_type == 'combo'"/>
                     <div class="o_cart_product d-flex gap-3 pb-4" t-attf-data-product-id="#{line.product_id and line.product_id.id}">
-                        <div class="o_cart_product_image">
-                            <t t-call="website_sale.cart_line_product_link">
-                                <img t-if="not line._is_sellable() and line.product_id.image_128" t-att-src="image_data_uri(line.product_id.image_128)" class="img border rounded" t-att-alt="line.name_short"/>
-                                <div t-else="" t-field="line.product_id.image_128" t-options="{'widget': 'image', 'qweb_img_responsive': False, 'class': 'border rounded'}"/>
-                            </t>
-                        </div>
+                        <!-- B2B site: no product image / no clickable product link. -->
                         <div class="d-flex flex-column flex-grow-1 gap-3 min-w-0">
                             <div class="d-flex gap-3">
                                 <div class="flex-grow-1 text-wrap w-100">
                                     <div class="d-flex justify-content-between">
                                         <div class="d-md-flex flex-md-wrap column-gap-md-1 align-items-md-center">
-                                            <t t-call="website_sale.cart_line_product_link">
-                                                <h6 t-out="line._get_line_header()" class="text-wrap mb-1"/>
-                                            </t>
+                                            <h6 t-out="line._get_line_header()" class="text-wrap mb-1"/>
                                             <t t-set="combination_name" t-value="line._get_combination_name()"/>
                                             <span t-if="combination_name" class="d-none d-md-inline h6 text-muted mb-1">-</span>
                                             <div t-if="combination_name or line.product_template_id._has_multiple_uoms()" class="d-inline-flex flex-wrap column-gap-2 row-gap-1 align-items-center my-1 my-md-0 w-100 w-md-auto">
