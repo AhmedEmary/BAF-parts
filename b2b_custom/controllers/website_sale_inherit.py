@@ -35,6 +35,19 @@ def _get_partner_allowed_families(partner):
 
 class WebsiteSalePagination(Cart):
 
+    def _prepare_order_history(self):
+        """Skip the stock quick-reorder history sidebar on the B2B cart.
+
+        Stock website_sale iterates every line of the partner's last 10
+        confirmed orders and calls _get_combination_info per line, unbatched.
+        For B2B partners those 10 orders reach ~1700 lines, which turns a
+        cart page load into ~10k SQL queries (~12 s). The same sidebar
+        re-renders on every JSON cart mutation, so add/remove/qty pay the
+        same cost. The B2B skin doesn't display the sidebar, so return an
+        empty history and short-circuit the whole loop.
+        """
+        return {'order_history': []}
+
     @http.route()
     def add_to_cart(self, product_template_id, product_id, quantity=1, **kwargs):
         """Ride the standard cart route so an alternative-vendor add gets the
