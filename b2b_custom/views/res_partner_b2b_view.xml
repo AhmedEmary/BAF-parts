@@ -75,4 +75,34 @@
               action="action_baf_b2b_pending_applications"
               sequence="50"/>
 
+    <record id="view_partner_tree_contact_number_b2b" model="ir.ui.view">
+        <field name="name">res.partner.list.baf.contact.number.b2b</field>
+        <field name="model">res.partner</field>
+        <field name="inherit_id" ref="general_system_custom.view_partner_tree_contact_number"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='country_id']" position="after">
+                <field name="baf_b2b_state" optional="show"/>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="view_partner_search_contact_number_b2b" model="ir.ui.view">
+        <field name="name">res.partner.search.baf.contact.number.b2b</field>
+        <field name="model">res.partner</field>
+        <field name="inherit_id" ref="general_system_custom.view_partner_search_contact_number"/>
+        <field name="arch" type="xml">
+            <xpath expr="//filter[@name='with_express']" position="after">
+                <separator/>
+                <filter name="b2b_pending" string="B2B Pending"
+                        domain="[('baf_b2b_state','=','pending')]"/>
+                <filter name="b2b_approved" string="B2B Approved"
+                        domain="[('baf_b2b_state','=','approved')]"/>
+            </xpath>
+            <xpath expr="//filter[@name='group_country']" position="after">
+                <filter name="group_b2b_state" string="B2B Status"
+                        context="{'group_by': 'baf_b2b_state'}"/>
+            </xpath>
+        </field>
+    </record>
+
 </odoo>

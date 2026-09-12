@@ -52,7 +52,9 @@ class PurchaseOrder(models.Model):
 
     @api.depends('baf_customer_account_source',
                  'sale_order_id.partner_id.contact_number',
-                 'sale_order_id.partner_id.baf_alt_account_number')
+                 'sale_order_id.partner_id.baf_alt_account_number',
+                 'sale_order_id.partner_id.commercial_partner_id.contact_number',
+                 'sale_order_id.partner_id.commercial_partner_id.baf_alt_account_number')
     def _compute_baf_customer_account_number(self):
         for po in self:
             customer = po.sale_order_id.partner_id if po.sale_order_id else False

@@ -1,5 +1,77 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
+
+    <record id="view_partner_tree_contact_number" model="ir.ui.view">
+        <field name="name">res.partner.list.baf.contact.number</field>
+        <field name="model">res.partner</field>
+        <field name="arch" type="xml">
+            <list string="Contacts by Number">
+                <field name="contact_number"/>
+                <field name="name"/>
+                <field name="parent_id" optional="hide"/>
+                <field name="baf_alt_account_number" optional="show"/>
+                <field name="vat" optional="show"/>
+                <field name="email" optional="show"/>
+                <field name="phone" optional="show"/>
+                <field name="city" optional="show"/>
+                <field name="country_id" optional="show"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_partner_search_contact_number" model="ir.ui.view">
+        <field name="name">res.partner.search.baf.contact.number</field>
+        <field name="model">res.partner</field>
+        <field name="arch" type="xml">
+            <search string="Contacts by Number">
+                <field name="contact_number"/>
+                <field name="name"
+                       filter_domain="['|', ('name','ilike',self), ('contact_number','ilike',self)]"/>
+                <field name="baf_alt_account_number"/>
+                <field name="vat"/>
+                <field name="email"/>
+                <field name="country_id"/>
+                <filter name="companies" string="Companies"
+                        domain="[('is_company','=',True)]"/>
+                <filter name="individuals" string="Individuals"
+                        domain="[('is_company','=',False)]"/>
+                <separator/>
+                <filter name="vendors" string="Vendors"
+                        domain="[('baf_is_vendor','=',True)]"/>
+                <filter name="not_vendors" string="Not Vendors"
+                        domain="[('baf_is_vendor','=',False)]"/>
+                <separator/>
+                <filter name="with_express" string="Has Express Number"
+                        domain="[('baf_alt_account_number','!=',False)]"/>
+                <group expand="0" string="Group By">
+                    <filter name="group_country" string="Country"
+                            context="{'group_by': 'country_id'}"/>
+                    <filter name="group_vendor" string="Vendor / Customer"
+                            context="{'group_by': 'baf_is_vendor'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_baf_contacts_by_number" model="ir.actions.act_window">
+        <field name="name">Contacts by Number</field>
+        <field name="res_model">res.partner</field>
+        <field name="view_mode">list,form</field>
+        <field name="view_id" ref="view_partner_tree_contact_number"/>
+        <field name="search_view_id" ref="view_partner_search_contact_number"/>
+        <field name="domain">[('contact_number', '!=', False)]</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">No contacts with a contact number yet</p>
+            <p>Only the commercial partner (company or standalone person) receives a contact number — vendor or customer. Child contacts under a company share the company's number.</p>
+        </field>
+    </record>
+
+    <menuitem id="menu_baf_contacts_by_number"
+              name="Contacts by Number"
+              parent="contacts.menu_contacts"
+              action="action_baf_contacts_by_number"
+              sequence="45"/>
+
     <record id="view_partner_tree_inherit_contact_number" model="ir.ui.view">
         <field name="name">res.partner.list.inherit.baf.contact.number</field>
         <field name="model">res.partner</field>

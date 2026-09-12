@@ -21,8 +21,10 @@ class ResPartner(models.Model):
         string="Contact Number",
         copy=False,
         index=True,
-        help="Unique sequential number assigned automatically when the contact "
-             "is created. Address records (delivery/invoice/other) are skipped.",
+        help="Unique sequential number assigned automatically to the commercial "
+             "partner (company or standalone person) at creation. Child contacts "
+             "under a company and address records (delivery/invoice/other) are "
+             "skipped — they roll up to their company's number.",
     )
 
     _contact_number_uniq = models.Constraint(
@@ -56,9 +58,14 @@ class ResPartner(models.Model):
 
     def _baf_customer_account_number(self, use_alt=False):
         self.ensure_one()
-        if use_alt and self.baf_alt_account_number:
-            return self.baf_alt_account_number
-        return self.contact_number or ''
+        source = self
+        if not source.contact_number and not source.baf_alt_account_number:
+            commercial = source.commercial_partner_id
+            if commercial and commercial != source:
+                source = commercial
+        if use_alt and source.baf_alt_account_number:
+            return source.baf_alt_account_number
+        return source.contact_number or ''
 
     def _baf_next_express_account_number(self):
         """Return the next free E<N>BF value, one past the current max."""
@@ -367,10 +374,14 @@ class ResPartner(models.Model):
     @api.model_create_multi
     def create(self, vals_list):
         partners = super().create(vals_list)
-        # Only number real contacts/companies — skip delivery/invoice/other
-        # address records, and never overwrite a number set explicitly.
+        # Only number commercial partners — companies and standalone persons.
+        # Skip delivery/invoice/other address records, child contacts under a
+        # company (they roll up to their parent's number), and never overwrite
+        # a number set explicitly.
         new_contacts = partners.filtered(
-            lambda p: p.type == 'contact' and not p.contact_number
+            lambda p: p.type == 'contact'
+            and not p.contact_number
+            and not p.parent_id
         )
         if new_contacts:
             # Derive the next number from the current MAX in the table, same
