@@ -24,13 +24,13 @@
         <field name="model">res.partner</field>
         <field name="arch" type="xml">
             <search string="Contacts by Number">
-                <field name="contact_number"/>
-                <field name="name"
-                       filter_domain="['|', ('name','ilike',self), ('contact_number','ilike',self)]"/>
+                <field name="contact_number"
+                       filter_domain="['|', ('contact_number','ilike',self), ('name','ilike',self)]"/>
                 <field name="baf_alt_account_number"/>
                 <field name="vat"/>
                 <field name="email"/>
                 <field name="country_id"/>
+                <separator/>
                 <filter name="companies" string="Companies"
                         domain="[('is_company','=',True)]"/>
                 <filter name="individuals" string="Individuals"
@@ -43,7 +43,7 @@
                 <separator/>
                 <filter name="with_express" string="Has Express Number"
                         domain="[('baf_alt_account_number','!=',False)]"/>
-                <group expand="0" string="Group By">
+                <group name="group_by">
                     <filter name="group_country" string="Country"
                             context="{'group_by': 'country_id'}"/>
                     <filter name="group_vendor" string="Vendor / Customer"
