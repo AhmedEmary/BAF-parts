@@ -1,0 +1,144 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+    <!--
+        AgenticBrains MCP - custom tools registry.
+        A custom tool exposes a named verb (backed by a Python-Code server
+        action) to MCP clients, alongside the generic CRUD toolkit.
+    -->
+    <record id="mcp_custom_tool_view_list" model="ir.ui.view">
+        <field name="name">mcp.custom.tool.list</field>
+        <field name="model">mcp.custom.tool</field>
+        <field name="arch" type="xml">
+            <list string="AgenticBrains MCP - Custom Tools">
+                <field name="name" string="Tool name" />
+                <field name="action_id" string="Server action" />
+                <field name="is_readonly" widget="boolean_toggle" string="Read-only" />
+                <field name="active" widget="boolean_toggle" string="Published" />
+            </list>
+        </field>
+    </record>
+
+    <record id="mcp_custom_tool_view_form" model="ir.ui.view">
+        <field name="name">mcp.custom.tool.form</field>
+        <field name="model">mcp.custom.tool</field>
+        <field name="arch" type="xml">
+            <form string="Custom MCP Tool">
+                <sheet>
+                    <div class="alert alert-info" role="alert">
+                        <h5 class="mb-2">
+                            <i class="fa fa-magic me-1" title="Custom tools" />
+                            How custom tools are authorised
+                        </h5>
+                        <p class="mb-2">
+                            Each tool runs <strong>as the calling user</strong>,
+                            so ordinary Odoo ACLs apply to whatever the wrapped
+                            server action does.
+                        </p>
+                        <p class="mb-2">
+                            Who may call the tool is decided by the server
+                            action's <strong>Allowed Groups</strong>. If the
+                            action has none, access falls back to
+                            <strong>write</strong> access on the action's
+                            model - so even a read-only tool then requires
+                            model write access. Set Allowed Groups explicitly.
+                        </p>
+                        <p class="mb-2">
+                            The action's model does <strong>not</strong> need
+                            to appear in AgenticBrains MCP - Available Models.
+                        </p>
+                        <p class="mb-2">
+                            The <strong>Description</strong> and
+                            <strong>Input Schema</strong> are the tool's
+                            contract with the LLM: they tell the model what
+                            the tool does and which arguments to send.
+                        </p>
+                        <p class="mb-2">
+                            A custom tool must wrap a
+                            <strong>Python Code</strong> server action: read
+                            <code>mcp['args']</code> and assign
+                            <code>mcp['result']</code> (returned to the client
+                            as JSON). Other action types run per-record and
+                            would not execute for a tool call, so they are
+                            rejected.
+                        </p>
+                        <p class="mb-1">
+                            <strong>Full example</strong> - a tool that
+                            confirms a quotation. Description:
+                            <em>"Confirm a sale quotation. Call this when the
+                                user asks to confirm or validate a quotation.
+                                Arguments: order_id (integer) - the ID of the
+                                sale order to confirm."</em>
+                        </p>
+                        <p class="mb-1">Input Schema:</p>
+                        <pre class="mb-1"><code>{
+    "type": "object",
+    "properties": {
+        "order_id": {"type": "integer", "description": "sale.order ID"}
+    },
+    "required": ["order_id"]
+}</code></pre>
+                        <p class="mb-1">Server action (Python Code):</p>
+                        <pre class="mb-0"><code
+                            >order = env["sale.order"].browse(int(mcp["args"]["order_id"]))
+order.action_confirm()
+mcp["result"] = {"order": order.name, "state": order.state}</code></pre>
+                    </div>
+                    <div class="oe_title">
+                        <label
+                            for="name"
+                            class="oe_edit_only"
+                            string="Tool name"
+                        />
+                        <h1>
+                            <field name="name" placeholder="e.g. confirm_sale_order" />
+                        </h1>
+                    </div>
+                    <group>
+                        <group string="Wiring">
+                            <field
+                                name="action_id"
+                                domain="[('state', '=', 'code')]"
+                                options="{'no_quick_create': True}"
+                                string="Server action"
+                            />
+                            <field
+                                name="is_readonly"
+                                string="Read-only tool (safe for mcp:read sessions)"
+                            />
+                            <field name="active" string="Published to MCP clients" />
+                        </group>
+                    </group>
+                    <separator string="Description (contract with the LLM)" />
+                    <field
+                        name="description"
+                        nolabel="1"
+                        placeholder='Say what the tool does, when the assistant should call it, and what each argument means. e.g.: "Confirm a sale quotation. Call this when the user asks to confirm a quotation. Arguments: order_id (integer) - the sale.order ID."'
+                    />
+                    <separator string="Input Schema (JSON Schema)" />
+                    <field
+                        name="input_schema"
+                        nolabel="1"
+                        widget="code"
+                        options="{'mode': 'javascript'}"
+                    />
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_mcp_custom_tool" model="ir.actions.act_window">
+        <field name="name">AgenticBrains MCP - Custom Tools</field>
+        <field name="res_model">mcp.custom.tool</field>
+        <field name="view_mode">list,form</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                No custom tools yet.
+            </p>
+            <p>
+                Wrap a Python-Code server action in a custom tool to expose a
+                curated verb to MCP clients - safer than enabling generic
+                create/write on a model.
+            </p>
+        </field>
+    </record>
+</odoo>

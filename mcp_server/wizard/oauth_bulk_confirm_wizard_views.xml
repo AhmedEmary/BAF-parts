@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+    <!--
+        AgenticBrains MCP - bulk revoke / deactivate confirmation.
+        Rendered as target="new" from the list-view bulk actions on OAuth
+        tokens and clients; the wizard's confirm method delegates to the same
+        admin-gated recordset methods that back the form-header buttons.
+    -->
+    <record id="mcp_oauth_bulk_confirm_wizard_view_form" model="ir.ui.view">
+        <field name="name">mcp.oauth.bulk.confirm.wizard.form</field>
+        <field name="model">mcp.oauth.bulk.confirm.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Confirm">
+                <field name="operation" invisible="1" />
+                <div class="alert alert-warning mb-0" role="alert">
+                    <i class="fa fa-exclamation-triangle me-1" title="Warning" />
+                    <span invisible="operation != 'revoke'">
+                        Revoke the selected OAuth tokens? Every client
+                        holding one will have to sign in with Odoo again.
+                    </span>
+                    <span invisible="operation != 'deactivate'">
+                        Deactivate the selected OAuth clients? Every access
+                        token they issued stops working immediately.
+                    </span>
+                </div>
+                <footer>
+                    <button
+                        name="action_confirm"
+                        string="Yes, apply"
+                        type="object"
+                        class="btn-primary"
+                        data-hotkey="q"
+                    />
+                    <button
+                        string="Cancel"
+                        class="btn-secondary"
+                        special="cancel"
+                        data-hotkey="z"
+                    />
+                </footer>
+            </form>
+        </field>
+    </record>
+</odoo>

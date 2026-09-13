@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+        <!--
+            Security groups shipped by AgenticBrains MCP. XML IDs are kept
+            (external modules and record rules key on them); only display
+            names and descriptions are AgenticBrains-branded.
+        -->
+        <record id="group_mcp_user" model="res.groups">
+            <field name="name">AgenticBrains MCP / User</field>
+            <field
+                name="comment"
+            >Consumes MCP-enabled endpoints. Cannot configure the AgenticBrains MCP surface.</field>
+            <field name="implied_ids" eval="[(4, ref('base.group_user'))]" />
+        </record>
+
+        <record id="group_mcp_admin" model="res.groups">
+            <field name="name">AgenticBrains MCP / Administrator</field>
+            <field
+                name="comment"
+            >Manages the AgenticBrains MCP surface: enabled models, custom tools, OAuth clients and audit logs.</field>
+            <field name="implied_ids" eval="[(4, ref('group_mcp_user'))]" />
+            <field name="user_ids" eval="[(4, ref('base.user_admin'))]" />
+        </record>
+
+        <!-- Record rules. -->
+        <record id="rule_mcp_enabled_model_admin" model="ir.rule">
+            <field name="name">AgenticBrains MCP models: admins full access</field>
+            <field name="model_id" ref="model_mcp_enabled_model" />
+            <field name="domain_force">[(1, '=', 1)]</field>
+            <field name="groups" eval="[(4, ref('group_mcp_admin'))]" />
+            <field name="perm_read" eval="True" />
+            <field name="perm_write" eval="True" />
+            <field name="perm_create" eval="True" />
+            <field name="perm_unlink" eval="True" />
+        </record>
+
+        <record id="rule_mcp_enabled_model_user" model="ir.rule">
+            <field name="name">AgenticBrains MCP models: users read-only</field>
+            <field name="model_id" ref="model_mcp_enabled_model" />
+            <field name="domain_force">[(1, '=', 1)]</field>
+            <field name="groups" eval="[(4, ref('group_mcp_user'))]" />
+            <field name="perm_read" eval="True" />
+            <field name="perm_write" eval="False" />
+            <field name="perm_create" eval="False" />
+            <field name="perm_unlink" eval="False" />
+        </record>
+    </data>
+
+    <!-- Add MCP Admin to Administration/Settings Group for Configuration Access -->
+    <data noupdate="1">
+        <record id="base.group_system" model="res.groups">
+            <field name="implied_ids" eval="[(4, ref('group_mcp_admin'))]" />
+        </record>
+    </data>
+</odoo>

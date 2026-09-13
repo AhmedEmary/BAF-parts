@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+    <!--
+        AgenticBrains MCP - bulk-enable models wizard.
+        Lets an admin whitelist several Odoo models at once with a shared
+        default permission mask; already-enabled models are filtered out
+        server-side by the wizard model.
+    -->
+    <record id="mcp_model_selection_wizard_view_form" model="ir.ui.view">
+        <field name="name">mcp.model.selection.wizard.form</field>
+        <field name="model">mcp.model.selection.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Bulk-enable Odoo models">
+                <sheet>
+                    <group>
+                        <div class="alert alert-info mb-0" role="alert">
+                            <i class="fa fa-lightbulb-o me-1" title="Tip" />
+                            Pick every Odoo model you want AgenticBrains MCP
+                            to expose in one go. Models already whitelisted
+                            are hidden from the picker.
+                        </div>
+                    </group>
+                    <group>
+                        <field
+                            name="model_ids"
+                            widget="many2many"
+                            string="Odoo models to whitelist"
+                        />
+                    </group>
+                    <group string="Default permissions applied to each new row">
+                        <field name="allow_read" string="Allow Read" />
+                        <field name="allow_create" string="Allow Create" />
+                        <field name="allow_write" string="Allow Update" />
+                        <field name="allow_unlink" string="Allow Delete" />
+                        <field
+                            name="allow_method_calls"
+                            string="Allow Business-Method Calls"
+                        />
+                    </group>
+                </sheet>
+                <footer>
+                    <button
+                        name="action_enable_models"
+                        string="Whitelist selected models"
+                        type="object"
+                        class="btn-primary"
+                        data-hotkey="q"
+                    />
+                    <button
+                        string="Cancel"
+                        class="btn-secondary"
+                        special="cancel"
+                        data-hotkey="z"
+                    />
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_mcp_model_selection_wizard" model="ir.actions.act_window">
+        <field name="name">Bulk-enable Odoo models for MCP</field>
+        <field name="res_model">mcp.model.selection.wizard</field>
+        <field name="view_mode">form</field>
+        <field name="target">new</field>
+        <field name="binding_model_id" ref="base.model_ir_model" />
+    </record>
+</odoo>

@@ -1,0 +1,144 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!--
+        AgenticBrains MCP - audit log views. Rows are immutable (no create/
+        edit/delete on any view), rotated by the cleanup cron.
+    -->
+    <record id="mcp_log_view_list" model="ir.ui.view">
+        <field name="name">mcp.log.list</field>
+        <field name="model">mcp.log</field>
+        <field name="arch" type="xml">
+            <list create="false" edit="false" delete="false" string="Audit Log">
+                <field name="create_date" string="When"/>
+                <field name="event_type" string="Event"/>
+                <field name="user_id" string="User"/>
+                <field name="auth_method" string="Auth"/>
+                <field name="model_name" string="Model"/>
+                <field name="operation" string="Operation"/>
+                <field name="tool_name" string="Tool"/>
+                <field name="endpoint" string="Endpoint"/>
+                <field name="ip_address" string="Client IP"/>
+                <field name="duration_ms" string="Duration (ms)"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="mcp_log_view_form" model="ir.ui.view">
+        <field name="name">mcp.log.form</field>
+        <field name="model">mcp.log</field>
+        <field name="arch" type="xml">
+            <form create="false" edit="false" delete="false" string="Audit entry">
+                <sheet>
+                    <group>
+                        <group string="Caller">
+                            <field name="event_type" string="Event type"/>
+                            <field name="create_date" string="Timestamp"/>
+                            <field name="user_id" string="Odoo user"/>
+                            <field name="api_key_used" string="API key"/>
+                            <field name="auth_method" string="Auth method"/>
+                            <field name="oauth_client_id" string="OAuth client"/>
+                            <field name="oauth_scope" string="OAuth scope"/>
+                            <field name="ip_address" string="Client IP"/>
+                        </group>
+                        <group string="Request">
+                            <field name="endpoint" string="Endpoint"/>
+                            <field name="http_method" string="HTTP method"/>
+                            <field name="model_name" string="Odoo model"/>
+                            <field name="operation" string="Operation"/>
+                            <field name="tool_name" string="Tool name"/>
+                            <field name="record_ids" string="Record IDs"/>
+                            <field name="duration_ms" string="Duration (ms)"/>
+                        </group>
+                    </group>
+                    <group string="Context">
+                        <field name="session_id" string="Session ID"/>
+                        <field name="user_agent" string="User-Agent"/>
+                        <field name="error_code" string="Error code"/>
+                        <field name="error_message" string="Error message"/>
+                    </group>
+                    <notebook>
+                        <page string="Request payload">
+                            <field name="request_data"/>
+                        </page>
+                        <page string="Response payload">
+                            <field name="response_data"/>
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="mcp_log_view_search" model="ir.ui.view">
+        <field name="name">mcp.log.search</field>
+        <field name="model">mcp.log</field>
+        <field name="arch" type="xml">
+            <search string="Audit log">
+                <field name="event_type"/>
+                <field name="user_id"/>
+                <field name="auth_method"/>
+                <field name="model_name"/>
+                <field name="operation"/>
+                <field name="tool_name"/>
+                <field name="endpoint"/>
+                <filter
+                    string="Today"
+                    name="today"
+                    domain="[('create_date', '&gt;=', datetime.datetime.now().strftime('%Y-%m-%d'))]"
+                />
+                <filter
+                    string="Errors &amp; denials"
+                    name="errors"
+                    domain="[('event_type', 'in', ['auth_failure', 'error', 'rate_limit', 'permission_denied'])]"
+                />
+                <filter
+                    string="Authentication attempts"
+                    name="auth"
+                    domain="[('event_type', 'in', ['auth_success', 'auth_failure'])]"
+                />
+                <separator string="Group By"/>
+                <group>
+                    <filter
+                        string="Event type"
+                        name="group_event_type"
+                        context="{'group_by': 'event_type'}"
+                    />
+                    <filter
+                        string="Odoo user"
+                        name="group_user"
+                        context="{'group_by': 'user_id'}"
+                    />
+                    <filter
+                        string="Auth method"
+                        name="group_auth_method"
+                        context="{'group_by': 'auth_method'}"
+                    />
+                    <filter
+                        string="Day"
+                        name="group_date"
+                        context="{'group_by': 'create_date:day'}"
+                    />
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_mcp_logs" model="ir.actions.act_window">
+        <field name="name">AgenticBrains MCP - Audit Log</field>
+        <field name="res_model">mcp.log</field>
+        <field name="view_mode">list,form</field>
+        <field
+            name="context"
+        >{'search_default_today': 1, 'create': False, 'edit': False, 'delete': False}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                Nothing has been logged yet.
+            </p>
+            <p>
+                Every MCP request lands here once audit logging is on. Enable
+                it under Settings > MCP Server, then invoke a tool from a
+                client to populate the log.
+            </p>
+        </field>
+    </record>
+</odoo>

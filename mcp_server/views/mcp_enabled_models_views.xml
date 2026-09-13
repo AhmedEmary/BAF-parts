@@ -1,0 +1,165 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+    <!--
+        AgenticBrains MCP - enabled models registry.
+        A row here whitelists an Odoo model for exposure through the /mcp
+        endpoint, with per-operation flags.
+    -->
+    <record id="mcp_enabled_model_view_list" model="ir.ui.view">
+        <field name="name">mcp.enabled.model.list</field>
+        <field name="model">mcp.enabled.model</field>
+        <field name="arch" type="xml">
+            <list string="AgenticBrains MCP - Available Models">
+                <header>
+                    <button
+                        name="%(mcp_server.action_mcp_model_selection_wizard)d"
+                        type="action"
+                        string="Bulk-add Models"
+                        class="btn btn-primary"
+                        display="always"
+                        help="Open the picker to whitelist several Odoo models at once."
+                    />
+                </header>
+                <field name="model_id" string="Odoo Model" />
+                <field name="model_name" string="Technical Name" />
+                <field name="active" string="Enabled" />
+                <field name="allow_read" widget="boolean_toggle" string="Read" />
+                <field name="allow_create" widget="boolean_toggle" string="Create" />
+                <field name="allow_write" widget="boolean_toggle" string="Update" />
+                <field name="allow_unlink" widget="boolean_toggle" string="Delete" />
+                <field
+                    name="allow_method_calls"
+                    widget="boolean_toggle"
+                    string="Business Methods"
+                />
+                <field name="write_date" string="Last Change" />
+                <field name="write_uid" string="Changed By" />
+            </list>
+        </field>
+    </record>
+
+    <record id="mcp_enabled_model_view_form" model="ir.ui.view">
+        <field name="name">mcp.enabled.model.form</field>
+        <field name="model">mcp.enabled.model</field>
+        <field name="arch" type="xml">
+            <form string="Available Model">
+                <sheet>
+                    <div class="oe_title">
+                        <label
+                            for="model_id"
+                            class="oe_edit_only"
+                            string="Odoo model"
+                        />
+                        <h1>
+                            <field name="model_id" options="{'no_create': True}" />
+                        </h1>
+                        <field
+                            name="model_name"
+                            readonly="1"
+                            groups="base.group_no_one"
+                        />
+                    </div>
+                    <group>
+                        <group string="Exposure &amp; Operations">
+                            <field name="active" string="Enabled for MCP" />
+                            <field name="allow_read" string="Allow Read" />
+                            <field name="allow_create" string="Allow Create" />
+                            <field name="allow_write" string="Allow Update" />
+                            <field name="allow_unlink" string="Allow Delete" />
+                            <field
+                                name="allow_method_calls"
+                                string="Allow Business-Method Calls"
+                            />
+                        </group>
+                        <group string="Change Trail">
+                            <field name="create_date" readonly="1" />
+                            <field name="create_uid" readonly="1" />
+                            <field name="write_date" readonly="1" />
+                            <field name="write_uid" readonly="1" />
+                        </group>
+                    </group>
+                    <notebook>
+                        <page string="Admin Notes">
+                            <field
+                                name="notes"
+                                placeholder="Why is this model exposed? Any caveats a colleague should know..."
+                            />
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="mcp_enabled_model_view_search" model="ir.ui.view">
+        <field name="name">mcp.enabled.model.search</field>
+        <field name="model">mcp.enabled.model</field>
+        <field name="arch" type="xml">
+            <search string="Search Available Models">
+                <field name="model_id" />
+                <field name="model_name" />
+                <filter
+                    string="Enabled"
+                    name="active"
+                    domain="[('active', '=', True)]"
+                />
+                <filter
+                    string="Disabled"
+                    name="inactive"
+                    domain="[('active', '=', False)]"
+                />
+                <separator />
+                <filter
+                    string="Reads allowed"
+                    name="allow_read"
+                    domain="[('allow_read', '=', True)]"
+                />
+                <filter
+                    string="Creates allowed"
+                    name="allow_create"
+                    domain="[('allow_create', '=', True)]"
+                />
+                <filter
+                    string="Updates allowed"
+                    name="allow_write"
+                    domain="[('allow_write', '=', True)]"
+                />
+                <filter
+                    string="Deletes allowed"
+                    name="allow_unlink"
+                    domain="[('allow_unlink', '=', True)]"
+                />
+                <filter
+                    string="Business methods allowed"
+                    name="allow_method_calls"
+                    domain="[('allow_method_calls', '=', True)]"
+                />
+                <separator string="Group By" />
+                <group>
+                    <filter
+                        string="Odoo model"
+                        name="group_by_model"
+                        context="{'group_by': 'model_id'}"
+                    />
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_mcp_enabled_models" model="ir.actions.act_window">
+        <field name="name">AgenticBrains MCP - Available Models</field>
+        <field name="res_model">mcp.enabled.model</field>
+        <field name="view_mode">list,form</field>
+        <field name="search_view_id" ref="mcp_enabled_model_view_search" />
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                No Odoo models are exposed to MCP yet.
+            </p>
+            <p>
+                Add a model here to make it reachable through the AgenticBrains
+                MCP endpoint. Flip the per-operation toggles to control which
+                CRUD verbs an assistant can invoke.
+            </p>
+        </field>
+    </record>
+</odoo>

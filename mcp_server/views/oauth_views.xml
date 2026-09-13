@@ -1,0 +1,248 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+    <!--
+        AgenticBrains MCP - OAuth 2.1 admin surface.
+        Two records: dynamically-registered clients and the tokens they hold.
+        Rows are read-only in the UI; use the header buttons or bulk actions
+        to deactivate a client / revoke a token.
+    -->
+
+    <!-- ================================================================
+         OAuth clients (RFC 7591 dynamic registrations)
+         ================================================================ -->
+    <record id="mcp_oauth_client_view_list" model="ir.ui.view">
+        <field name="name">mcp.oauth.client.list</field>
+        <field name="model">mcp.oauth.client</field>
+        <field name="arch" type="xml">
+            <list
+                string="AgenticBrains MCP - OAuth Clients"
+                create="false"
+                decoration-muted="not active"
+                decoration-success="active"
+            >
+                <field name="client_name" string="Client name" />
+                <field name="redirect_uris" string="Redirect URIs" />
+                <field name="grant_types" string="Grants" />
+                <field name="response_types" string="Responses" />
+                <field name="token_endpoint_auth_method" string="Auth method" />
+                <field name="scope" string="Scope" />
+                <field name="created_via" string="Registered via" />
+                <field name="active" widget="boolean_toggle" string="Active" />
+            </list>
+        </field>
+    </record>
+
+    <record id="mcp_oauth_client_view_form" model="ir.ui.view">
+        <field name="name">mcp.oauth.client.form</field>
+        <field name="model">mcp.oauth.client</field>
+        <field name="arch" type="xml">
+            <form string="OAuth Client" create="false" edit="false">
+                <header>
+                    <button
+                        name="action_deactivate"
+                        type="object"
+                        string="Deactivate client"
+                        class="btn-danger"
+                        invisible="not active"
+                        confirm="Deactivate this client? Every access token it issued stops working immediately."
+                    />
+                    <button
+                        name="action_activate"
+                        type="object"
+                        string="Reactivate client"
+                        invisible="active"
+                    />
+                </header>
+                <sheet>
+                    <div class="oe_title">
+                        <label
+                            for="client_name"
+                            class="oe_edit_only"
+                            string="Client name"
+                        />
+                        <h1>
+                            <field
+                                name="client_name"
+                                readonly="1"
+                                placeholder="(client did not send a name)"
+                            />
+                        </h1>
+                    </div>
+                    <group>
+                        <group string="Registration">
+                            <field name="created_via" readonly="1" string="Registered via" />
+                            <field name="active" readonly="1" string="Currently active" />
+                            <field name="create_date" readonly="1" string="Registered on" />
+                        </group>
+                        <group string="Capabilities">
+                            <field name="grant_types" readonly="1" string="Grants" />
+                            <field name="response_types" readonly="1" string="Responses" />
+                            <field
+                                name="token_endpoint_auth_method"
+                                readonly="1"
+                                string="Auth method"
+                            />
+                            <field name="scope" readonly="1" string="Registered scope" />
+                        </group>
+                    </group>
+                    <group string="Callback URIs">
+                        <field name="redirect_uris" nolabel="1" readonly="1" />
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_mcp_oauth_clients" model="ir.actions.act_window">
+        <field name="name">AgenticBrains MCP - OAuth Clients</field>
+        <field name="res_model">mcp.oauth.client</field>
+        <field name="view_mode">list,form</field>
+        <!--
+            Include deactivated (archived) rows too - decoration-muted
+            renders them faded in the list. Without active_test=False,
+            archived clients would be hidden entirely.
+        -->
+        <field name="context">{'active_test': False}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                No OAuth clients have registered yet.
+            </p>
+            <p>
+                Clients self-register through the OAuth authorization flow the
+                first time an application connects. Sign in from a client to
+                populate this list.
+            </p>
+        </field>
+    </record>
+
+    <!--
+        Bulk "Actions" entries (surface when rows are selected). Both delegate
+        to the same admin-gated recordset-safe object methods that back the
+        form-header buttons; the destructive one opens a confirmation wizard.
+    -->
+    <record id="action_mcp_oauth_client_deactivate" model="ir.actions.server">
+        <field name="name">Deactivate clients</field>
+        <field name="model_id" ref="model_mcp_oauth_client" />
+        <field name="binding_model_id" ref="model_mcp_oauth_client" />
+        <field name="binding_view_types">list</field>
+        <field name="group_ids" eval="[(4, ref('mcp_server.group_mcp_admin'))]" />
+        <field name="state">code</field>
+        <field name="code">action = {
+    "type": "ir.actions.act_window",
+    "name": "Confirm deactivation",
+    "res_model": "mcp.oauth.bulk.confirm.wizard",
+    "target": "new",
+    "view_mode": "form",
+    "context": {"default_operation": "deactivate", "active_ids": records.ids},
+}</field>
+    </record>
+
+    <record id="action_mcp_oauth_client_activate" model="ir.actions.server">
+        <field name="name">Reactivate clients</field>
+        <field name="model_id" ref="model_mcp_oauth_client" />
+        <field name="binding_model_id" ref="model_mcp_oauth_client" />
+        <field name="binding_view_types">list</field>
+        <field name="group_ids" eval="[(4, ref('mcp_server.group_mcp_admin'))]" />
+        <field name="state">code</field>
+        <field name="code">records.action_activate()</field>
+    </record>
+
+    <!-- ================================================================
+         OAuth tokens (issued at the /mcp/oauth/token endpoint)
+         ================================================================ -->
+    <record id="mcp_oauth_token_view_list" model="ir.ui.view">
+        <field name="name">mcp.oauth.token.list</field>
+        <field name="model">mcp.oauth.token</field>
+        <field name="arch" type="xml">
+            <list
+                string="AgenticBrains MCP - OAuth Tokens"
+                create="false"
+                edit="false"
+                decoration-muted="revoked"
+                decoration-danger="revoked"
+            >
+                <field name="create_date" string="Issued on" />
+                <field name="client" string="Client" />
+                <field name="user_id" string="Odoo user" />
+                <field name="scope" string="Scope" />
+                <field name="audience" string="Audience" />
+                <field name="access_expires_at" string="Access expiry" />
+                <field name="refresh_expires_at" string="Refresh expiry" />
+                <field name="revoked" widget="boolean_toggle" string="Revoked" />
+            </list>
+        </field>
+    </record>
+
+    <record id="mcp_oauth_token_view_form" model="ir.ui.view">
+        <field name="name">mcp.oauth.token.form</field>
+        <field name="model">mcp.oauth.token</field>
+        <field name="arch" type="xml">
+            <form string="OAuth Token" create="false" edit="false">
+                <header>
+                    <button
+                        name="action_revoke"
+                        type="object"
+                        string="Revoke token"
+                        class="btn-danger"
+                        invisible="revoked"
+                        confirm="Revoke this token? The client will have to re-authenticate."
+                    />
+                </header>
+                <sheet>
+                    <group>
+                        <group string="Binding">
+                            <field name="client" string="Client" />
+                            <field name="user_id" string="Odoo user" />
+                            <field name="scope" string="Granted scope" />
+                            <field name="audience" string="Audience" />
+                        </group>
+                        <group string="Validity">
+                            <field name="revoked" string="Revoked" />
+                            <field name="access_expires_at" string="Access expires at" />
+                            <field name="refresh_expires_at" string="Refresh expires at" />
+                            <field name="refresh_family_id" string="Refresh family" />
+                        </group>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_mcp_oauth_tokens" model="ir.actions.act_window">
+        <field name="name">AgenticBrains MCP - OAuth Tokens</field>
+        <field name="res_model">mcp.oauth.token</field>
+        <field name="view_mode">list,form</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                No OAuth tokens have been issued.
+            </p>
+            <p>
+                Tokens land here after a client completes the authorization
+                flow. Open a row and hit "Revoke token" to invalidate one on
+                the spot.
+            </p>
+        </field>
+    </record>
+
+    <!--
+        Bulk revoke entry - matches the form-header button. The confirmation
+        wizard reuses the same admin-gated method, so ACLs are enforced in a
+        single place.
+    -->
+    <record id="action_mcp_oauth_token_revoke" model="ir.actions.server">
+        <field name="name">Revoke tokens</field>
+        <field name="model_id" ref="model_mcp_oauth_token" />
+        <field name="binding_model_id" ref="model_mcp_oauth_token" />
+        <field name="binding_view_types">list</field>
+        <field name="group_ids" eval="[(4, ref('mcp_server.group_mcp_admin'))]" />
+        <field name="state">code</field>
+        <field name="code">action = {
+    "type": "ir.actions.act_window",
+    "name": "Confirm revocation",
+    "res_model": "mcp.oauth.bulk.confirm.wizard",
+    "target": "new",
+    "view_mode": "form",
+    "context": {"default_operation": "revoke", "active_ids": records.ids},
+}</field>
+    </record>
+</odoo>

@@ -1,0 +1,311 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+    <!--
+        Consent and error pages for the OAuth authorization endpoint.
+        Rendered on `web.layout` + `web.assets_frontend` (not
+        `web.login_layout` / `web.frontend_layout`): the `website` module
+        extends that chain with a website-only request context, which 500s
+        (KeyError: 'website') on installs that have `website` enabled.
+        `web.layout` is safe with or without `website`.
+    -->
+
+    <template id="oauth_layout" name="AgenticBrains OAuth Layout">
+        <t t-call="web.layout">
+            <t t-set="title">Authorize AgenticBrains MCP</t>
+            <t t-set="html_data" t-value="{'style': 'height: 100%;'}" />
+            <t t-set="body_classname" t-value="'ab_oauth_body'" />
+            <t t-set="head">
+                <meta name="viewport" content="width=device-width, initial-scale=1" />
+                <t t-call-assets="web.assets_frontend" t-js="false" />
+                <style>
+                    .ab_oauth_body {
+                        min-height: 100vh;
+                        background:
+                            radial-gradient(circle at 15% 15%, rgba(94, 234, 212, 0.35), transparent 55%),
+                            radial-gradient(circle at 85% 85%, rgba(129, 140, 248, 0.35), transparent 55%),
+                            linear-gradient(135deg, #0f172a 0%, #1e293b 55%, #0f172a 100%);
+                        color: #0f172a;
+                    }
+                    .ab_oauth_shell { padding: 3rem 1rem; }
+                    .ab_oauth_card {
+                        max-width: 28rem;
+                        margin: 0 auto;
+                        border-radius: 1.25rem;
+                        border: 1px solid rgba(255, 255, 255, 0.35);
+                        background: rgba(255, 255, 255, 0.97);
+                        box-shadow: 0 24px 60px -20px rgba(15, 23, 42, 0.55);
+                        overflow: hidden;
+                    }
+                    .ab_oauth_header {
+                        padding: 1.75rem 1.75rem 1.25rem;
+                        background: linear-gradient(120deg, #0f172a 0%, #1d4ed8 100%);
+                        color: #f8fafc;
+                        text-align: center;
+                    }
+                    .ab_oauth_logo {
+                        display: inline-flex;
+                        align-items: center;
+                        justify-content: center;
+                        width: 56px;
+                        height: 56px;
+                        border-radius: 16px;
+                        background: rgba(255, 255, 255, 0.14);
+                        margin-bottom: .75rem;
+                    }
+                    .ab_oauth_logo img {
+                        max-height: 34px;
+                        max-width: 34px;
+                        width: auto;
+                    }
+                    .ab_oauth_brand {
+                        letter-spacing: .18em;
+                        text-transform: uppercase;
+                        font-size: .68rem;
+                        opacity: .8;
+                    }
+                    .ab_oauth_title { font-weight: 600; margin: .35rem 0 0; }
+                    .ab_oauth_body_pad { padding: 1.75rem; }
+                    .ab_meta_row {
+                        display: flex;
+                        justify-content: space-between;
+                        gap: 1rem;
+                        padding: .55rem 0;
+                        border-bottom: 1px dashed rgba(15, 23, 42, .12);
+                    }
+                    .ab_meta_row:last-child { border-bottom: 0; }
+                    .ab_meta_label {
+                        color: #64748b;
+                        font-size: .78rem;
+                        text-transform: uppercase;
+                        letter-spacing: .06em;
+                    }
+                    .ab_meta_value {
+                        font-weight: 500;
+                        color: #0f172a;
+                        text-align: right;
+                        word-break: break-word;
+                    }
+                    .ab_scope_card {
+                        border: 1px solid rgba(15, 23, 42, .1);
+                        border-radius: .9rem;
+                        padding: 1rem 1rem .75rem;
+                        background: #f8fafc;
+                    }
+                    .ab_scope_row {
+                        display: flex;
+                        align-items: flex-start;
+                        gap: .75rem;
+                        padding: .55rem 0;
+                    }
+                    .ab_scope_row + .ab_scope_row { border-top: 1px solid rgba(15, 23, 42, .06); }
+                    .ab_scope_icon {
+                        display: inline-flex;
+                        align-items: center;
+                        justify-content: center;
+                        width: 34px;
+                        height: 34px;
+                        border-radius: 10px;
+                        background: rgba(29, 78, 216, .1);
+                        color: #1d4ed8;
+                        flex-shrink: 0;
+                    }
+                    .ab_scope_row.ab_scope_write .ab_scope_icon {
+                        background: rgba(16, 185, 129, .12);
+                        color: #047857;
+                    }
+                    .ab_scope_row.ab_scope_locked .ab_scope_icon {
+                        background: rgba(100, 116, 139, .12);
+                        color: #475569;
+                    }
+                    .ab_scope_title { font-weight: 600; color: #0f172a; }
+                    .ab_scope_hint { color: #64748b; font-size: .82rem; }
+                    .ab_btn_row { display: flex; gap: .75rem; margin-top: 1.25rem; }
+                    .ab_btn {
+                        flex: 1 1 0;
+                        padding: .7rem 1rem;
+                        border-radius: .7rem;
+                        font-weight: 600;
+                        border: 0;
+                        cursor: pointer;
+                        transition: transform .05s ease, box-shadow .15s ease;
+                    }
+                    .ab_btn:active { transform: translateY(1px); }
+                    .ab_btn_deny {
+                        background: #f1f5f9;
+                        color: #0f172a;
+                        border: 1px solid #cbd5e1;
+                    }
+                    .ab_btn_allow {
+                        background: linear-gradient(120deg, #1d4ed8 0%, #0ea5e9 100%);
+                        color: #ffffff;
+                        box-shadow: 0 12px 24px -12px rgba(29, 78, 216, .6);
+                    }
+                    .ab_signed_in {
+                        text-align: center;
+                        color: #64748b;
+                        font-size: .82rem;
+                        margin-top: 1.25rem;
+                    }
+                    .ab_footer {
+                        text-align: center;
+                        color: rgba(248, 250, 252, .75);
+                        font-size: .78rem;
+                        margin: 1.75rem auto 0;
+                        max-width: 28rem;
+                    }
+                    .ab_footer a { color: rgba(248, 250, 252, .95); text-decoration: none; }
+                    .ab_footer a:hover { text-decoration: underline; }
+                    .ab_footer .ab_dot { margin: 0 .5rem; opacity: .5; }
+                </style>
+            </t>
+            <div class="ab_oauth_shell">
+                <div class="ab_oauth_card">
+                    <div class="ab_oauth_header">
+                        <div class="ab_oauth_logo">
+                            <img src="/web/binary/company_logo" alt="Company logo" />
+                        </div>
+                        <div class="ab_oauth_brand">AgenticBrains MCP</div>
+                        <div class="ab_oauth_title">Authorize access to Odoo</div>
+                    </div>
+                    <div class="ab_oauth_body_pad">
+                        <t t-out="0" />
+                    </div>
+                </div>
+                <div class="ab_footer">
+                    <a
+                        href="https://agenticbrain.tech/"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                    >AgenticBrains</a>
+                    <span class="ab_dot">&#8226;</span>
+                    <a
+                        href="https://www.odoo.com?utm_source=db&amp;utm_medium=auth"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                    >Powered by Odoo</a>
+                </div>
+            </div>
+        </t>
+    </template>
+
+    <template id="oauth_consent" name="AgenticBrains OAuth Consent">
+        <t t-call="mcp_server.oauth_layout">
+            <p class="text-muted mb-3">
+                <strong><t t-out="client_label" /></strong>
+                is asking to connect to your Odoo account as
+                <strong><t t-out="user_name" /></strong>.
+            </p>
+            <form method="post" action="/mcp/oauth/authorize">
+                <input type="hidden" name="csrf_token" t-att-value="csrf_token" />
+                <t t-foreach="oauth_params" t-as="param_name">
+                    <input
+                        type="hidden"
+                        t-att-name="param_name"
+                        t-att-value="oauth_params[param_name]"
+                    />
+                </t>
+
+                <div class="mb-3">
+                    <div class="ab_meta_row">
+                        <span class="ab_meta_label">Client</span>
+                        <span class="ab_meta_value"><t t-out="client_label" /></span>
+                    </div>
+                    <div class="ab_meta_row">
+                        <span class="ab_meta_label">Redirects to</span>
+                        <span class="ab_meta_value"><t t-out="redirect_origin" /></span>
+                    </div>
+                </div>
+
+                <div class="ab_scope_card">
+                    <div class="ab_meta_label mb-2">Requested access</div>
+                    <div class="ab_scope_row">
+                        <span class="ab_scope_icon" aria-hidden="true">
+                            <i class="fa fa-book" />
+                        </span>
+                        <div>
+                            <div class="ab_scope_title">Read your data</div>
+                            <div
+                                class="ab_scope_hint"
+                            >Fetch records on your behalf - always granted.</div>
+                        </div>
+                    </div>
+                    <t t-if="show_write_checkbox">
+                        <div class="ab_scope_row ab_scope_write">
+                            <span class="ab_scope_icon" aria-hidden="true">
+                                <i class="fa fa-pencil" />
+                            </span>
+                            <div class="flex-grow-1">
+                                <div class="ab_scope_title">Create and modify data</div>
+                                <div
+                                    class="ab_scope_hint mb-2"
+                                >Create, update or delete records under your account.</div>
+                                <div class="form-check form-switch">
+                                    <input
+                                        type="checkbox"
+                                        role="switch"
+                                        class="form-check-input"
+                                        id="grant_write"
+                                        name="grant_write"
+                                        checked="checked"
+                                    />
+                                    <label
+                                        class="form-check-label small"
+                                        for="grant_write"
+                                    >Allow write access</label>
+                                </div>
+                            </div>
+                        </div>
+                    </t>
+                    <t t-if="not show_write_checkbox">
+                        <div class="ab_scope_row ab_scope_locked">
+                            <span class="ab_scope_icon" aria-hidden="true">
+                                <i class="fa fa-lock" />
+                            </span>
+                            <div>
+                                <div
+                                    class="ab_scope_title"
+                                >Read-only session</div>
+                                <div
+                                    class="ab_scope_hint"
+                                >This client cannot create, modify or delete data.</div>
+                            </div>
+                        </div>
+                    </t>
+                </div>
+
+                <div class="ab_btn_row">
+                    <button
+                        class="ab_btn ab_btn_deny"
+                        type="submit"
+                        name="decision"
+                        value="deny"
+                    >Deny</button>
+                    <button
+                        class="ab_btn ab_btn_allow"
+                        type="submit"
+                        name="decision"
+                        value="allow"
+                    >Allow access</button>
+                </div>
+            </form>
+            <div class="ab_signed_in">
+                Signed in as <strong><t t-out="user_name" /></strong>.
+                <a t-att-href="switch_user_url">Not you?</a>
+            </div>
+        </t>
+    </template>
+
+    <template id="oauth_authorize_error" name="AgenticBrains OAuth Authorize Error">
+        <t t-call="mcp_server.oauth_layout">
+            <div class="text-center py-3">
+                <div class="ab_scope_icon mx-auto mb-3" style="width:52px; height:52px;">
+                    <i class="fa fa-exclamation-triangle" />
+                </div>
+                <h1 class="h5 mb-2">Authorization request rejected</h1>
+                <p class="text-muted mb-0">
+                    <t t-out="error_description" />
+                </p>
+            </div>
+        </t>
+    </template>
+</odoo>

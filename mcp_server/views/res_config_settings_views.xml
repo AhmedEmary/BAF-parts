@@ -1,0 +1,443 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+    <record id="res_config_settings_view_form_mcp" model="ir.ui.view">
+        <field name="name">res.config.settings.view.form.inherit.mcp</field>
+        <field name="model">res.config.settings</field>
+        <field name="priority">20</field>
+        <field name="inherit_id" ref="base.res_config_settings_view_form" />
+        <field name="arch" type="xml">
+            <xpath expr="//block[@name='integration']" position="after">
+                <div
+                    class="app_settings_block"
+                    data-string="MCP Server"
+                    string="MCP Server"
+                    data-key="mcp_server"
+                >
+                    <!--
+                        AgenticBrains MCP Server - configuration surface.
+                        Grouped into four blocks: Access, Observability &amp;
+                        Limits, Sessions and Runtime Limits. Each right pane
+                        keeps the Odoo settings pattern (label + tooltip +
+                        helper text + inline drilldowns).
+                    -->
+                    <div class="ab_settings_hero mt16 mb24">
+                        <style>
+                            .ab_settings_hero {
+                                border-radius: 14px;
+                                padding: 18px 22px;
+                                background: linear-gradient(120deg, #0f172a 0%, #1d4ed8 100%);
+                                color: #f8fafc;
+                                display: flex;
+                                align-items: center;
+                                gap: 16px;
+                                box-shadow: 0 10px 28px -18px rgba(15, 23, 42, .55);
+                            }
+                            .ab_settings_hero .ab_hero_badge {
+                                display: inline-flex;
+                                align-items: center;
+                                justify-content: center;
+                                width: 46px; height: 46px;
+                                border-radius: 12px;
+                                background: rgba(255,255,255,.14);
+                                font-size: 22px;
+                            }
+                            .ab_settings_hero .ab_hero_kicker {
+                                font-size: 11px;
+                                letter-spacing: .18em;
+                                text-transform: uppercase;
+                                opacity: .8;
+                            }
+                            .ab_settings_hero .ab_hero_title {
+                                font-size: 18px;
+                                font-weight: 600;
+                                margin-top: 2px;
+                            }
+                            .ab_settings_hero .ab_hero_sub {
+                                opacity: .85;
+                                font-size: 13px;
+                                margin-top: 2px;
+                            }
+                            .ab_section_title {
+                                display: flex;
+                                align-items: center;
+                                gap: 8px;
+                                margin: 24px 0 8px;
+                                color: #1d4ed8;
+                                font-weight: 600;
+                            }
+                            .ab_section_title i { font-size: 14px; }
+                        </style>
+                        <div class="ab_hero_badge" aria-hidden="true">
+                            <i class="fa fa-plug" title="AgenticBrains MCP" />
+                        </div>
+                        <div class="flex-grow-1">
+                            <div class="ab_hero_kicker">AgenticBrains</div>
+                            <div class="ab_hero_title">MCP Server for Odoo</div>
+                            <div
+                                class="ab_hero_sub"
+                            >Connect AI assistants (Claude, ChatGPT, Copilot,
+                                Gemini, Cursor, ...) to your Odoo instance
+                                through a native Model Context Protocol
+                                endpoint.</div>
+                        </div>
+                    </div>
+
+                    <h3 class="ab_section_title">
+                        <i class="fa fa-key" title="Access section" aria-hidden="true" />
+                        <span>Access &amp; Availability</span>
+                    </h3>
+                    <div class="row mt8 o_settings_container" id="mcp_settings">
+                        <div class="col-12 col-lg-6 o_setting_box">
+                            <div class="o_setting_left_pane">
+                                <field name="mcp_enabled" />
+                            </div>
+                            <div class="o_setting_right_pane">
+                                <label for="mcp_enabled" string="Enable MCP Server" />
+                                <a
+                                    title="Master switch for AgenticBrains MCP. When off, every MCP endpoint (native /mcp and legacy REST/XML-RPC) refuses requests and no tool call is admitted."
+                                    class="o_doc_link me-2"
+                                >
+                                    <i class="fa fa-question-circle" />
+                                </a>
+                                <div class="text-muted">
+                                    Toggle the whole MCP surface on or off in one click.
+                                </div>
+                                <div
+                                    class="content-group mt8"
+                                    invisible="not mcp_enabled"
+                                >
+                                    <div>
+                                        <button
+                                            name="%(mcp_server.action_mcp_enabled_models)d"
+                                            icon="oi-arrow-right"
+                                            type="action"
+                                            string="Manage Available Models"
+                                            class="btn-link"
+                                        />
+                                    </div>
+                                    <div class="mt4">
+                                        <button
+                                            name="%(mcp_server.action_mcp_custom_tool)d"
+                                            icon="oi-arrow-right"
+                                            type="action"
+                                            string="Manage Custom Tools"
+                                            class="btn-link"
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <h3
+                        class="ab_section_title"
+                        invisible="not mcp_enabled"
+                    >
+                        <i class="fa fa-shield" title="Observability section" aria-hidden="true" />
+                        <span>Observability &amp; Throttling</span>
+                    </h3>
+                    <div
+                        class="row mt8 o_settings_container"
+                        invisible="not mcp_enabled"
+                    >
+                        <div class="col-12 col-lg-6 o_setting_box">
+                            <div class="o_setting_left_pane">
+                                <field name="mcp_enable_logging" />
+                            </div>
+                            <div class="o_setting_right_pane">
+                                <label for="mcp_enable_logging" string="Audit Logging" />
+                                <a
+                                    title="Record every MCP request and response in mcp.log - useful for audits and debugging. May add measurable overhead on very high-volume clients."
+                                    class="o_doc_link me-2"
+                                >
+                                    <i class="fa fa-question-circle" />
+                                </a>
+                                <div class="text-muted">
+                                    Store MCP request/response events in the audit log.
+                                </div>
+
+                                <div
+                                    class="content-group mt16"
+                                    invisible="not mcp_enable_logging"
+                                >
+                                    <div class="row">
+                                        <div class="col-12">
+                                            <label
+                                                for="mcp_log_retention_days"
+                                                class="o_light_label"
+                                                string="Retention Period"
+                                            />
+                                            <a
+                                                title="Log entries older than this are pruned by a daily cron. Set to 0 to keep them forever. Default: 30 days."
+                                                class="o_doc_link me-2"
+                                            >
+                                                <i class="fa fa-question-circle" />
+                                            </a>
+                                            <div class="text-muted">
+                                                How long audit rows are kept before cleanup.
+                                            </div>
+                                            <field
+                                                name="mcp_log_retention_days"
+                                                class="o_light_label oe_inline"
+                                                style="width: 100px;"
+                                            /> days
+                                        </div>
+                                    </div>
+                                    <div class="row mt8">
+                                        <div class="col-12">
+                                            <button
+                                                name="%(mcp_server.action_mcp_logs)d"
+                                                icon="oi-arrow-right"
+                                                type="action"
+                                                string="Open Audit Log"
+                                                class="btn-link"
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-12 col-lg-6 o_setting_box">
+                            <div class="o_setting_left_pane">
+                                <field name="mcp_enable_rate_limiting" />
+                            </div>
+                            <div class="o_setting_right_pane">
+                                <label
+                                    for="mcp_enable_rate_limiting"
+                                    string="Rate Limiting"
+                                />
+                                <a
+                                    title="Cap the number of MCP calls each user may make per minute (per worker) to shield the server from bursts and abuse."
+                                    class="o_doc_link me-2"
+                                >
+                                    <i class="fa fa-question-circle" />
+                                </a>
+                                <div class="text-muted">
+                                    Protect the endpoint from abusive request bursts.
+                                </div>
+
+                                <div
+                                    class="content-group mt16"
+                                    invisible="not mcp_enable_rate_limiting"
+                                >
+                                    <div class="row">
+                                        <div class="col-12">
+                                            <label
+                                                for="mcp_request_limit"
+                                                class="o_light_label"
+                                                string="Requests / Minute"
+                                            />
+                                            <a
+                                                title="Ceiling per user per minute. 0 means unlimited (not recommended in production). Default: 300."
+                                                class="o_doc_link me-2"
+                                            >
+                                                <i class="fa fa-question-circle" />
+                                            </a>
+                                            <div class="text-muted">
+                                                Ceiling per user per minute (0 = unlimited).
+                                            </div>
+                                            <field
+                                                name="mcp_request_limit"
+                                                class="o_light_label oe_inline"
+                                                style="width: 100px;"
+                                            /> requests/minute
+                                        </div>
+                                    </div>
+
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <h3
+                        class="ab_section_title"
+                        invisible="not mcp_enabled"
+                    >
+                        <i class="fa fa-id-badge" title="Sessions section" aria-hidden="true" />
+                        <span>Sessions &amp; Browser Clients</span>
+                    </h3>
+                    <div
+                        class="row mt8 o_settings_container"
+                        invisible="not mcp_enabled"
+                    >
+                        <div class="col-12 col-lg-6 o_setting_box">
+                            <div class="o_setting_left_pane">
+                                <field name="mcp_enable_oauth" />
+                            </div>
+                            <div class="o_setting_right_pane">
+                                <label
+                                    for="mcp_enable_oauth"
+                                    string="Sign in with Odoo (OAuth 2.1)"
+                                />
+                                <a
+                                    title="Enable the built-in OAuth 2.1 authorization server so browser MCP clients (Claude.ai, Gemini, ...) can log in with an ordinary Odoo user. Enabled by default."
+                                    class="o_doc_link me-2"
+                                >
+                                    <i class="fa fa-question-circle" />
+                                </a>
+                                <div class="text-muted">
+                                    Let browser clients authenticate with a normal Odoo login.
+                                </div>
+                                <div
+                                    class="content-group mt16"
+                                    invisible="not mcp_enable_oauth"
+                                >
+                                    <div>
+                                        <button
+                                            name="%(mcp_server.action_mcp_oauth_clients)d"
+                                            icon="oi-arrow-right"
+                                            type="action"
+                                            string="Registered OAuth Clients"
+                                            class="btn-link"
+                                        />
+                                    </div>
+                                    <div class="mt4">
+                                        <button
+                                            name="%(mcp_server.action_mcp_oauth_tokens)d"
+                                            icon="oi-arrow-right"
+                                            type="action"
+                                            string="Issued OAuth Tokens"
+                                            class="btn-link"
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-12 col-lg-6 o_setting_box">
+                            <div class="o_setting_left_pane" />
+                            <div class="o_setting_right_pane">
+                                <label
+                                    for="mcp_allowed_origins"
+                                    string="Allowed Browser Origins"
+                                />
+                                <a
+                                    title="Comma-separated list of Origin values allowed to call /mcp from a browser. Empty = accept any Origin. When set, other Origins get HTTP 403 (DNS rebinding guard). Native clients such as Claude Desktop send no Origin header and are always accepted."
+                                    class="o_doc_link me-2"
+                                >
+                                    <i class="fa fa-question-circle" />
+                                </a>
+                                <div class="text-muted">
+                                    Whitelist specific browser Origins (empty = no restriction).
+                                </div>
+                                <div class="content-group mt16">
+                                    <field
+                                        name="mcp_allowed_origins"
+                                        placeholder="https://app.example.com, https://tool.example.org"
+                                        class="o_light_label"
+                                    />
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <h3
+                        class="ab_section_title"
+                        invisible="not mcp_enabled"
+                    >
+                        <i class="fa fa-sliders" title="Runtime limits section" aria-hidden="true" />
+                        <span>Runtime Limits</span>
+                    </h3>
+                    <div
+                        class="row mt8 o_settings_container"
+                        id="mcp_tool_limits"
+                        invisible="not mcp_enabled"
+                    >
+                        <div class="col-12 col-lg-6 o_setting_box">
+                            <div class="o_setting_right_pane">
+                                <span class="o_form_label">Read Tool Limits</span>
+                                <div class="text-muted">
+                                    Default and hard-cap sizes applied to MCP read tools.
+                                </div>
+                                <div class="content-group mt16">
+                                    <div class="row">
+                                        <div class="col-12">
+                                            <label
+                                                for="mcp_default_limit"
+                                                class="o_light_label"
+                                                string="Default Page Size"
+                                            />
+                                            <div class="text-muted">
+                                                Rows returned when the client asks for no limit.
+                                            </div>
+                                            <field
+                                                name="mcp_default_limit"
+                                                class="o_light_label oe_inline"
+                                                style="width: 100px;"
+                                            /> records
+                                        </div>
+                                    </div>
+                                    <div class="row mt16">
+                                        <div class="col-12">
+                                            <label
+                                                for="mcp_max_limit"
+                                                class="o_light_label"
+                                                string="Maximum Page Size"
+                                            />
+                                            <div class="text-muted">
+                                                Hard cap on records returned per request.
+                                            </div>
+                                            <field
+                                                name="mcp_max_limit"
+                                                class="o_light_label oe_inline"
+                                                style="width: 100px;"
+                                            /> records
+                                        </div>
+                                    </div>
+                                    <div class="row mt16">
+                                        <div class="col-12">
+                                            <label
+                                                for="mcp_max_smart_fields"
+                                                class="o_light_label"
+                                                string="Smart-Field Ceiling"
+                                            />
+                                            <div class="text-muted">
+                                                Fields auto-selected when the client lists none.
+                                            </div>
+                                            <field
+                                                name="mcp_max_smart_fields"
+                                                class="o_light_label oe_inline"
+                                                style="width: 100px;"
+                                            /> fields
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-12 col-lg-6 o_setting_box">
+                            <div class="o_setting_right_pane">
+                                <span
+                                    class="o_form_label"
+                                >Output Formatting</span>
+                                <div class="text-muted">
+                                    How related records are rendered in tool output.
+                                </div>
+                                <div class="content-group mt16">
+                                    <div class="row">
+                                        <div class="col-12">
+                                            <label
+                                                for="mcp_max_related_items"
+                                                class="o_light_label"
+                                                string="Inline Related Items"
+                                            />
+                                            <div class="text-muted">
+                                                Related rows shown inline before collapsing to a count.
+                                            </div>
+                                            <field
+                                                name="mcp_max_related_items"
+                                                class="o_light_label oe_inline"
+                                                style="width: 100px;"
+                                            /> items
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </xpath>
+        </field>
+    </record>
+</odoo>

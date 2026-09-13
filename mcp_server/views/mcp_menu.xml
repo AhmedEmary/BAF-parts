@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+    <!--
+        AgenticBrains MCP - technical menu tree.
+        Sits under the standard Technical (base.menu_custom) root, gated on
+        the AgenticBrains MCP Administrator group. XML IDs use the ``ab_``
+        prefix so they don't collide with any other MCP add-on installed
+        alongside this one.
+    -->
+    <menuitem
+        id="ab_mcp_menu_root"
+        name="AgenticBrains MCP"
+        parent="base.menu_custom"
+        sequence="15"
+        groups="mcp_server.group_mcp_admin"
+    />
+
+    <menuitem
+        id="ab_mcp_menu_available_models"
+        name="Available Models"
+        parent="ab_mcp_menu_root"
+        action="action_mcp_enabled_models"
+        sequence="10"
+        groups="mcp_server.group_mcp_admin"
+    />
+
+    <menuitem
+        id="ab_mcp_menu_custom_tools"
+        name="Custom Tools"
+        parent="ab_mcp_menu_root"
+        action="action_mcp_custom_tool"
+        sequence="20"
+        groups="mcp_server.group_mcp_admin"
+    />
+
+    <menuitem
+        id="ab_mcp_menu_oauth_clients"
+        name="OAuth Clients"
+        parent="ab_mcp_menu_root"
+        action="action_mcp_oauth_clients"
+        sequence="30"
+        groups="mcp_server.group_mcp_admin"
+    />
+
+    <menuitem
+        id="ab_mcp_menu_oauth_tokens"
+        name="OAuth Tokens"
+        parent="ab_mcp_menu_root"
+        action="action_mcp_oauth_tokens"
+        sequence="40"
+        groups="mcp_server.group_mcp_admin"
+    />
+
+    <menuitem
+        id="ab_mcp_menu_audit_log"
+        name="Audit Log"
+        parent="ab_mcp_menu_root"
+        action="action_mcp_logs"
+        sequence="50"
+        groups="mcp_server.group_mcp_admin"
+    />
+</odoo>
