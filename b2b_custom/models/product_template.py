@@ -68,6 +68,81 @@ class ProductTemplate(models.Model):
              WHERE allow_out_of_stock_order IS DISTINCT FROM TRUE;
         """)
 
+    @api.model
+    def _baf_ensure_nla_placeholders(self):
+        """One NLA marker template per brand — the target every "Replaced by:
+        NLA" import points at, and what `_baf_chain_ends_in_nla` walks to.
+
+        Idempotent; safe to run on every module upgrade. Placeholders are
+        sale_ok=False and active=True (so `replaced_by_id` links resolve) but
+        `_baf_is_order_blocked` blocks them from the cart. The default_code
+        follows the mass-importer's `<3-char brand prefix>_NLA` convention so
+        an import re-using the same key updates the row in place.
+        """
+        brands = self.env['product.brand'].search([])
+        if not brands:
+            return
+        cr = self.env.cr
+        # `product.brand.name` is the technical key; the mass importer builds
+        # `default_code` off the first 3 chars uppercased, so match that here.
+        rows = []
+        for brand in brands:
+            name = (brand.name or '').strip()
+            if not name:
+                continue
+            prefix = name[:3].upper() if len(name) >= 3 else name.upper()
+            rows.append((brand.id, name, f"{prefix}_NLA"))
+
+        # Skip brands that already have their placeholder (created by prior
+        # runs or by the mass importer).
+        existing_codes = set()
+        codes = [r[2] for r in rows]
+        if codes:
+            cr.execute(
+                "SELECT default_code FROM product_template "
+                "WHERE default_code = ANY(%s)",
+                (codes,),
+            )
+            existing_codes = {row[0] for row in cr.fetchall()}
+        missing = [r for r in rows if r[2] not in existing_codes]
+        if not missing:
+            return
+
+        uom_id = self.env.ref('uom.product_uom_unit').id
+        categ_id = self.env.ref('product.product_category_goods').id
+        for brand_id, brand_name, default_code in missing:
+            self.env['product.template'].create({
+                'name': f"{brand_name} NLA",
+                'default_code': default_code,
+                'sku': 'NLA',
+                'brand': brand_id,
+                # Skip the auto-barcode compute in general_system_custom
+                # (default_code='LR_NLA' → barcode='NLA'), which would
+                # collide across brands. Explicit sentinel keeps each row
+                # unique and prevents any real scan from matching.
+                'barcode': f"NLA-PLACEHOLDER-{brand_id}",
+                'list_price': 0.0,
+                'type': 'consu',
+                'is_storable': False,
+                'uom_id': uom_id,
+                'categ_id': categ_id,
+                'active': True,
+                'sale_ok': False,
+                'purchase_ok': False,
+                'is_published': False,
+            })
+
+        # Placeholders inserted by the mass importer (raw SQL, sale_ok=True)
+        # would surface in customer search when someone types "NLA". Force
+        # them to sale_ok=False here — chain traversal via `replaced_by_id`
+        # still works because it's an M2O read, not a search.
+        cr.execute("""
+            UPDATE product_template
+               SET sale_ok = FALSE, purchase_ok = FALSE, is_published = FALSE
+             WHERE UPPER(TRIM(sku)) = 'NLA'
+               AND (sale_ok = TRUE OR purchase_ok = TRUE OR is_published = TRUE);
+        """)
+
     default_code = fields.Char(
         compute='_compute_internal_reference',
         store=True,

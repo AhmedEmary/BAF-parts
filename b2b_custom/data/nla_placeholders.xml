@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+        <!-- Run on every module update: seed one NLA marker template per
+             brand (sku='NLA', default_code='<prefix>_NLA'). The mass importer
+             links parts to these when the "Replaced by" column contains
+             "NLA"; the B2B search then renders such parts as NLA. Idempotent. -->
+        <function model="product.template" name="_baf_ensure_nla_placeholders"/>
+    </data>
+</odoo>
