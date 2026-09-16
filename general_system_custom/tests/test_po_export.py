@@ -156,3 +156,107 @@ class TestGroupedPOExport(TransactionCase):
         self.assertFalse(template.report_template_ids)
         attachment_id = action['context']['default_attachment_ids'][0]
         self.assertTrue(self.env['ir.attachment'].browse(attachment_id).exists())
+
+    def test_excel_sku_strips_brand_prefix(self):
+        """Suppliers see the bare SKU. The brand-prefixed `default_code`
+        (LR_LR097165) is a BAF-internal identifier and must not leak."""
+        brand = self.env['product.brand'].create({'name': 'LR'})
+        prefixed = self.env['product.product'].create({
+            'name': 'LR product',
+            'type': 'consu',
+            'brand': brand.id,
+            'default_code': 'LR_LR097165',
+        })
+        po = self.env['purchase.order'].create({
+            'partner_id': self.vendor.id,
+            'order_line': [Command.create({
+                'product_id': prefixed.id, 'product_qty': 1, 'price_unit': 10.0,
+            })],
+        })
+        action = po.action_send_grouped_po_email()
+        attachment = self.env['ir.attachment'].browse(
+            action['context']['default_attachment_ids'][0])
+        wb = openpyxl.load_workbook(io.BytesIO(base64.b64decode(attachment.datas)))
+        row_values = [cell.value for cell in wb.active[2]]
+        self.assertIn('LR097165', row_values)
+        self.assertNotIn('LR_LR097165', row_values)
+
+    def test_excel_sku_prefers_product_sku_field(self):
+        """When product.sku is set, it wins over default_code — that's the
+        per-brand SKU vendors already recognize."""
+        brand = self.env['product.brand'].create({'name': 'HON'})
+        product = self.env['product.product'].create({
+            'name': 'HON product',
+            'type': 'consu',
+            'brand': brand.id,
+            'default_code': 'HON_12345',
+            'sku': '12345',
+        })
+        po = self.env['purchase.order'].create({
+            'partner_id': self.vendor.id,
+            'order_line': [Command.create({
+                'product_id': product.id, 'product_qty': 1, 'price_unit': 10.0,
+            })],
+        })
+        action = po.action_send_grouped_po_email()
+        attachment = self.env['ir.attachment'].browse(
+            action['context']['default_attachment_ids'][0])
+        wb = openpyxl.load_workbook(io.BytesIO(base64.b64decode(attachment.datas)))
+        row_values = [cell.value for cell in wb.active[2]]
+        self.assertIn('12345', row_values)
+
+    def test_sender_routing_kalkan_group(self):
+        """Arnold, Euler, Brass, Kalkan → Kalkan mailbox."""
+        for vname, expected_marker in [
+            ('Autohaus Arnold GmbH & Co. KG', 'kalkan-auto.de'),
+            ('Hermann Arnold GmbH', 'kalkan-auto.de'),
+            ('Autohaus Euler GmbH', 'kalkan-auto.de'),
+            ('Autohaus Brass Vertriebs GmbH & Co. KG', 'kalkan-auto.de'),
+            ('Kalkan Automobile GmbH', 'kalkan-auto.de'),
+        ]:
+            vendor = self.env['res.partner'].create({'name': vname})
+            po = self.env['purchase.order'].create({
+                'partner_id': vendor.id,
+                'order_line': [Command.create({
+                    'product_id': self.product.id, 'product_qty': 1,
+                })],
+            })
+            action = po.action_send_grouped_po_email()
+            self.assertIn(expected_marker,
+                          action['context']['default_email_from'],
+                          "%s should send from Kalkan mailbox" % vname)
+
+    def test_sender_routing_defaults_to_baf(self):
+        """Krah, Enders, and everyone else → BAF mailbox."""
+        for vname in ('Autohaus Krah & Enders GmbH',
+                      'Krah+Enders GmbH & Co. KG',
+                      'Autocenter Enders GmbH',
+                      'Some Random Vendor'):
+            vendor = self.env['res.partner'].create({'name': vname})
+            po = self.env['purchase.order'].create({
+                'partner_id': vendor.id,
+                'order_line': [Command.create({
+                    'product_id': self.product.id, 'product_qty': 1,
+                })],
+            })
+            action = po.action_send_grouped_po_email()
+            self.assertIn('info@baf-parts.com',
+                          action['context']['default_email_from'],
+                          "%s should send from BAF mailbox" % vname)
+
+    def test_portal_button_disabled_on_recipient_groups(self):
+        """The Odoo "View Quotation / View Order" access button is stripped
+        from every recipient group so suppliers get plain text + Excel only."""
+        po = self.env['purchase.order'].create({
+            'partner_id': self.vendor.id,
+            'order_line': [Command.create({
+                'product_id': self.product.id, 'product_qty': 1,
+            })],
+        })
+        groups = po._notify_get_recipients_groups(
+            self.env['mail.message'], model_description='Purchase Order',
+            msg_vals={})
+        for group in groups:
+            self.assertFalse(
+                group[2].get('has_button_access'),
+                "Group %s must not carry the portal access button" % group[0])
