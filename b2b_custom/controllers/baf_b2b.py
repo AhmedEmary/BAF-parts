@@ -105,7 +105,13 @@ def _weeks_to_delivery_text(weeks):
 
 def _product_to_dict(product, partner):
     template = product.product_tmpl_id
-    is_nla = template._baf_is_nla()
+    is_own_nla = template._baf_is_nla()
+    chain_nla = False if is_own_nla else template._baf_chain_ends_in_nla()
+    # A chain terminating in an NLA placeholder is the same customer-facing
+    # state as an own-SKU NLA: the part is gone with no successor to route
+    # to. Treat both as NLA in the UI (visible row, non-orderable, "NLA"
+    # badge). "Replaced" (below) only kicks in for a live successor.
+    is_nla = is_own_nla or chain_nla
     blocked = template._baf_is_order_blocked()
     qty = product.free_qty if hasattr(product, 'free_qty') else product.qty_available
 
@@ -136,7 +142,10 @@ def _product_to_dict(product, partner):
 
     moq = int(template.unit_of_sales or 0) or 1
     surcharge_raw = getattr(product, 'surcharge', 0.0) or getattr(template, 'surcharge', 0.0) or 0.0
-    replacement = template.replaced_by_id
+    # A chain that terminates in NLA has no orderable successor — hide the
+    # "Nachfolger auswählen" button for those, even though `replaced_by_id`
+    # is set. Only expose the replacement when there's a live target.
+    replacement = template.replaced_by_id if not is_nla else template.browse()
 
     return {
         'id': product.id,
@@ -324,12 +333,9 @@ class BafB2BController(http.Controller):
 
             # Unambiguous: pick the first variant of the single matching brand
             chosen = next(iter(brand_groups.values()))[:1]
-            # A part whose replacement chain terminates in NLA has no viable
-            # purchase path — treat it as not-found rather than surfacing a
-            # dead-end successor.
-            if chosen.product_tmpl_id._baf_chain_ends_in_nla():
-                not_found.append(item['raw'])
-                continue
+            # Chain-terminates-in-NLA renders as a normal (non-orderable) NLA
+            # row — see `_product_to_dict` — so the customer sees "NLA" and
+            # can't add it to cart, instead of "SKU not found".
             requested_qty = qty_map.get(item['key'])
             for data in _expand_product_options(chosen, partner):
                 if requested_qty:

@@ -13,6 +13,7 @@
         'data/mail_template_pricefile_notification.xml',
         'data/product_mass_update_data.xml',
         'data/enable_oos_orders.xml',
+        'data/nla_placeholders.xml',
         'views/res_config_settings_view.xml',
         'views/res_partner_b2b_view.xml',
         'views/baf_b2b_apply_template.xml',
