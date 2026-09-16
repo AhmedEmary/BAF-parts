@@ -1001,6 +1001,10 @@ class TestCustomTools(common.HttpCase):
     # @api.constrains) must be SKIPPED in tools/list, never crash the handshake
     # -- a sibling valid tool stays listed and there is no -32603.
     # ------------------------------------------------------------------
+    @mute_logger(
+        "odoo.addons.mcp_server.models.mcp_custom_tool",
+        "odoo.addons.mcp_server.controllers.mcp",
+    )
     def test_tools_list_skips_custom_tool_with_malformed_input_schema(self):
         """A custom tool with a corrupted input_schema is skipped in tools/list.
 
@@ -1037,6 +1041,10 @@ class TestCustomTools(common.HttpCase):
     # SKIPPED in tools/list and DEGRADED to {} in tools/call -- never advertised
     # verbatim (invalid `inputSchema`) nor crashed with a -32603.
     # ------------------------------------------------------------------
+    @mute_logger(
+        "odoo.addons.mcp_server.models.mcp_custom_tool",
+        "odoo.addons.mcp_server.controllers.mcp",
+    )
     def test_non_dict_input_schema_skipped_in_list_and_degrades_on_call(self):
         """A valid-JSON but non-object input_schema is guarded at both sites.
 

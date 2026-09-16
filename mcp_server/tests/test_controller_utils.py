@@ -4,6 +4,7 @@ from datetime import datetime, timedelta
 from unittest.mock import MagicMock, patch
 
 from odoo.tests import common, tagged
+from odoo.tools import mute_logger
 
 from ..controllers import utils
 from .test_helpers import create_test_user
@@ -157,6 +158,7 @@ class TestMcpUtils(common.TransactionCase):
             utils.clear_mcp_caches()
             self.assertFalse(utils.is_mcp_enabled())
 
+    @mute_logger("odoo.addons.mcp_server.controllers.utils")
     def test_is_model_mcp_enabled(self):
         """Test model MCP enable check"""
         mock_request = MagicMock()
@@ -172,6 +174,7 @@ class TestMcpUtils(common.TransactionCase):
             # Test non-existent model
             self.assertFalse(utils.is_model_mcp_enabled(self.env, "fake.model"))
 
+    @mute_logger("odoo.addons.mcp_server.controllers.utils")
     def test_check_model_operation_allowed(self):
         """Test operation permission check"""
         mock_request = MagicMock()
@@ -257,6 +260,7 @@ class TestMcpUtils(common.TransactionCase):
         # Unknown method
         self.assertIsNone(utils.map_method_to_operation("unknown_method"))
 
+    @mute_logger("odoo.addons.mcp_server.controllers.utils")
     def test_check_mcp_access(self):
         """Test MCP access check for XML-RPC methods"""
         mock_request = MagicMock()

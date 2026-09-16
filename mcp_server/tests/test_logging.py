@@ -319,6 +319,7 @@ class TestMCPLogging(TransactionCase):
         self.assertIn("res.partner", log.display_name)
         self.assertIn("create", log.display_name)
 
+    @mute_logger("odoo.addons.mcp_server.models.mcp_log")
     def test_log_creation_error_handling(self):
         """Test that log creation errors are handled gracefully."""
         with patch.object(
