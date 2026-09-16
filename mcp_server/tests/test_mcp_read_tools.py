@@ -29,6 +29,7 @@ from unittest.mock import patch
 
 from odoo.exceptions import AccessError, MissingError
 from odoo.tests import common, tagged
+from odoo.tools import mute_logger
 
 from ..controllers import rate_limiting, utils
 from ..models.mcp_tools_read import DEFAULT_LIMIT, MAX_LIMIT
@@ -1113,6 +1114,7 @@ class TestMcpReadTools(common.HttpCase):
         self.assertTrue(result["isError"], msg=result)
         self.assertIn("must be an object", result["content"][0]["text"])
 
+    @mute_logger("odoo.addons.mcp_server.controllers.mcp")
     def test_tools_call_wrong_type_arg_is_iserror(self):
         """A wrong-TYPE argument is a tool-execution failure -> isError result.
 

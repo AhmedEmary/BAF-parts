@@ -1517,6 +1517,7 @@ class TestOAuth(common.HttpCase):
         )
         self.assertEqual(resp.status_code, 400)
 
+    @mute_logger("odoo.addons.mcp_server.controllers.oauth_server")
     def test_dcr_rejects_malformed_redirect_uri(self):
         """A malformed redirect_uri authority is refused with a clean 400, not 500."""
         # Each authority is malformed differently: an unclosed IPv6 literal makes

@@ -187,10 +187,13 @@ def rate_limit(func):
 
         user = kwargs.get("user")
         if not user:
-            # For anonymous requests, use a special ID
-            _logger.warning(
-                "Rate limit decorator called without a user context. "
-                "Using fallback anonymous rate limiting."
+            # Anonymous callers share a single rate-limit bucket (id -1).
+            # This is a normal code path (DCR, unauthenticated OAuth
+            # discovery, etc.), so it stays a debug-level breadcrumb rather
+            # than a warning that would fire on every anonymous request.
+            _logger.debug(
+                "Rate limit decorator called without a user context; "
+                "applying fallback anonymous rate limiting."
             )
             anonymous_id = -1
             if not check_rate_limit(anonymous_id, dbname):
