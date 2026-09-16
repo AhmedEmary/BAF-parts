@@ -12,6 +12,14 @@ except ImportError:
 
 _logger = logging.getLogger(__name__)
 
+# Vendors whose POs are sent from the Kalkan mailbox; everyone else goes
+# through the BAF mailbox. Matched case-insensitively against the vendor's
+# name (and its commercial parent), so name suffixes like "GmbH" don't matter.
+BAF_KALKAN_VENDOR_KEYWORDS = ('arnold', 'euler', 'brass', 'kalkan')
+BAF_KALKAN_FROM = 'Kalkan Automobile <b.oezleblebici@kalkan-auto.de>'
+BAF_DEFAULT_FROM = 'BAF Parts <info@baf-parts.com>'
+
+
 class PurchaseOrder(models.Model):
     _inherit = 'purchase.order'
 
@@ -126,6 +134,19 @@ class PurchaseOrder(models.Model):
             return ""
         return value
 
+    def _baf_display_sku(self, product):
+        """SKU as suppliers expect it — the brand's technical `name` prefix on
+        `default_code` (e.g. "LR_LR097165") is BAF-internal and must not leak
+        into vendor documents. Prefer `product.sku` (per-brand SKU); fall back
+        to stripping the "<brand>_" prefix from `default_code`."""
+        if product.sku:
+            return product.sku
+        code = product.default_code or ""
+        brand_name = product.brand.name if product.brand else ""
+        if brand_name and code.startswith(brand_name + "_"):
+            return code[len(brand_name) + 1:]
+        return code
+
     def _baf_po_excel_attachment(self):
         """Build the vendor Excel workbook for these orders and return it as an
         ir.attachment. Shared by the bulk action and the form buttons; the
@@ -167,7 +188,7 @@ class PurchaseOrder(models.Model):
 
             for line in po.order_line:
                 brand_name = self._sanitize(line.product_id.brand.display_name)
-                sku = self._sanitize(line.product_id.default_code)
+                sku = self._sanitize(self._baf_display_sku(line.product_id))
 
                 row_data = [
                     self._sanitize(po.name),
@@ -232,6 +253,34 @@ class PurchaseOrder(models.Model):
 
         return attachment
 
+    def _baf_vendor_email_from(self):
+        """Route PO emails by vendor: Arnold / Euler / Brass / Kalkan go out of
+        the Kalkan mailbox, everyone else out of the BAF mailbox. Matching is
+        substring/case-insensitive against the vendor name and its commercial
+        parent, so name variants ("Autohaus Arnold GmbH & Co. KG",
+        "Hermann Arnold GmbH", …) all land on the same sender."""
+        self.ensure_one()
+        vendor = self.partner_id
+        names = [vendor.name or '']
+        if vendor.commercial_partner_id and vendor.commercial_partner_id != vendor:
+            names.append(vendor.commercial_partner_id.name or '')
+        haystack = ' '.join(names).lower()
+        if any(k in haystack for k in BAF_KALKAN_VENDOR_KEYWORDS):
+            return BAF_KALKAN_FROM
+        return BAF_DEFAULT_FROM
+
+    def _notify_get_recipients_groups(self, message, model_description, msg_vals=False):
+        """Suppliers get no Odoo portal button in the email. The base
+        implementation attaches a "View Quotation" / "View Order" access button
+        to every recipient group; strip it so the outgoing mail is just our
+        text plus the Excel attachment."""
+        groups = super()._notify_get_recipients_groups(
+            message, model_description, msg_vals=msg_vals)
+        for group in groups:
+            group_data = group[2]
+            group_data['has_button_access'] = False
+        return groups
+
     def action_send_grouped_po_email(self):
         """Bulk action: one Excel for the whole selection, one composer."""
         attachment = self._baf_po_excel_attachment()
@@ -248,6 +297,7 @@ class PurchaseOrder(models.Model):
             'default_template_id': template_id,
             'default_attachment_ids': [attachment.id],
             'default_composition_mode': 'comment',
+            'default_email_from': self[0]._baf_vendor_email_from(),
             'force_email': True,
         }
         return {
@@ -266,8 +316,9 @@ class PurchaseOrder(models.Model):
         purchase mail templates (data/purchase_mail_template.xml)."""
         action = super().action_rfq_send()
         attachment = self._baf_po_excel_attachment()
+        ctx = action.setdefault('context', {})
+        ctx['default_email_from'] = self._baf_vendor_email_from()
         if attachment:
-            action.setdefault('context', {})['default_attachment_ids'] = [
-                attachment.id]
+            ctx['default_attachment_ids'] = [attachment.id]
             self.write({'send_po_status': 'success'})
         return action
