@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+    <record id="res_config_settings_view_form_lexcom" model="ir.ui.view">
+        <field name="name">res.config.settings.view.form.inherit.lexcom</field>
+        <field name="model">res.config.settings</field>
+        <field name="inherit_id" ref="base.res_config_settings_view_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//form" position="inside">
+                <app data-string="LexCom DMS" string="LexCom DMS" name="lexcom_integration">
+                    <block title="Endpoint" name="lexcom_endpoint">
+                        <setting string="Enable LexCom endpoint"
+                                 help="Kill switch. When off, every inbound request is rejected without touching the database.">
+                            <field name="lexcom_enabled"/>
+                        </setting>
+                        <setting string="Dealer ID"
+                                 help="The dealer-id LexCom sends in every request.">
+                            <field name="lexcom_dealer_id"/>
+                        </setting>
+                        <setting string="Country"
+                                 help="ISO 3166-1 alpha-3, echoed back in every response.">
+                            <field name="lexcom_country"/>
+                        </setting>
+                    </block>
+                    <block title="Credentials" name="lexcom_credentials">
+                        <setting string="Username" help="HTTP Basic Auth username given to LexCom.">
+                            <field name="lexcom_username"/>
+                        </setting>
+                        <setting string="Password"
+                                 help="Stored only as a salted PBKDF2 hash. Enter a value and click Save Password.">
+                            <field name="lexcom_password" password="True"/>
+                            <field name="lexcom_password_set" invisible="1"/>
+                            <div class="mt8">
+                                <button name="action_lexcom_set_password" type="object"
+                                        string="Save Password" class="btn-primary"/>
+                                <button name="action_lexcom_clear_password" type="object"
+                                        string="Clear Password" class="btn-secondary ms-2"
+                                        invisible="not lexcom_password_set"/>
+                                <span class="text-muted ms-2" invisible="not lexcom_password_set">
+                                    A password hash is stored.
+                                </span>
+                                <span class="text-muted ms-2" invisible="lexcom_password_set">
+                                    No password configured - the endpoint cannot authenticate.
+                                </span>
+                            </div>
+                        </setting>
+                    </block>
+                </app>
+            </xpath>
+        </field>
+    </record>
+</odoo>

@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<commands-available-response version="3.1" dms-name="Name of DMS">
+  <command>commands-available</command>
+  <command>stock-information</command>
+  <command>order-submit</command>
+  <command>order-append</command>
+</commands-available-response>

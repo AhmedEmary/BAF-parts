@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<order-append-response version="3.1">
+  <dealer-id>Dealer1</dealer-id>
+  <country>DEU</country>
+  <order-accepted>true</order-accepted>
+  <order-id>1234</order-id>
+  <customer-ref>Order #003 for Audi</customer-ref>
+</order-append-response>

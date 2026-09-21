@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+    <record id="lexcom_request_log_view_list" model="ir.ui.view">
+        <field name="name">lexcom.request.log.list</field>
+        <field name="model">lexcom.request.log</field>
+        <field name="arch" type="xml">
+            <list string="LexCom Requests" create="false" edit="false"
+                  decoration-danger="outcome == 'internal_error'"
+                  decoration-warning="outcome in ('business_error', 'auth_failed')">
+                <field name="create_date" string="Received"/>
+                <field name="command"/>
+                <field name="dealer_id"/>
+                <field name="outcome"/>
+                <field name="http_status"/>
+                <field name="duration_ms"/>
+                <field name="sale_order_id"/>
+                <field name="message" optional="show"/>
+                <field name="remote_addr" optional="hide"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="lexcom_request_log_view_form" model="ir.ui.view">
+        <field name="name">lexcom.request.log.form</field>
+        <field name="model">lexcom.request.log</field>
+        <field name="arch" type="xml">
+            <form string="LexCom Request" create="false" edit="false">
+                <sheet>
+                    <group>
+                        <group>
+                            <field name="command"/>
+                            <field name="dealer_id"/>
+                            <field name="remote_addr"/>
+                            <field name="create_date" string="Received"/>
+                        </group>
+                        <group>
+                            <field name="outcome"/>
+                            <field name="http_status"/>
+                            <field name="duration_ms"/>
+                            <field name="sale_order_id"/>
+                        </group>
+                    </group>
+                    <group string="Feedback">
+                        <field name="message" nolabel="1"/>
+                    </group>
+                    <notebook>
+                        <page string="Request">
+                            <field name="request_body" widget="text" nolabel="1"/>
+                        </page>
+                        <page string="Response">
+                            <field name="response_body" widget="text" nolabel="1"/>
+                        </page>
+                        <page string="Custom Headers">
+                            <group>
+                                <field name="header_01"/>
+                                <field name="header_02"/>
+                                <field name="header_03"/>
+                                <field name="header_04"/>
+                                <field name="header_05"/>
+                            </group>
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="lexcom_request_log_action" model="ir.actions.act_window">
+        <field name="name">LexCom Requests</field>
+        <field name="res_model">lexcom.request.log</field>
+        <field name="view_mode">list,form</field>
+        <field name="context">{'search_default_group_outcome': 1}</field>
+    </record>
+
+    <menuitem id="menu_lexcom_request_log"
+              name="LexCom Requests"
+              parent="base.menu_administration"
+              action="lexcom_request_log_action"
+              groups="base.group_system"
+              sequence="90"/>
+</odoo>
