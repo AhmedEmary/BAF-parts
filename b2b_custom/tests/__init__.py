@@ -11,3 +11,4 @@ from . import test_cart_alt_vendor_lines
 from . import test_search_delivery_cap
 from . import test_progress_notifier_wiring
 from . import test_b2b_registration_notify
+from . import test_b2b_login_redirect

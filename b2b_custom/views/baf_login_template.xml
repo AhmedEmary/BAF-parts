@@ -97,7 +97,7 @@
 
                                     <input type="hidden" name="type" value="password"/>
                                     <input type="hidden" name="webauthn_response"/>
-                                    <input type="hidden" name="redirect" t-att-value="redirect or '/bestellsystem'"/>
+                                    <input type="hidden" name="redirect" t-att-value="redirect or '/b2b'"/>
                                 </form>
 
                                 <div class="oe_structure" id="oe_structure_login_bottom"/>
