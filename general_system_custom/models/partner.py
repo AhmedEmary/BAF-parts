@@ -6,7 +6,15 @@ import time
 from odoo import _, api, fields, models
 from odoo.exceptions import UserError, ValidationError
 
-BAF_ALT_ACCOUNT_RE = re.compile(r'^E([1-9]\d*)BF$')
+# Accepts an optional run of leading zeros before a non-zero number, so both
+# the padded form (E01BF) and any legacy unpadded value (E1BF) validate, while
+# a zero value (E0BF, E00BF) is still rejected. The capture group keeps the
+# whole digit run so int() yields the numeric value regardless of padding.
+BAF_ALT_ACCOUNT_RE = re.compile(r'^E(0*[1-9]\d*)BF$')
+
+# Minimum digit width for a generated Express number. Numbers above the width
+# (E100BF and up) keep their natural length; shorter ones are zero-padded.
+BAF_ALT_ACCOUNT_PAD = 2
 
 from . import baf_import_utils as bafutil
 
@@ -36,9 +44,10 @@ class ResPartner(models.Model):
         string="Alternative Customer Account Number",
         copy=False,
         help="Internal Express account number sent to suppliers instead of the "
-             "Contact Number. Format: E<N>BF (e.g. E1BF). Unique across the "
-             "system — once assigned, it may not be reused. Use the "
-             "'Assign Next Express Number' button to pick the next free one.",
+             "Contact Number. Format: E<N>BF with the number zero-padded to at "
+             "least two digits (e.g. E01BF, E02BF). Unique across the system — "
+             "once assigned, it may not be reused. Use the 'Assign Next Express "
+             "Number' button to pick the next free one.",
     )
 
     _baf_alt_account_number_uniq = models.Constraint(
@@ -53,7 +62,7 @@ class ResPartner(models.Model):
             if value and not BAF_ALT_ACCOUNT_RE.match(value):
                 raise ValidationError(_(
                     "Alternative Customer Account Number must match the "
-                    "pattern E<N>BF (e.g. E1BF, E2BF). Got: %s"
+                    "pattern E<N>BF (e.g. E01BF, E02BF). Got: %s"
                 ) % value)
 
     def _baf_customer_account_number(self, use_alt=False):
@@ -68,20 +77,21 @@ class ResPartner(models.Model):
         return source.contact_number or ''
 
     def _baf_next_express_account_number(self):
-        """Return the next free E<N>BF value, one past the current max."""
+        """Return the next free E<N>BF value, one past the current max, with the
+        number zero-padded to at least two digits (E01BF, E02BF, …)."""
         # Flush pending writes so consecutive assignments in the same
         # transaction each see prior ones.
         self.env['res.partner'].flush_model(['baf_alt_account_number'])
         self.env.cr.execute(
             "SELECT baf_alt_account_number FROM res_partner "
-            "WHERE baf_alt_account_number ~ '^E[1-9][0-9]*BF$'"
+            "WHERE baf_alt_account_number ~ '^E0*[1-9][0-9]*BF$'"
         )
         max_n = 0
         for (value,) in self.env.cr.fetchall():
             m = BAF_ALT_ACCOUNT_RE.match(value)
             if m:
                 max_n = max(max_n, int(m.group(1)))
-        return 'E%dBF' % (max_n + 1)
+        return 'E%0*dBF' % (BAF_ALT_ACCOUNT_PAD, max_n + 1)
 
     def action_baf_assign_express_account_number(self):
         for partner in self:

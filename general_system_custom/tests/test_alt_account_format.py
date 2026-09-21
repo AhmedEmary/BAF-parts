@@ -13,7 +13,8 @@ class TestAltAccountNumberFormat(TransactionCase):
         self.Partner = self.env['res.partner']
 
     def test_valid_format_accepted(self):
-        for value in ('E1BF', 'E7BF', 'E42BF', 'E1234BF'):
+        # Padded (E01BF), unpadded legacy (E1BF) and multi-digit values all pass.
+        for value in ('E01BF', 'E09BF', 'E1BF', 'E7BF', 'E42BF', 'E1234BF'):
             partner = self.Partner.create(
                 {'name': 'Fmt %s' % value,
                  'baf_alt_account_number': value})
@@ -39,9 +40,12 @@ class TestAltAccountNumberFormat(TransactionCase):
                 {'name': 'V-prefix', 'baf_alt_account_number': 'V1BF'})
 
     def test_zero_number_rejected(self):
-        with self.assertRaises(ValidationError):
-            self.Partner.create(
-                {'name': 'Zero', 'baf_alt_account_number': 'E0BF'})
+        for value in ('E0BF', 'E00BF'):
+            with self.assertRaises(ValidationError):
+                with self.env.cr.savepoint():
+                    self.Partner.create(
+                        {'name': 'Zero %s' % value,
+                         'baf_alt_account_number': value})
 
     def test_free_text_rejected(self):
         with self.assertRaises(ValidationError):
@@ -70,23 +74,51 @@ class TestAltAccountNumberFormat(TransactionCase):
                  'baf_alt_account_number': value})
         target = self.Partner.create({'name': 'Target'})
         target.action_baf_assign_express_account_number()
-        self.assertEqual(target.baf_alt_account_number, 'E8BF')
+        # Generated numbers are zero-padded to two digits.
+        self.assertEqual(target.baf_alt_account_number, 'E08BF')
 
-    def test_assign_next_starts_from_one_when_empty(self):
-        # Wipe existing E<N>BF values so the counter starts fresh.
+    def test_assign_next_counts_padded_and_unpadded_together(self):
+        # A padded E08BF and a legacy E7BF share the same numeric space, so the
+        # next value is one past the highest number regardless of padding.
         self.env.cr.execute(
             "UPDATE res_partner SET baf_alt_account_number = NULL "
-            "WHERE baf_alt_account_number ~ '^E[1-9][0-9]*BF$'"
+            "WHERE baf_alt_account_number ~ '^E0*[1-9][0-9]*BF$'"
+        )
+        self.Partner.create(
+            {'name': 'Padded', 'baf_alt_account_number': 'E08BF'})
+        self.Partner.create(
+            {'name': 'Legacy', 'baf_alt_account_number': 'E7BF'})
+        target = self.Partner.create({'name': 'Target'})
+        target.action_baf_assign_express_account_number()
+        self.assertEqual(target.baf_alt_account_number, 'E09BF')
+
+    def test_assign_next_starts_from_one_when_empty(self):
+        # Wipe existing E<N>BF values (padded or not) so the counter starts fresh.
+        self.env.cr.execute(
+            "UPDATE res_partner SET baf_alt_account_number = NULL "
+            "WHERE baf_alt_account_number ~ '^E0*[1-9][0-9]*BF$'"
         )
         target = self.Partner.create({'name': 'FirstAssign'})
         target.action_baf_assign_express_account_number()
-        self.assertEqual(target.baf_alt_account_number, 'E1BF')
+        self.assertEqual(target.baf_alt_account_number, 'E01BF')
 
     def test_assign_next_leaves_existing_untouched(self):
         partner = self.Partner.create(
             {'name': 'Keep', 'baf_alt_account_number': 'E9BF'})
         partner.action_baf_assign_express_account_number()
         self.assertEqual(partner.baf_alt_account_number, 'E9BF')
+
+    def test_assign_next_exceeds_two_digits(self):
+        # Numbers past 99 keep their natural length (no truncation of padding).
+        self.env.cr.execute(
+            "UPDATE res_partner SET baf_alt_account_number = NULL "
+            "WHERE baf_alt_account_number ~ '^E0*[1-9][0-9]*BF$'"
+        )
+        self.Partner.create(
+            {'name': 'Big', 'baf_alt_account_number': 'E99BF'})
+        target = self.Partner.create({'name': 'Target'})
+        target.action_baf_assign_express_account_number()
+        self.assertEqual(target.baf_alt_account_number, 'E100BF')
 
     def test_assign_next_is_unique_across_batch(self):
         a = self.Partner.create({'name': 'BatchA'})
