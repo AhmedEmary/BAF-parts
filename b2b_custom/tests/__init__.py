@@ -8,6 +8,7 @@ from . import test_pricefile_notify
 from . import test_replacement_flow
 from . import test_pricefile_combined_family
 from . import test_cart_alt_vendor_lines
+from . import test_cart_qty_layout
 from . import test_search_delivery_cap
 from . import test_progress_notifier_wiring
 from . import test_b2b_registration_notify

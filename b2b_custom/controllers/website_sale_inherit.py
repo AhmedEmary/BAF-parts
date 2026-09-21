@@ -1,7 +1,8 @@
 import io
+import math
 import xlsxwriter
 import logging
-from odoo import _, http
+from odoo import _, fields, http
 from odoo.addons.website_sale.controllers import cart
 from odoo.exceptions import UserError
 from odoo.http import request, content_disposition
@@ -12,6 +13,10 @@ except ImportError:
     from odoo.addons.website_sale.controllers.main import WebsiteSale as Cart
 
 _logger = logging.getLogger(__name__)
+
+# Cart lines per page on the B2B cart. Shared by the full-page render and the
+# AJAX (quantity-change) re-render so both paginate identically.
+_BAF_CART_PPG = 10
 
 
 def _get_partner_allowed_families(partner):
@@ -47,6 +52,69 @@ class WebsiteSalePagination(Cart):
         empty history and short-circuit the whole loop.
         """
         return {'order_history': []}
+
+    def _baf_line_page(self, order, line_id, product_id):
+        """1-based page of the cart line being edited, computed BEFORE the
+        quantity update so a line removed by qty=0 still resolves to its page.
+        Falls back to page 1 when the line can't be located."""
+        if not order:
+            return 1
+        lines = order.website_order_line
+        line = self.env['sale.order.line']
+        if line_id:
+            line = lines.filtered(lambda l: l.id == int(line_id))[:1]
+        if not line and product_id:
+            line = lines.filtered(lambda l: l.product_id.id == int(product_id))[:1]
+        if not line or line.id not in lines.ids:
+            return 1
+        return (list(lines.ids).index(line.id) // _BAF_CART_PPG) + 1
+
+    @http.route()
+    def update_cart(self, line_id, quantity, product_id=None, **kwargs):
+        """Make the AJAX quantity-change re-render match the full-page cart:
+        website-aware and paginated.
+
+        Core's update_cart renders 'website_sale.cart_lines' with
+        ir.ui.view._render_template, which applies website-specific views only
+        when 'website_id' is in the env context. On this jsonrpc route it isn't,
+        so two things break:
+
+        1. Layout — the B2B customization (cart_lines_pagination: no product
+           image, SKU shown) is skipped and the stock layout comes back (image
+           reappears, SKU vanishes).
+        2. Pagination — the B2B cart paginates at _BAF_CART_PPG lines/page, but
+           the update response passes neither website_sale_order_lines_paged nor
+           pager, so the re-render shows every line without a pager.
+
+        Re-render the fragment through the current website with the page the
+        edited line sits on (computed before super, so a line cleared by qty=0
+        still resolves) plus its pager — exactly like the full-page render.
+        """
+        page = self._baf_line_page(request.cart, line_id, product_id)
+        values = super().update_cart(
+            line_id, quantity, product_id=product_id, **kwargs)
+        order_sudo = request.cart
+        website = request.env['website'].get_current_website()
+        lines = order_sudo.website_order_line if order_sudo else False
+        if website and lines and 'website_sale.cart_lines' in values:
+            max_page = max(1, math.ceil(len(lines) / _BAF_CART_PPG))
+            page = min(max(page, 1), max_page)
+            offset = (page - 1) * _BAF_CART_PPG
+            pager = website.pager(
+                url='/shop/cart', total=len(lines), page=page,
+                step=_BAF_CART_PPG, scope=7)
+            # Render with website_id in context so ir.ui.view resolves the
+            # website-specific cart_lines_pagination override (the B2B layout).
+            IrUiView = request.env['ir.ui.view'].with_context(website_id=website.id)
+            values['website_sale.cart_lines'] = IrUiView._render_template(
+                'website_sale.cart_lines', {
+                    'website_sale_order': order_sudo,
+                    'website_sale_order_lines_paged': lines[offset:offset + _BAF_CART_PPG],
+                    'pager': pager,
+                    'date': fields.Date.today(),
+                    'suggested_products': order_sudo._cart_accessories(),
+                })
+        return values
 
     @http.route()
     def add_to_cart(self, product_template_id, product_id, quantity=1, **kwargs):
@@ -99,9 +167,9 @@ class WebsiteSalePagination(Cart):
             if order and order.website_order_line:
                 if not page:
                     page = 1
-                
-                ppg = 10
-                total = len(order.website_order_line)                
+
+                ppg = _BAF_CART_PPG
+                total = len(order.website_order_line)
                 pager = request.website.pager(
                     url='/shop/cart',
                     total=total,
