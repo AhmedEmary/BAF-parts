@@ -195,8 +195,7 @@ def _expand_product_options(product, partner):
     # or NLA product has no delivery option to sell.
     if primary.get('orderable') and not primary.get('is_nla'):
         # supplier_code lets the /b2b page group this row into the "warehouse"
-        # (1-2 weeks) bin without touching the stock-based delivery_time text
-        # that the older /bestellsystem page still displays verbatim.
+        # (1-2 weeks) bin without touching the stock-based delivery_time text.
         primary['supplier_code'] = 'SUPPLIER_1_2'
         primary['alt_vendor_id'] = 0
         options = [primary]
@@ -224,12 +223,8 @@ def _expand_product_options(product, partner):
 
 class BafB2BController(http.Controller):
 
-    @http.route(['/bestellsystem'], type='http', auth='user', website=True, sitemap=False)
-    def baf_b2b_page(self, **kwargs):
-        return request.render('b2b_custom.baf_b2b_page', {})
-
     @http.route(
-        '/bestellsystem/part-search', type='jsonrpc', auth='user', methods=['POST'], csrf=False, website=True,
+        '/b2b/part-search', type='jsonrpc', auth='user', methods=['POST'], csrf=False, website=True,
     )
     def part_search(self, part_numbers=None, brand_choices=None, quantities=None,
                     product_ids=None, **kwargs):
@@ -367,7 +362,7 @@ class BafB2BController(http.Controller):
         }
 
     @http.route(
-        '/bestellsystem/cart/add', type='jsonrpc', auth='user', methods=['POST'], csrf=False, website=True,
+        '/b2b/cart/add', type='jsonrpc', auth='user', methods=['POST'], csrf=False, website=True,
     )
     def cart_add(self, items=None, **kwargs):
         if not items:
@@ -481,7 +476,7 @@ class BafB2BController(http.Controller):
         }
 
     @http.route(
-        '/bestellsystem/upload-parts-list', type='http', auth='user', methods=['POST'], csrf=False, website=True,
+        '/b2b/upload-parts-list', type='http', auth='user', methods=['POST'], csrf=False, website=True,
     )
     def upload_parts_list(self, **post):
         upload = post.get('file')

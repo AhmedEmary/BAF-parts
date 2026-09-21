@@ -2862,9 +2862,9 @@
                 
                 (function () {
                     const BAF_API = {
-                        search: '/bestellsystem/part-search',
-                        addToCart: '/bestellsystem/cart/add',
-                        upload: '/bestellsystem/upload-parts-list'
+                        search: '/b2b/part-search',
+                        addToCart: '/b2b/cart/add',
+                        upload: '/b2b/upload-parts-list'
                     };
 
                     const BAF_SUPPLIERS = {
@@ -4373,7 +4373,7 @@
                         }
 
                         function displayBrand(brand) {
-                            // The /bestellsystem/part-search API already returns
+                            // The /b2b/part-search API already returns
                             // `brand.display_name` (task #48), so the label is
                             // whatever the customer configured on product.brand
                             // (e.g. "Jaguar &amp; Land Rover" for JLR). Do not rewrite
@@ -8125,7 +8125,7 @@
                         </div>
 
                         <div class="baf-link-list">
-                            <a href="/bestellsystem">
+                            <a href="/b2b">
                                 <strong>Schnellbestellung</strong>
                                 <span>Teilenummern suchen und Artikel bestellen</span>
                             </a>

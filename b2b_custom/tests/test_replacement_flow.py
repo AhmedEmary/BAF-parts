@@ -88,7 +88,7 @@ class TestReplacementAndNlaFlow(TransactionCase):
         self.assertTrue(line.id)
 
     def test_search_marks_chain_ends_in_nla_row_as_nla(self):
-        """The B2B /bestellsystem search must surface a chain-ends-in-NLA part
+        """The B2B /b2b search must surface a chain-ends-in-NLA part
         as a visible NLA row (not "not found") so customers see why they
         can't order it."""
         from odoo.addons.b2b_custom.controllers.baf_b2b import _product_to_dict
@@ -136,7 +136,7 @@ class TestNlaPlaceholderSeeder(TransactionCase):
         self.assertTrue(placeholder_b, "XX placeholder must exist")
         self.assertEqual(placeholder_a.sku, 'NLA')
         self.assertEqual(placeholder_b.sku, 'NLA')
-        # Not surfaced to customers via /shop or /bestellsystem search.
+        # Not surfaced to customers via /shop or /b2b search.
         self.assertFalse(placeholder_a.sale_ok)
         self.assertFalse(placeholder_b.sale_ok)
 

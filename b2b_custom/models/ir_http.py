@@ -3,7 +3,11 @@ from odoo.http import request
 
 
 B2B_GATED_PREFIXES = (
-    '/bestellsystem',
+    # The /b2b ordering data endpoints (the /b2b landing page itself stays open
+    # so prospects can view it and apply).
+    '/b2b/part-search',
+    '/b2b/cart/add',
+    '/b2b/upload-parts-list',
     '/pricefile',
     '/shop',
     '/my',

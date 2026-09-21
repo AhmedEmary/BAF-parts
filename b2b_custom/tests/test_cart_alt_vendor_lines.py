@@ -112,14 +112,14 @@ class TestCartAltVendorLines(HttpCase):
         self.assertEqual(alt_line.price_unit, alt_price)
         self.assertNotEqual(default_line.price_unit, alt_line.price_unit)
 
-    # ── HTTP level: the /bestellsystem cart endpoint ───────────────────────
+    # ── HTTP level: the /b2b cart endpoint ─────────────────────────────────
     def _cart_add_http(self, items):
         payload = {
             'jsonrpc': '2.0', 'method': 'call',
             'params': {'items': items}, 'id': 1,
         }
         response = self.opener.post(
-            self.base_url() + '/bestellsystem/cart/add',
+            self.base_url() + '/b2b/cart/add',
             json=payload, timeout=30,
         )
         response.raise_for_status()
@@ -131,7 +131,7 @@ class TestCartAltVendorLines(HttpCase):
              ('state', '=', 'draft')],
             order='id desc', limit=1)
 
-    def test_bestellsystem_default_and_alt_stay_separate(self):
+    def test_b2b_default_and_alt_stay_separate(self):
         self.authenticate('avl_cart_user', 'avl_cart_user')
         result = self._cart_add_http([
             {'product_id': self.product.id, 'quantity': 1},
@@ -159,7 +159,7 @@ class TestCartAltVendorLines(HttpCase):
         # Vendor name must stay internal — only the delivery frame is shown.
         self.assertNotIn('AVL Axio Vendor', body)
 
-    def test_bestellsystem_repeat_alt_add_does_not_duplicate(self):
+    def test_b2b_repeat_alt_add_does_not_duplicate(self):
         self.authenticate('avl_cart_user', 'avl_cart_user')
         self._cart_add_http([
             {'product_id': self.product.id, 'quantity': 1,

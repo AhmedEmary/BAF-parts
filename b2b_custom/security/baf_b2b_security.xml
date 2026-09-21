@@ -16,7 +16,7 @@
     <record id="group_b2b_customer" model="res.groups">
         <field name="name">B2B Customer (approved)</field>
         <field name="privilege_id" ref="privilege_baf_b2b"/>
-        <field name="comment">Approved B2B customer. Members can see prices, use /bestellsystem and place orders. Assigned automatically when staff approves a B2B application.</field>
+        <field name="comment">Approved B2B customer. Members can see prices, use /b2b and place orders. Assigned automatically when staff approves a B2B application.</field>
     </record>
 
 </odoo>
