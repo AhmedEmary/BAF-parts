@@ -48,6 +48,24 @@ class WebsiteSalePagination(Cart):
         """
         return {'order_history': []}
 
+    def _get_updated_cart_page_values(self, order_sudo):
+        """Render the AJAX cart re-render through the current website.
+
+        Core renders the updated cart lines with ir.ui.view._render_template,
+        which only applies website-specific views when 'website_id' is in the
+        env context. On the /shop/cart/update jsonrpc route that context isn't
+        set, so the B2B cart customization (cart_lines_pagination: no product
+        image, SKU shown) is skipped and a quantity change re-renders the stock
+        layout — the image reappears and the SKU vanishes. The full page render
+        (request.render) and core's sibling fragments (quick_reorder_history,
+        shorter_cart_summary) already force the website; pin it here too so the
+        re-rendered cart lines match the initial page.
+        """
+        website = request.website
+        if website and request.env.context.get('website_id') != website.id:
+            request.update_context(website_id=website.id)
+        return super()._get_updated_cart_page_values(order_sudo)
+
     @http.route()
     def add_to_cart(self, product_template_id, product_id, quantity=1, **kwargs):
         """Ride the standard cart route so an alternative-vendor add gets the
