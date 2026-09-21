@@ -202,7 +202,7 @@ def _expand_product_options(product, partner):
         options = [primary]
 
         default_price = template.baf_get_sales_price(partner=partner)
-        for alt in product._baf_alternative_direct_vendors(default_price):
+        for alt in product._baf_alternative_direct_vendors(default_price, partner=partner):
             weeks = int(alt.get('delivery_lower') or 0)
             options.append({
                 **primary,
@@ -408,12 +408,15 @@ class BafB2BController(http.Controller):
             if alt_vendor_id:
                 # Same guard as website_sale add_to_cart: an untrusted client
                 # could name any partner and get billed their direct price.
-                default_price = product.baf_get_sales_price(
-                    partner=order.partner_id.sudo()._origin if order.partner_id else None,
-                )
+                # Pass the partner so the customer's delivery-weeks cap gates the
+                # allow-list too — a capped vendor hidden from the results must
+                # not be addable through a crafted request.
+                cart_partner = order.partner_id.sudo()._origin if order.partner_id else None
+                default_price = product.baf_get_sales_price(partner=cart_partner)
                 allowed = {
                     o['vendor_id']
-                    for o in product._baf_alternative_direct_vendors(default_price)
+                    for o in product._baf_alternative_direct_vendors(
+                        default_price, partner=cart_partner)
                 }
                 if alt_vendor_id not in allowed:
                     failed.append({
