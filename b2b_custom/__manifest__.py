@@ -36,6 +36,7 @@
     'assets': {
         'web.assets_frontend': [
             'b2b_custom/static/src/js/baf_alt_vendor_cart.js',
+            'b2b_custom/static/src/js/baf_cart_pager.js',
         ],
     },
     'author': 'Ahmed Elamery',
