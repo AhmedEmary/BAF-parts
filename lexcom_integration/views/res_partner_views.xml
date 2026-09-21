@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+    <record id="view_partner_form_lexcom_customer_number" model="ir.ui.view">
+        <field name="name">res.partner.form.inherit.lexcom</field>
+        <field name="model">res.partner</field>
+        <field name="inherit_id" ref="general_system_custom.view_partner_form_inherit_trusted_vendor"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='contact_number']" position="after">
+                <field name="lexcom_customer_number"/>
+            </xpath>
+        </field>
+    </record>
+</odoo>

@@ -1,0 +1,149 @@
+<?xml version="1.0" encoding="ISO-8859-1" ?>
+<xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+	xmlns:jaxb="http://java.sun.com/xml/ns/jaxb" jaxb:version="2.0"
+	xmlns:annox="http://annox.dev.java.net" jaxb:extensionBindingPrefixes="annox">
+
+	<xsd:simpleType name="notemptystring">
+		<xsd:restriction base="xsd:string">
+			<xsd:pattern value=".+" />
+		</xsd:restriction>
+	</xsd:simpleType>
+
+	<xsd:simpleType name="nonprimitiveinteger">
+		<xsd:annotation>
+			<xsd:appinfo>
+				<jaxb:javaType name="java.lang.Integer" parseMethod="de.lexcom.combox.util.Utils.unmarshalInteger" printMethod="de.lexcom.combox.util.Utils.marshalInteger" />
+			</xsd:appinfo>
+		</xsd:annotation>
+		<xsd:restriction base="xsd:integer" />
+	</xsd:simpleType>
+
+	<xsd:simpleType name="nonprimitivefloat">
+		<xsd:annotation>
+			<xsd:appinfo>
+				<jaxb:javaType name="java.lang.Float" parseMethod="de.lexcom.combox.util.Utils.unmarshalFloat" printMethod="de.lexcom.combox.util.Utils.marshalFloat" />
+			</xsd:appinfo>
+		</xsd:annotation>
+		<xsd:restriction base="xsd:float" />
+	</xsd:simpleType>
+
+	<xsd:simpleType name="countrycode">
+		<xsd:restriction base="xsd:string">
+			<xsd:pattern value="[A-Z]{2}" />
+		</xsd:restriction>
+	</xsd:simpleType>
+
+	<xsd:simpleType name="countrycode3">
+		<xsd:restriction base="xsd:string">
+			<xsd:pattern value="[A-Z]{3}" />
+		</xsd:restriction>
+	</xsd:simpleType>
+
+	<xsd:simpleType name="languagecode">
+		<xsd:restriction base="xsd:string">
+			<xsd:pattern value="[a-z]{2}" />
+		</xsd:restriction>
+	</xsd:simpleType>
+
+	<xsd:simpleType name="currencycode">
+		<xsd:restriction base="xsd:string">
+			<xsd:pattern value="[A-Z]{3}" />
+		</xsd:restriction>
+	</xsd:simpleType>
+
+	<xsd:simpleType name="date">
+		<xsd:restriction base="xsd:string">
+			<xsd:pattern value="\d{4}-\d{2}-\d{2}" />
+		</xsd:restriction>
+	</xsd:simpleType>
+
+	<xsd:simpleType name="shipping-date">
+		<xsd:restriction base="xsd:string">
+			<xsd:pattern value="[0-9]{4}-[0-9]{2}-[0-9]{2}" />
+			<xsd:pattern value="[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z" />
+		</xsd:restriction>
+	</xsd:simpleType>
+
+	<xsd:complexType name="description">
+		<xsd:simpleContent>
+			<xsd:extension base="xsd:string">
+				<xsd:attribute name="lang" type="languagecode" />
+			</xsd:extension>
+		</xsd:simpleContent>
+	</xsd:complexType>
+
+	<xsd:complexType name="discount">
+		<xsd:attribute name="discount-amount" type="nonprimitivefloat" />
+		<xsd:attribute name="discount-percent" type="nonprimitivefloat" />
+	</xsd:complexType>
+
+	<xsd:complexType name="orderType">
+		<xsd:simpleContent>
+			<xsd:extension base="xsd:string">
+				<xsd:attribute name="customer-contract" type="xsd:string" />
+			</xsd:extension>
+		</xsd:simpleContent>
+	</xsd:complexType>
+
+	<xsd:simpleType name="brandType">
+		<xsd:annotation>
+			<xsd:appinfo>
+				<jaxb:class name="Brand" ref="de.lexcom.combox.util.Brand" />
+			</xsd:appinfo>
+		</xsd:annotation>
+		<xsd:restriction base="notemptystring" />
+	</xsd:simpleType>
+
+	<xsd:complexType name="extension">
+		<xsd:simpleContent>
+			<xsd:extension base="xsd:string">
+				<xsd:attribute name="key" use="required" type="xsd:string" />
+			</xsd:extension>
+		</xsd:simpleContent>
+	</xsd:complexType>
+
+	<xsd:simpleType name="genderType">
+		<xsd:annotation>
+			<xsd:appinfo>
+				<jaxb:class name="Gender" ref="de.lexcom.combox.connector.common.types.Gender" />
+			</xsd:appinfo>
+		</xsd:annotation>
+		<xsd:restriction base="notemptystring" />
+	</xsd:simpleType>
+
+	<xsd:simpleType name="itemType">
+		<xsd:annotation>
+			<xsd:appinfo>
+				<jaxb:class name="ItemType" ref="de.lexcom.combox.connector.common.types.ItemType" />
+			</xsd:appinfo>
+		</xsd:annotation>
+		<xsd:restriction base="notemptystring" />
+	</xsd:simpleType>
+
+	<xsd:complexType name="mileage">
+		<xsd:simpleContent>
+			<xsd:extension base="nonprimitiveinteger">
+				<xsd:attribute name="unit" type="xsd:string" />
+			</xsd:extension>
+		</xsd:simpleContent>
+	</xsd:complexType>
+
+	<xsd:simpleType name="priceSourceType">
+		<xsd:annotation>
+			<xsd:appinfo>
+				<jaxb:class name="PriceSource" ref="de.lexcom.combox.connector.common.types.PriceSource" />
+			</xsd:appinfo>
+		</xsd:annotation>
+		<xsd:restriction base="xsd:string" />
+	</xsd:simpleType>
+
+	<xsd:simpleType name="storeType">
+		<xsd:annotation>
+			<xsd:appinfo>
+				<jaxb:class name="StoreType" ref="de.lexcom.combox.connector.common.types.DmsStoreType" />
+			</xsd:appinfo>
+		</xsd:annotation>
+		<xsd:restriction base="xsd:string" />
+	</xsd:simpleType>
+
+</xsd:schema>

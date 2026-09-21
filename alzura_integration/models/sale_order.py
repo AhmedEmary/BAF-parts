@@ -198,56 +198,6 @@ class SaleOrder(models.Model):
         order.action_confirm()
         return order
 
-    def _alzura_tax_ids(self, company, vat):
-        """Resolve an Alzura VAT rate (0.19 = 19 %) to a sale tax of company.
-
-        Alzura states the rate it charged the buyer, so taking the tax from the
-        payload keeps amount_total on total_sum.gross instead of depending on
-        whatever the matched product happens to carry. Returns False when no
-        matching tax exists, which leaves Odoo's product default in place; the
-        rate is never created here, since that is accounting configuration.
-        """
-        if vat is None:
-            return False
-        percent = round(float(vat) * 100.0, 4)
-        candidates = (
-            self.env["account.tax"]
-            .sudo()
-            .search(
-                [
-                    ("company_id", "=", company.id),
-                    ("type_tax_use", "=", "sale"),
-                    ("amount_type", "=", "percent"),
-                    ("amount", "=", percent),
-                    ("price_include", "=", False),
-                ]
-            )
-        )
-        if not candidates:
-            _logger.warning(
-                "Alzura: company %s has no %s%% sale tax; falling back to the "
-                "product default, so the order total may not match Alzura.",
-                company.name,
-                percent,
-            )
-            return False
-
-        # Databases keep several taxes at the same rate (e.g. "19%" next to
-        # "19% EU D"), and picking by search order would post to whichever
-        # happens to sort first. The company's configured sale tax is the
-        # deliberate choice, so it wins whenever it matches the rate.
-        default = company.sudo().account_sale_tax_id
-        tax = (candidates & default) or candidates[:1]
-        if len(candidates) > 1:
-            _logger.info(
-                "Alzura: %s taxes match %s%% for company %s; using %s.",
-                len(candidates),
-                percent,
-                company.name,
-                tax.display_name,
-            )
-        return [(6, 0, tax.ids)]
-
     def _alzura_build_lines(self, positions, company):
         """Map Alzura positions to order_line create commands.
 
@@ -288,9 +238,11 @@ class SaleOrder(models.Model):
                 "product_uom_qty": qty,
                 "price_unit": price,
             }
-            taxes = self._alzura_tax_ids(company, (pos.get("price") or {}).get("vat"))
+            taxes = self.env["baf.integration.mixin"]._baf_tax_ids_for_rate(
+                company, (pos.get("price") or {}).get("vat")
+            )
             if taxes:
-                line_vals["tax_ids"] = taxes
+                line_vals["tax_ids"] = [(6, 0, taxes.ids)]
             commands.append((0, 0, line_vals))
         return commands
 
@@ -350,7 +302,9 @@ class SaleOrder(models.Model):
                     "zip": address.get("zip"),
                     "country_id": (
                         self._alzura_country(address.get("country"))
-                        or self._alzura_country_by_code(country_code)
+                        or self.env["baf.integration.mixin"]._baf_country_by_code(
+                            country_code
+                        )
                     ).id
                     or False,
                     "vat": tax.get("sales_tax_identification_number") or False,
@@ -503,7 +457,7 @@ class SaleOrder(models.Model):
         """
         country = self._alzura_country(
             address.get("country")
-        ) or self._alzura_country_by_code(country_code)
+        ) or self.env["baf.integration.mixin"]._baf_country_by_code(country_code)
         return (
             (partner.street or False) == (address.get("street") or False)
             and (partner.city or False) == (address.get("city") or False)
@@ -518,7 +472,7 @@ class SaleOrder(models.Model):
         Partner = self.env["res.partner"].sudo()
         country_id = (
             self._alzura_country(address.get("country"))
-            or self._alzura_country_by_code(country_code)
+            or self.env["baf.integration.mixin"]._baf_country_by_code(country_code)
         ).id or False
 
         existing = Partner.search(
@@ -594,7 +548,7 @@ class SaleOrder(models.Model):
         ]
         # Alzura taxes the fees at the same rate as the order itself, so the
         # gross of positions plus fees adds up to total_sum.gross.
-        taxes = self._alzura_tax_ids(
+        taxes = self.env["baf.integration.mixin"]._baf_tax_ids_for_rate(
             company, (order_data.get("total_sum") or {}).get("vat")
         )
 
@@ -604,7 +558,11 @@ class SaleOrder(models.Model):
             if not amount:
                 continue
             if product is None:
-                product = self._alzura_charge_product()
+                product = self.env[
+                    "baf.integration.mixin"
+                ]._baf_get_or_create_service_product(
+                    "ALZURA-CHARGE", "Alzura Charge"
+                )
             line_vals = {
                 "product_id": product.id,
                 "name": label,
@@ -612,24 +570,9 @@ class SaleOrder(models.Model):
                 "price_unit": amount,
             }
             if taxes:
-                line_vals["tax_ids"] = taxes
+                line_vals["tax_ids"] = [(6, 0, taxes.ids)]
             commands.append((0, 0, line_vals))
         return commands
-
-    def _alzura_charge_product(self):
-        Product = self.env["product.product"].sudo()
-        product = Product.search([("default_code", "=", "ALZURA-CHARGE")], limit=1)
-        if not product:
-            product = Product.create(
-                {
-                    "name": "Alzura Charge",
-                    "default_code": "ALZURA-CHARGE",
-                    "type": "service",
-                    "purchase_ok": False,
-                    "list_price": 0.0,
-                }
-            )
-        return product
 
     def _alzura_delivery_date(self, shipping):
         """Delivery date: shipping.deliveryDate, else a tracking deliveryDate."""
@@ -696,20 +639,13 @@ class SaleOrder(models.Model):
         """Match a res.country by full name; empty recordset if not found.
 
         Note: Alzura sends the localized name (e.g. "Deutschland"), which only
-        matches when the DB language matches; _alzura_country_by_code is the
+        matches when the DB language matches; _baf_country_by_code is the
         reliable fallback.
         """
         Country = self.env["res.country"]
         if not name:
             return Country
         return Country.search([("name", "=ilike", name)], limit=1)
-
-    def _alzura_country_by_code(self, code):
-        """Match a res.country by ISO alpha-2 code; empty recordset otherwise."""
-        Country = self.env["res.country"]
-        if not code:
-            return Country
-        return Country.search([("code", "=ilike", code)], limit=1)
 
     def _alzura_parse_dt(self, value):
         if not value:

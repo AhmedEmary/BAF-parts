@@ -29,7 +29,7 @@
                                 </span>
                             </div>
                             <field name="alzura_show_credentials"
-                                   widget="alzura_reveal_button" nolabel="1"/>
+                                   widget="baf_reveal_button" nolabel="1"/>
                         </setting>
 
                         <!-- Credential inputs: shown when no/expired token, or when
@@ -63,7 +63,7 @@
                                  already exists to fall back to). Same widget, so it
                                  shows "Cancel" here where the value is revealed. -->
                             <field name="alzura_show_credentials"
-                                   widget="alzura_reveal_button" nolabel="1" class="ms-2"
+                                   widget="baf_reveal_button" nolabel="1" class="ms-2"
                                    invisible="alzura_token_status != 'valid'"/>
                         </setting>
 

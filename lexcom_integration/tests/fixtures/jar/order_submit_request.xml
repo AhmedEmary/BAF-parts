@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<order-submit version="3.1">
+    <dealer-id>TEST001</dealer-id>
+    <country>DEU</country>
+    <brand>BMW</brand>
+    <payments>
+        <payment>
+            <status>paid</status>
+            <amount>42.0</amount>
+            <currency>EUR</currency>
+            <transaction-id>TXN-1</transaction-id>
+            <payment-method>
+                <type>creditcard</type>
+            </payment-method>
+        </payment>
+    </payments>
+    <item>
+        <item-id>0</item-id>
+        <item-type>ARTICLE</item-type>
+        <article-data>
+            <article-id>01139787863</article-id>
+            <units>1</units>
+        </article-data>
+    </item>
+    <item>
+        <item-id>0</item-id>
+        <item-type>LABOUR</item-type>
+        <labour-data>
+            <operation-id>01139787863</operation-id>
+        </labour-data>
+    </item>
+</order-submit>

@@ -42,6 +42,8 @@
             'general_system_custom/static/src/js/barcode_scan_box.js',
             'general_system_custom/static/src/xml/stock_barcode_main_menu.xml',
             'general_system_custom/static/src/xml/barcode_scan_box.xml',
+            'general_system_custom/static/src/js/reveal_button.js',
+            'general_system_custom/static/src/xml/reveal_button.xml',
         ],
     },
     'author': 'Ahmed Elamery',

@@ -335,7 +335,9 @@ class TestAlzuraImport(TransactionCase):
             self.assertEqual(line.tax_ids, chosen, "line %s" % line.name)
         self.assertNotIn(first, order.order_line.tax_ids)
 
-    @mute_logger(_SO_LOGGER)
+    @mute_logger(
+        _SO_LOGGER, "odoo.addons.general_system_custom.models.baf_integration_mixin"
+    )
     def test_missing_tax_rate_falls_back_to_product_default(self):
         # No 19 % sale tax available: the import must still succeed rather
         # than invent accounting configuration. Archived instead of deleted,

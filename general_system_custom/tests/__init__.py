@@ -20,3 +20,4 @@ from . import test_website_default_line_vendor
 from . import test_delivery_window
 from . import test_brand_display_name
 from . import test_baf_line_cost
+from . import test_baf_integration_mixin
