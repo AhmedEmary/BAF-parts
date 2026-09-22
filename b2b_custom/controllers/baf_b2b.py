@@ -224,7 +224,10 @@ def _expand_product_options(product, partner):
 class BafB2BController(http.Controller):
 
     @http.route(
-        '/b2b/part-search', type='jsonrpc', auth='user', methods=['POST'], csrf=False, website=True,
+        # /bestellsystem/* kept as a legacy alias: the /b2b page is stored in the
+        # DB and older copies still call the old paths. Canonical is /b2b/*.
+        ['/b2b/part-search', '/bestellsystem/part-search'],
+        type='jsonrpc', auth='user', methods=['POST'], csrf=False, website=True,
     )
     def part_search(self, part_numbers=None, brand_choices=None, quantities=None,
                     product_ids=None, **kwargs):
@@ -362,7 +365,8 @@ class BafB2BController(http.Controller):
         }
 
     @http.route(
-        '/b2b/cart/add', type='jsonrpc', auth='user', methods=['POST'], csrf=False, website=True,
+        ['/b2b/cart/add', '/bestellsystem/cart/add'],
+        type='jsonrpc', auth='user', methods=['POST'], csrf=False, website=True,
     )
     def cart_add(self, items=None, **kwargs):
         if not items:
@@ -476,7 +480,8 @@ class BafB2BController(http.Controller):
         }
 
     @http.route(
-        '/b2b/upload-parts-list', type='http', auth='user', methods=['POST'], csrf=False, website=True,
+        ['/b2b/upload-parts-list', '/bestellsystem/upload-parts-list'],
+        type='http', auth='user', methods=['POST'], csrf=False, website=True,
     )
     def upload_parts_list(self, **post):
         upload = post.get('file')
