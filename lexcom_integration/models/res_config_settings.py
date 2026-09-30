@@ -30,6 +30,14 @@ class ResConfigSettings(models.TransientModel):
     # UI-only toggle to reveal the credential inputs once configured.
     lexcom_show_credentials = fields.Boolean(default=False)
 
+    lexcom_endpoint_url = fields.Char(
+        string="Service URL", compute="_compute_lexcom_endpoint_url"
+    )
+
+    def _compute_lexcom_endpoint_url(self):
+        for rec in self:
+            rec.lexcom_endpoint_url = "%s/lexcom" % rec.get_base_url()
+
     def _compute_lexcom_password_set(self):
         for rec in self:
             rec.lexcom_password_set = bool(

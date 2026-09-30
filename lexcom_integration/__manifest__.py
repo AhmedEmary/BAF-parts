@@ -1,5 +1,5 @@
 {
-    "name": "LexCom DMS Integration",
+    "name": "partslink24 / LexCom DMS Integration",
     "version": "19.0.1.0.0",
     "category": "Sales",
     "summary": "Serve the LexCom Standard DMS interface (3.1) so partslink24 and "
@@ -29,7 +29,7 @@ and 5xx only for a critical server error. No code path returns 401.
 
 **How to configure?**
 ---------------------
-1. Go to **Settings -> LexCom DMS**
+1. Go to **Settings -> partslink24 / LexCom DMS**
 2. Enter the Dealer ID, the username, and set a password
 3. Enable the endpoint
 
