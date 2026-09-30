@@ -72,3 +72,12 @@ class TestLexcomSettings(LexcomCommon):
         self.assertIn("Landrover", codes)
         self.assertIn("Mercedes-Benz", codes)
         self.assertNotIn("LandRover", codes)
+
+    def test_service_url_is_the_endpoint_lexcom_calls(self):
+        settings = self._settings()
+        self.assertEqual(
+            settings.lexcom_endpoint_url, "%s/lexcom" % settings.get_base_url()
+        )
+        arch = settings.get_view(view_type="form")["arch"]
+        self.assertIn('name="lexcom_endpoint_url"', arch)
+        self.assertIn("partslink24 / LexCom DMS", arch)

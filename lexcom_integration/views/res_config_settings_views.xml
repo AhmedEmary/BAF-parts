@@ -8,9 +8,13 @@
             <xpath expr="//form" position="inside">
                 <!-- The credential fields are system-only; restricting the whole
                      app keeps every visibility rule on them consistent. -->
-                <app data-string="LexCom DMS" string="LexCom DMS" name="lexcom_integration"
-                     groups="base.group_system">
+                <app data-string="partslink24 / LexCom DMS" string="partslink24 / LexCom DMS"
+                     name="lexcom_integration" groups="base.group_system">
                     <block title="Endpoint" name="lexcom_endpoint">
+                        <setting string="Service URL"
+                                 help="Give this URL to LexCom as the DMS service URL.">
+                            <field name="lexcom_endpoint_url" widget="CopyClipboardChar"/>
+                        </setting>
                         <setting string="Enable LexCom endpoint"
                                  help="Kill switch. When off, every inbound request is rejected without touching the database.">
                             <field name="lexcom_enabled"/>
