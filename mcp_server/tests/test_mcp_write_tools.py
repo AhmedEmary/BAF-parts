@@ -416,6 +416,8 @@ class TestMcpWriteTools(common.HttpCase):
         )
         self.assertEqual(after, before + 1)
 
+    # _json_safe calls _() outside a request, so no language is found here.
+    @mute_logger("odoo.tools.translate")
     def test_json_safe_caps_returned_recordset(self):
         """A recordset return is bounded so the output size cannot blow up.
 

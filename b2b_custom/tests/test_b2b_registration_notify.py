@@ -1,4 +1,7 @@
 from odoo.tests import TransactionCase, tagged
+from odoo.tools import mute_logger
+
+_PARTNER_LOGGER = 'odoo.addons.b2b_custom.models.res_partner'
 
 
 @tagged('post_install', '-at_install')
@@ -92,6 +95,7 @@ class TestB2BRegistrationNotify(TransactionCase):
         self.assertTrue(mails)
         self.assertEqual(mails[0].email_to, 'one@example.com,two@example.com')
 
+    @mute_logger(_PARTNER_LOGGER)
     def test_missing_template_silently_skipped(self):
         """If the template is missing (e.g. partial upgrade), the form
         must NOT 500 — the partner is still created and no mail queued."""
@@ -109,6 +113,7 @@ class TestB2BRegistrationNotify(TransactionCase):
         partner = self._make_application(email='no-template@example.com')
         self.assertEqual(partner.baf_b2b_state, 'pending')
 
+    @mute_logger(_PARTNER_LOGGER)
     def test_no_recipient_no_mail_queued(self):
         """No system parameter AND no company email = warn + skip.
         Partner must still be created."""

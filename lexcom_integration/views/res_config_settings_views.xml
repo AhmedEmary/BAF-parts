@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+    <record id="res_config_settings_view_form_lexcom" model="ir.ui.view">
+        <field name="name">res.config.settings.view.form.inherit.lexcom</field>
+        <field name="model">res.config.settings</field>
+        <field name="inherit_id" ref="base.res_config_settings_view_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//form" position="inside">
+                <!-- The credential fields are system-only; restricting the whole
+                     app keeps every visibility rule on them consistent. -->
+                <app data-string="LexCom DMS" string="LexCom DMS" name="lexcom_integration"
+                     groups="base.group_system">
+                    <block title="Endpoint" name="lexcom_endpoint">
+                        <setting string="Enable LexCom endpoint"
+                                 help="Kill switch. When off, every inbound request is rejected without touching the database.">
+                            <field name="lexcom_enabled"/>
+                        </setting>
+                        <setting string="Dealer ID"
+                                 help="The dealer-id LexCom sends in every request.">
+                            <field name="lexcom_dealer_id"/>
+                        </setting>
+                        <setting string="Country"
+                                 help="ISO 3166-1 alpha-3, echoed back in every response.">
+                            <field name="lexcom_country"/>
+                        </setting>
+                    </block>
+                    <block title="Credentials" name="lexcom_credentials">
+                        <field name="lexcom_password_set" invisible="1"/>
+
+                        <!-- Configured banner: shown only while collapsed. The reveal
+                             button flips the boolean client-side, so the rows below
+                             show/hide instantly and it resets on a fresh page open. -->
+                        <setting string="Connection"
+                                 invisible="not lexcom_password_set or not lexcom_username or lexcom_show_credentials">
+                            <div class="text-success fw-bold mb-1">
+                                <i class="fa fa-check-circle me-1"/>Configured
+                            </div>
+                            <div class="text-muted mb-2">
+                                LexCom authenticates as
+                                <field name="lexcom_username" readonly="1" class="oe_inline"/>.
+                                The password is stored only as a salted hash.
+                            </div>
+                            <field name="lexcom_show_credentials"
+                                   widget="baf_reveal_button" nolabel="1"/>
+                            <button name="action_lexcom_clear_password" type="object"
+                                    string="Clear Password" class="btn-secondary btn-sm ms-2"
+                                    confirm="LexCom will no longer be able to authenticate. Continue?"
+                                    noSaveDialog="true"/>
+                        </setting>
+
+                        <!-- Credential inputs: shown when nothing is configured yet,
+                             or after the user clicked "Update credentials". -->
+                        <setting string="Username"
+                                 help="HTTP Basic Auth username you give to LexCom."
+                                 invisible="lexcom_password_set and lexcom_username and not lexcom_show_credentials">
+                            <field name="lexcom_username" placeholder="e.g. baf-lexcom"/>
+                        </setting>
+
+                        <setting string="Password"
+                                 help="HTTP Basic Auth password you give to LexCom. Stored only as a salted hash, so it cannot be shown again."
+                                 invisible="lexcom_password_set and lexcom_username and not lexcom_show_credentials">
+                            <field name="lexcom_password" password="True" placeholder="Enter password"/>
+                        </setting>
+
+                        <setting string="Save Credentials"
+                                 invisible="lexcom_password_set and lexcom_username and not lexcom_show_credentials">
+                            <button name="action_lexcom_set_password"
+                                    string="Save Credentials"
+                                    type="object"
+                                    class="btn-primary"
+                                    noSaveDialog="true"/>
+                            <!-- Cancel (only when stored credentials exist to fall
+                                 back to). Same widget, so it reads "Cancel" here. -->
+                            <field name="lexcom_show_credentials"
+                                   widget="baf_reveal_button" nolabel="1" class="ms-2"
+                                   invisible="not lexcom_password_set"/>
+                        </setting>
+                    </block>
+                </app>
+            </xpath>
+        </field>
+    </record>
+</odoo>

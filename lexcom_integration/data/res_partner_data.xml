@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+    <!-- One shared contact for orders sent without a customer-number, which the
+         spec reserves for non-customers. noupdate so it can be renamed. -->
+    <data noupdate="1">
+        <record id="partner_lexcom_no_customer_number" model="res.partner">
+            <field name="name">LexCom Customer (no customer number)</field>
+            <field name="is_company" eval="True"/>
+        </record>
+    </data>
+</odoo>

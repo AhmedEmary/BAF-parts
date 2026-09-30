@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+    <record id="view_product_brand_form_lexcom" model="ir.ui.view">
+        <field name="name">product.brand.form.inherit.lexcom</field>
+        <field name="model">product.brand</field>
+        <field name="inherit_id" ref="general_system_custom.view_product_brand_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='display_label']" position="after">
+                <field name="lexcom_code"/>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="view_product_brand_tree_lexcom" model="ir.ui.view">
+        <field name="name">product.brand.list.inherit.lexcom</field>
+        <field name="model">product.brand</field>
+        <field name="inherit_id" ref="general_system_custom.view_product_brand_tree"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='display_label']" position="after">
+                <field name="lexcom_code" optional="show"/>
+            </xpath>
+        </field>
+    </record>
+</odoo>

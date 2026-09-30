@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<order-list version="3.1">
+  <dealer-id>Dealer1</dealer-id>
+  <country>DEU</country>
+  <customer-number>12345678</customer-number>
+  <brand>Audi</brand>
+  <order-id>1234</order-id>
+  <customer-name>Autocenter Meier</customer-name>
+  <vin>ABCDE26Y213112345</vin>
+  <license-plate>M-LC 100</license-plate>
+  <creation-date>2013-03-02</creation-date>
+  <vehicle-registration>2012-01-02</vehicle-registration>
+</order-list>

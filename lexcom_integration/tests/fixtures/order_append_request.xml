@@ -1,0 +1,135 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<order-append version="3.1">
+  <dealer-id>Dealer1</dealer-id>
+  <country>DEU</country>
+  <order-id>1234</order-id>
+  <voucher-id>0815-code</voucher-id>
+  <brand>Audi</brand>
+  <customer-number>10041</customer-number>
+  <customer-ref>Order #003 for Audi</customer-ref>
+  <mileage unit="km">234123</mileage>
+  <use-retail-price>false</use-retail-price>
+  <order-source-system>partslink24</order-source-system>
+  <order-type customer-contract="123">Warranty</order-type>
+  <shipping-type>Express</shipping-type>
+  <desired-shipping-on>2013-03-22</desired-shipping-on>
+  <currency>EUR</currency>
+  <editor>Max Mustermann</editor>
+  <executer>MaxMus</executer>
+  <customer-comment>Shipping address has changed</customer-comment>
+  <extension key="DmsSpecificKey1">DMS specific value 1</extension>
+  <extension key="DmsSpecificKey2">DMS specific value 2</extension>
+  <payments>
+    <payment>
+      <status>paid</status>
+      <amount>120.00</amount>
+      <currency>EUR</currency>
+      <transaction-id>lc-huer7asdf-1</transaction-id>
+      <payment-method>
+        <type>creditcard</type>
+        <provider transaction-id="adyen-32879zdsf">Adyen</provider>
+        <scheme>visa</scheme>
+      </payment-method>
+    </payment>
+    <payment>
+      <status>paid</status>
+      <amount>10.00</amount>
+      <currency>EUR</currency>
+      <transaction-id>lc-huer7asdf-2</transaction-id>
+      <payment-method>
+        <type>coupon</type>
+        <provider transaction-id="dealer-coupon-1">Meier</provider>
+      </payment-method>
+    </payment>
+  </payments>
+  <billing-address>
+    <address1>Alleeweg 1</address1>
+    <postal-code>80331</postal-code>
+    <city>Munich</city>
+    <province>Bavaria</province>
+    <country>DE</country>
+  </billing-address>
+  <delivery-address>
+    <address1>Alleeweg 1</address1>
+    <postal-code>80331</postal-code>
+    <city>Munich</city>
+    <province>Bavaria</province>
+    <country>DE</country>
+  </delivery-address>
+  <item>
+    <item-id>1</item-id>
+    <item-type>ARTICLE</item-type>
+    <article-data>
+      <article-id>1H0512345</article-id>
+      <description lang="en">Oil filter</description>
+      <manufacturer>Manu1</manufacturer>
+      <units>3</units>
+      <price>7.89</price>
+      <retail-price source="DMS">7.00</retail-price>
+      <discount discount-amount="0.89" discount-percent="11.2801" />
+      <additional-discount discount-amount="0.20" />
+      <tax-rate>0.19</tax-rate>
+      <category>CA</category>
+      <discount-group>08</discount-group>
+      <vin>ABCDE26Y213112345</vin>
+      <customer-comment>green color</customer-comment>
+      <extension key="DmsSpecificKey1">DMS specific value 1</extension>
+      <extension key="DmsSpecificKey2">DMS specific value 2</extension>
+    </article-data>
+  </item>
+  <item>
+    <item-id>2</item-id>
+    <item-type>ARTICLE</item-type>
+    <article-data>
+      <article-id>1H0523456</article-id>
+      <description lang="en">Air filter</description>
+      <manufacturer>Manu2</manufacturer>
+      <units>1</units>
+      <price>13.00</price>
+      <retail-price source="DMS">9.95</retail-price>
+      <discount discount-amount="3.05" discount-percent="23.4615" />
+      <additional-discount discount-amount="0.95" />
+    </article-data>
+  </item>
+  <item>
+    <item-id>3</item-id>
+    <item-type>LABOUR</item-type>
+    <labour-data>
+      <operation-id>72201900</operation-id>
+      <description lang="en">Change oil filter</description>
+      <operation-type>38</operation-type>
+      <mechanic>399</mechanic>
+      <units>3</units>
+      <price>1.50</price>
+      <retail-price source="DMS">1.25</retail-price>
+      <discount discount-amount="0.25" discount-percent="16.6666" />
+      <additional-discount discount-amount="0.0833" />
+      <extension key="DmsSpecificKey1">DMS specific value 1</extension>
+      <extension key="DmsSpecificKey2">DMS specific value 2</extension>
+    </labour-data>
+  </item>
+  <total-article>
+    <subtotal price="36.67" retail-price="30.95"
+      discount-amount="5.72" discount-percent="15.5986" />
+    <additional-discount discount-amount="1.55"
+      discount-percent="5.0000" />
+    <total price="36.67" retail-price="29.40"
+      discount-amount="7.27" discount-percent="19.8255" />
+  </total-article>
+  <total-labour>
+    <subtotal price="4.50" retail-price="3.75"
+      discount-amount="0.75" discount-percent="16.6666" />
+    <additional-discount discount-amount="0.25"
+      discount-percent="6.66" />
+    <total price="4.50" retail-price="3.50"
+      discount-amount="1.00" discount-percent="22.2222" />
+  </total-labour>
+  <total-all>
+    <subtotal price="41.17" retail-price="32.90"
+      discount-amount="8.27" discount-percent="20.0874" />
+    <additional-discount discount-amount="2.90"
+      discount-percent="8.81" />
+    <total price="41.17" retail-price="30.00"
+      discount-amount="11.17" discount-percent="27.1314" />
+  </total-all>
+</order-append>
