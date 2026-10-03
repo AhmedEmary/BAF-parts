@@ -253,21 +253,36 @@ class PurchaseOrder(models.Model):
 
         return attachment
 
-    def _baf_vendor_email_from(self):
-        """Route PO emails by vendor: Arnold / Euler / Brass / Kalkan go out of
-        the Kalkan mailbox, everyone else out of the BAF mailbox. Matching is
-        substring/case-insensitive against the vendor name and its commercial
-        parent, so name variants ("Autohaus Arnold GmbH & Co. KG",
-        "Hermann Arnold GmbH", …) all land on the same sender."""
+    def _baf_is_kalkan_vendor(self):
+        """Arnold / Euler / Brass / Kalkan orders are sent in Kalkan's name.
+        Matching is substring/case-insensitive against the vendor name and its
+        commercial parent, so name variants ("Autohaus Arnold GmbH & Co. KG",
+        "Hermann Arnold GmbH", …) all land on the same side."""
         self.ensure_one()
         vendor = self.partner_id
         names = [vendor.name or '']
         if vendor.commercial_partner_id and vendor.commercial_partner_id != vendor:
             names.append(vendor.commercial_partner_id.name or '')
         haystack = ' '.join(names).lower()
-        if any(k in haystack for k in BAF_KALKAN_VENDOR_KEYWORDS):
-            return BAF_KALKAN_FROM
-        return BAF_DEFAULT_FROM
+        return any(k in haystack for k in BAF_KALKAN_VENDOR_KEYWORDS)
+
+    def _baf_vendor_email_from(self):
+        """Route PO emails by vendor: Kalkan vendors go out of the Kalkan
+        mailbox, everyone else out of the BAF mailbox."""
+        self.ensure_one()
+        return BAF_KALKAN_FROM if self._baf_is_kalkan_vendor() else BAF_DEFAULT_FROM
+
+    def _baf_vendor_mail_template(self, default_template):
+        """Kalkan vendors get the Kalkan template, which never mentions BAF;
+        everyone else keeps `default_template`."""
+        self.ensure_one()
+        if self._baf_is_kalkan_vendor():
+            kalkan_template = self.env.ref(
+                'general_system_custom.email_template_kalkan_purchase',
+                raise_if_not_found=False)
+            if kalkan_template:
+                return kalkan_template
+        return default_template
 
     def _notify_get_recipients_groups(self, message, model_description, msg_vals=False):
         """Suppliers get no Odoo portal button in the email. The base
@@ -289,7 +304,8 @@ class PurchaseOrder(models.Model):
         self.write({'send_po_status': 'success'})
 
         # 8. Open Composer
-        template_id = self.env.ref('purchase.email_template_edi_purchase').id
+        template_id = self[0]._baf_vendor_mail_template(
+            self.env.ref('purchase.email_template_edi_purchase')).id
         ctx = {
             'default_model': 'purchase.order',
             'default_res_ids': self.ids,
@@ -318,6 +334,12 @@ class PurchaseOrder(models.Model):
         attachment = self._baf_po_excel_attachment()
         ctx = action.setdefault('context', {})
         ctx['default_email_from'] = self._baf_vendor_email_from()
+        default_template = self.env['mail.template'].browse(
+            ctx.get('default_template_id'))
+        template = self._baf_vendor_mail_template(default_template)
+        if template:
+            ctx['default_template_id'] = template.id
+            ctx['default_use_template'] = True
         if attachment:
             ctx['default_attachment_ids'] = [attachment.id]
             self.write({'send_po_status': 'success'})

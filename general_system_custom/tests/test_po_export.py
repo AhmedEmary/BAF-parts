@@ -260,3 +260,61 @@ class TestGroupedPOExport(TransactionCase):
             self.assertFalse(
                 group[2].get('has_button_access'),
                 "Group %s must not carry the portal access button" % group[0])
+
+    def _kalkan_po(self):
+        vendor = self.env['res.partner'].create({
+            'name': 'Autohaus Euler GmbH', 'email': 'order@euler.example.com'})
+        return self.env['purchase.order'].create({
+            'partner_id': vendor.id,
+            'order_line': [Command.create({
+                'product_id': self.product.id, 'product_qty': 1,
+            })],
+        })
+
+    def test_kalkan_vendor_gets_kalkan_template(self):
+        kalkan_template = self.env.ref(
+            'general_system_custom.email_template_kalkan_purchase')
+        po = self._kalkan_po()
+        grouped_action = po.action_send_grouped_po_email()
+        self.assertEqual(
+            grouped_action['context']['default_template_id'], kalkan_template.id)
+        rfq_action = po.action_rfq_send()
+        self.assertEqual(
+            rfq_action['context']['default_template_id'], kalkan_template.id)
+        po.button_confirm()
+        confirmed_action = po.action_rfq_send()
+        self.assertEqual(
+            confirmed_action['context']['default_template_id'], kalkan_template.id)
+
+    def test_other_vendor_keeps_standard_template(self):
+        po = self.env['purchase.order'].create({
+            'partner_id': self.vendor.id,
+            'order_line': [Command.create({
+                'product_id': self.product.id, 'product_qty': 1,
+            })],
+        })
+        action = po.action_send_grouped_po_email()
+        self.assertEqual(
+            action['context']['default_template_id'],
+            self.env.ref('purchase.email_template_edi_purchase').id)
+
+    def test_kalkan_mail_never_mentions_baf(self):
+        """Sent through the real composer, nothing the supplier sees (subject,
+        body, sender, reply-to) mentions BAF; it is signed by Kalkan."""
+        self.env.company.name = 'BAF Handels GmbH'
+        self.env.user.signature = '<p>BAF Parts Team</p>'
+        po = self._kalkan_po()
+        action = po.action_send_grouped_po_email()
+        composer = self.env['mail.compose.message'].with_context(
+            action['context']).create({})
+        composer._action_send_mail()
+
+        mail = self.env['mail.mail'].search(
+            [('model', '=', 'purchase.order'), ('res_id', '=', po.id)])
+        self.assertEqual(len(mail), 1)
+        for field in ('subject', 'body_html', 'email_from', 'reply_to'):
+            self.assertNotIn('BAF', mail[field] or '', field)
+        self.assertIn('Kalkan Automobile GmbH', mail.subject)
+        self.assertIn('Kalkan Automobile GmbH', mail.body_html)
+        self.assertIn('kalkan-auto.de', mail.email_from)
+        self.assertIn('kalkan-auto.de', mail.reply_to)
