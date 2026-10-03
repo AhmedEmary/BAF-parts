@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Orders to Kalkan-routed vendors (see BAF_KALKAN_VENDOR_KEYWORDS) go
+         out in Kalkan's name: subject, body, signature, sender and reply-to
+         carry no reference to BAF. Kept apart from the standard purchase
+         templates, which render the company (BAF) name. noupdate so edits
+         made in Settings > Technical > Email Templates survive upgrades. -->
+    <data noupdate="1">
+        <record id="email_template_kalkan_purchase" model="mail.template">
+            <field name="name">Kalkan</field>
+            <field name="model_id" ref="purchase.model_purchase_order"/>
+            <field name="subject">Bestellung Kalkan Automobile GmbH (Ref {{ object.name or 'n/a' }})</field>
+            <field name="email_from">Kalkan Automobile &lt;b.oezleblebici@kalkan-auto.de&gt;</field>
+            <field name="reply_to">Kalkan Automobile &lt;b.oezleblebici@kalkan-auto.de&gt;</field>
+            <field name="partner_to">{{ object.partner_id.id }}</field>
+            <field name="description">Purchase orders sent in the name of Kalkan Automobile GmbH</field>
+            <field name="body_html" type="html">
+<div style="margin: 0px; padding: 0px;">
+    <p style="margin: 0px; padding: 0px; font-size: 13px;">
+        Sehr geehrte Damen und Herren,
+        <br/><br/>
+        anbei erhalten Sie unsere Bestellung
+        <span style="font-weight: bold;" t-out="object.name or ''">P00015</span>
+        <t t-if="object.partner_ref">
+            (Ihre Referenz: <t t-out="object.partner_ref or ''">REF_XXX</t>)
+        </t>
+        als Excel-Datei.
+        <br/><br/>
+        Bitte bestätigen Sie uns den Erhalt der Bestellung sowie den
+        voraussichtlichen Liefertermin.
+        <br/><br/>
+        Mit freundlichen Grüßen
+        <br/><br/>
+        Kalkan Automobile GmbH<br/>
+        Würzburger Str. 168<br/>
+        63743 Aschaffenburg<br/>
+        Tel.: +49 6021 58389133<br/>
+        E-Mail: <a href="mailto:b.oezleblebici@kalkan-auto.de">b.oezleblebici@kalkan-auto.de</a><br/>
+        <a href="https://kalkan-auto.de">www.kalkan-auto.de</a>
+    </p>
+</div>
+            </field>
+            <field name="auto_delete" eval="True"/>
+        </record>
+    </data>
+</odoo>
