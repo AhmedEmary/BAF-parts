@@ -1,4 +1,4 @@
-from odoo import models, fields, api, _
+from odoo import models, fields, api, tools, _
 from odoo.exceptions import ValidationError
 
 
@@ -63,6 +63,14 @@ class BafSalesGroup(models.Model):
 
     active = fields.Boolean(default=True)
 
+    is_default = fields.Boolean(
+        string='Default for new customers',
+        help="Applies to every logged-in customer who has no sales group of "
+             "their own (and whose company has none either). Allowed once per "
+             "family and tier: one default car group and one default "
+             "motorcycle group per brand family.",
+    )
+
     partner_ids = fields.Many2many(
         'res.partner',
         'baf_sales_group_partner_rel',
@@ -97,6 +105,59 @@ class BafSalesGroup(models.Model):
     def _baf_scope_label(self):
         self.ensure_one()
         return self.family_id.name if self.family_id else _("all brands")
+
+    @api.model_create_multi
+    def create(self, vals_list):
+        groups = super().create(vals_list)
+        if any(vals.get('is_default') for vals in vals_list):
+            self.env.registry.clear_cache()
+        return groups
+
+    def write(self, vals):
+        # A default group can stop being one by being archived, rescoped or
+        # moved to another tier, not only by unticking the flag.
+        refresh = 'is_default' in vals or (
+            {'active', 'family_id', 'group_column_suffix'} & vals.keys()
+            and self.filtered('is_default'))
+        res = super().write(vals)
+        if refresh:
+            self.env.registry.clear_cache()
+        return res
+
+    def unlink(self):
+        refresh = bool(self.filtered('is_default'))
+        res = super().unlink()
+        if refresh:
+            self.env.registry.clear_cache()
+        return res
+
+    @tools.ormcache()
+    def _baf_default_group_ids(self):
+        return tuple(self.sudo().search([('is_default', '=', True)]).ids)
+
+    def _baf_default_groups(self):
+        """Active groups flagged as the default for customers without any
+        group of their own. Cached: this runs once per priced product."""
+        return self.browse(self._baf_default_group_ids())
+
+    @api.constrains('is_default', 'active', 'family_id', 'group_column_suffix')
+    def _check_is_default_unique_family(self):
+        # Same clash rule as a customer's own groups: the defaults together act
+        # as one customer's group set, so one car + one moto group per family.
+        defaults = self.search([('is_default', '=', True)])
+        for group in self.filtered(lambda g: g.is_default and g.active):
+            clash = (defaults - group).filtered(
+                lambda g: g._is_moto_group() == group._is_moto_group()
+                          and g._baf_prices_same_family(group))
+            if clash:
+                raise ValidationError(_(
+                    "Only one %(tier)s group can be the default for %(scope)s. "
+                    "Already the default: %(groups)s"
+                ) % {
+                    'tier': _("motorcycle") if group._is_moto_group() else _("car"),
+                    'scope': group._baf_scope_label(),
+                    'groups': ', '.join(clash.mapped('name')),
+                })
 
     @api.constrains('partner_ids', 'family_id', 'group_column_suffix')
     def _check_partner_ids_unique_family(self):

@@ -15,6 +15,7 @@
                 <field name="pricing_method"/>
                 <field name="markup_pct"/>
                 <field name="group_column_suffix"/>
+                <field name="is_default"/>
                 <field name="active"/>
             </list>
         </field>
@@ -31,6 +32,7 @@
                             <field name="name"/>
                             <field name="family_id"
                                    help="Leave empty to make this a fallback group that prices every brand."/>
+                            <field name="is_default"/>
                             <field name="active"/>
                         </group>
                         <group string="Pricing Method">
