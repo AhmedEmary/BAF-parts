@@ -326,6 +326,20 @@ class TestPriceFile(HttpCase):
         }
         self.assertEqual(by_code['TESTQA1'], 20.0)
 
+    def test_discount_download_uses_default_group_for_customer_without_groups(self):
+        self.env['baf.sales.group'].create({
+            'name': 'BMW GR1 default', 'family_id': self.fam_bmw.id,
+            'pricing_method': 'table_lookup', 'group_column_suffix': 'GR1',
+            'is_default': True})
+        self.env['baf.discount.line'].create({
+            'table_type': 'sales',
+            'column_key': '%s_GR1' % self.bmw_car.baf_sales_column_key,
+            'discount_code': 'TESTQA1', 'discount_pct': 20.0,
+        })
+        self.assertFalse(self.company_partner.sales_group_ids)
+        _response, wb = self._open_discount_workbook()
+        self.assertEqual(wb.sheetnames, [self.brand_public.display_name])
+
     def test_discount_download_redirects_when_no_applicable_rates(self):
         group_jlr_markup = self.env['baf.sales.group'].create({
             'name': 'JLR markup', 'family_id': self.fam_jlr.id,

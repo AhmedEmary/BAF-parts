@@ -340,3 +340,60 @@ class TestBafPricing(TransactionCase):
         self.assertEqual(details['pricing_method'], 'guest')
 
 
+
+    # ── Default groups for customers without any ─────────────────────────────
+
+    def test_21_default_group_prices_customer_without_groups(self):
+        self.group_bmw_gr1.is_default = True
+        partner = self.Partner.create({'name': 'Brand-new Customer'})
+        product = self._create_product(self.brand_bmw, 'S-DEFAULT', baf_type_code=1)
+        details = product.baf_get_sales_price_details(partner)
+        self.assertEqual(details['column_key'], 'BMW_T12_GR1')
+        self.assertAlmostEqual(details['price'], 95.0)
+
+    def test_22_own_groups_win_over_default(self):
+        # A customer with any group of their own never mixes in a default: the
+        # JLR-only customer stays at UPE for BMW parts.
+        self.group_bmw_gr1.is_default = True
+        product = self._create_product(self.brand_bmw, 'S-DEFAULT-OWN')
+        details = product.baf_get_sales_price_details(self.partner_jlr)
+        self.assertEqual(details['pricing_method'], 'guest')
+
+    def test_23_child_contact_inherits_company_before_default(self):
+        self.group_bmw_gr1.is_default = True
+        child = self.Partner.create({
+            'name': 'Wildcard Customer Contact', 'parent_id': self.partner_all.id})
+        product = self._create_product(self.brand_bmw, 'S-DEFAULT-CHILD')
+        details = product.baf_get_sales_price_details(child)
+        self.assertEqual(details['pricing_method'], 'markup_pct')
+        self.assertAlmostEqual(details['discount_pct'], 20.0)
+
+    def test_24_public_partner_never_gets_default(self):
+        self.group_bmw_gr1.is_default = True
+        public_partner = self.env.ref('base.public_user').partner_id
+        product = self._create_product(self.brand_bmw, 'S-DEFAULT-PUBLIC')
+        details = product.baf_get_sales_price_details(public_partner)
+        self.assertEqual(details['pricing_method'], 'guest')
+        self.assertAlmostEqual(details['price'], 100.0)
+
+    def test_25_unflagging_or_archiving_default_stops_applying(self):
+        self.group_bmw_gr1.is_default = True
+        partner = self.Partner.create({'name': 'Brand-new Customer 2'})
+        product = self._create_product(self.brand_bmw, 'S-DEFAULT-OFF')
+        self.group_bmw_gr1.active = False
+        self.assertEqual(
+            product.baf_get_sales_price_details(partner)['pricing_method'], 'guest')
+        self.group_bmw_gr1.write({'active': True})
+        self.assertEqual(
+            product.baf_get_sales_price_details(partner)['pricing_method'], 'table_lookup')
+        self.group_bmw_gr1.is_default = False
+        self.assertEqual(
+            product.baf_get_sales_price_details(partner)['pricing_method'], 'guest')
+
+    def test_26_one_default_per_family_and_tier(self):
+        self.group_bmw_gr1.is_default = True
+        with self.assertRaises(ValidationError):
+            self.group_bmw_default_suffix.is_default = True
+        # A moto default and another family's default coexist with it.
+        self._make_moto_bmw_group().is_default = True
+        self.group_jlr_markup.is_default = True

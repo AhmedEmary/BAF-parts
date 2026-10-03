@@ -344,7 +344,9 @@ class ResPartner(models.Model):
         help=(
             "Controls which pricing method and discount table columns "
             "apply to this customer. "
-            "Leave empty → customer sees full UPE (MSRP = guest price). "
+            "Leave empty → the groups marked 'Default for new customers' "
+            "apply; with no default either, the customer sees full UPE "
+            "(MSRP = guest price). "
             "Assign at most one group per brand family "
             "(for example one BMW/MINI group and one JLR group)."
         ),
@@ -353,14 +355,23 @@ class ResPartner(models.Model):
     def _baf_effective_sales_groups(self):
         """Sales groups that price this partner. A child contact with its own
         groups uses them (the company's are ignored); a child with none
-        inherits its parent company's groups."""
+        inherits its parent company's groups. When neither has any, the
+        groups flagged 'Default for new customers' apply — except to the
+        website's public (not logged-in) partner, who keeps the full UPE."""
         self.ensure_one()
         if self.sales_group_ids:
             return self.sales_group_ids
         company = self.commercial_partner_id
-        if company and company != self:
+        if company and company != self and company.sales_group_ids:
             return company.sales_group_ids
-        return self.sales_group_ids
+        if self._baf_is_public_partner():
+            return self.sales_group_ids
+        return self.env['baf.sales.group']._baf_default_groups()
+
+    def _baf_is_public_partner(self):
+        # The public user is archived, so active_test must be off to see it.
+        users = self.sudo().with_context(active_test=False).user_ids
+        return any(user._is_public() for user in users)
 
     visible_brand_ids = fields.Many2many(
         'product.brand',
