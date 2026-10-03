@@ -335,8 +335,17 @@ class TestPriceFile(HttpCase):
         response = self.url_open(
             '/pricefile/discount-download', allow_redirects=False)
         self.assertEqual(response.status_code, 303)
-        self.assertTrue(
-            urlparse(response.headers['Location']).path.endswith('/pricefile'))
+        location = urlparse(response.headers['Location'])
+        self.assertTrue(location.path.endswith('/pricefile'))
+        self.assertEqual(location.query, 'discount=none')
+
+    def test_pricefile_page_explains_missing_discount_codes(self):
+        self.authenticate('pricefile_user', 'pricefile_user')
+        notice = 'keine Rabattcodes hinterlegt'
+        body = self.url_open('/pricefile').content.decode('utf-8')
+        self.assertNotIn(notice, body)
+        body = self.url_open('/pricefile?discount=none').content.decode('utf-8')
+        self.assertIn(notice, body)
 
     def test_pricefile_page_advertises_discount_download(self):
         self.authenticate('pricefile_user', 'pricefile_user')

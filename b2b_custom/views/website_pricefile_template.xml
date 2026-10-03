@@ -64,6 +64,10 @@
                     <a href="/pricefile/discount-download" class="btn btn-outline-primary">
                         Rabattcodes herunterladen (XLSX)
                     </a>
+                    <div t-if="discount_unavailable" class="alert alert-info mt-3" role="alert">
+                        Für Ihr Konto sind derzeit keine Rabattcodes hinterlegt.
+                        Bitte wenden Sie sich an Ihren Ansprechpartner bei BAF.
+                    </div>
                     <t t-if="etk_families">
                         <hr class="my-4"/>
                         <h2 class="h4 mb-2">ETK</h2>
