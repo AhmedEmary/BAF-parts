@@ -12,11 +12,7 @@ except ImportError:
 
 _logger = logging.getLogger(__name__)
 
-# Vendors whose POs are sent from the Kalkan mailbox; everyone else goes
-# through the BAF mailbox. Matched case-insensitively against the vendor's
-# name (and its commercial parent), so name suffixes like "GmbH" don't matter.
-BAF_KALKAN_VENDOR_KEYWORDS = ('arnold', 'euler', 'brass', 'kalkan')
-BAF_KALKAN_FROM = 'Kalkan Automobile <b.oezleblebici@kalkan-auto.de>'
+# Sender for vendors without their own "PO Sender Email".
 BAF_DEFAULT_FROM = 'BAF Parts <info@baf-parts.com>'
 
 
@@ -254,20 +250,32 @@ class PurchaseOrder(models.Model):
         return attachment
 
     def _baf_vendor_email_from(self):
-        """Route PO emails by vendor: Arnold / Euler / Brass / Kalkan go out of
-        the Kalkan mailbox, everyone else out of the BAF mailbox. Matching is
-        substring/case-insensitive against the vendor name and its commercial
-        parent, so name variants ("Autohaus Arnold GmbH & Co. KG",
-        "Hermann Arnold GmbH", …) all land on the same sender."""
+        """Sender set on the vendor contact, else the BAF mailbox."""
         self.ensure_one()
-        vendor = self.partner_id
-        names = [vendor.name or '']
-        if vendor.commercial_partner_id and vendor.commercial_partner_id != vendor:
-            names.append(vendor.commercial_partner_id.name or '')
-        haystack = ' '.join(names).lower()
-        if any(k in haystack for k in BAF_KALKAN_VENDOR_KEYWORDS):
-            return BAF_KALKAN_FROM
-        return BAF_DEFAULT_FROM
+        return self.partner_id._baf_po_mail_settings()[1] or BAF_DEFAULT_FROM
+
+    def _baf_vendor_mail_template(self, default_template):
+        """Template set on the vendor contact, else `default_template`."""
+        self.ensure_one()
+        return self.partner_id._baf_po_mail_settings()[0] or default_template
+
+    def _baf_vendor_mail_context(self, default_template):
+        """Composer context keys picking this vendor's template and sender.
+        `baf_po_email_from` is enforced by the composer over the template's
+        own email_from (see mail.compose.message)."""
+        self.ensure_one()
+        template = self._baf_vendor_mail_template(default_template)
+        email_from = self._baf_vendor_email_from()
+        ctx = {
+            'default_email_from': email_from,
+            'baf_po_email_from': email_from,
+        }
+        if template:
+            ctx.update({
+                'default_template_id': template.id,
+                'default_use_template': True,
+            })
+        return ctx
 
     def _notify_get_recipients_groups(self, message, model_description, msg_vals=False):
         """Suppliers get no Odoo portal button in the email. The base
@@ -289,16 +297,14 @@ class PurchaseOrder(models.Model):
         self.write({'send_po_status': 'success'})
 
         # 8. Open Composer
-        template_id = self.env.ref('purchase.email_template_edi_purchase').id
         ctx = {
             'default_model': 'purchase.order',
             'default_res_ids': self.ids,
-            'default_use_template': bool(template_id),
-            'default_template_id': template_id,
             'default_attachment_ids': [attachment.id],
             'default_composition_mode': 'comment',
-            'default_email_from': self[0]._baf_vendor_email_from(),
             'force_email': True,
+            **self[0]._baf_vendor_mail_context(
+                self.env.ref('purchase.email_template_edi_purchase')),
         }
         return {
             'type': 'ir.actions.act_window',
@@ -317,7 +323,8 @@ class PurchaseOrder(models.Model):
         action = super().action_rfq_send()
         attachment = self._baf_po_excel_attachment()
         ctx = action.setdefault('context', {})
-        ctx['default_email_from'] = self._baf_vendor_email_from()
+        ctx.update(self._baf_vendor_mail_context(
+            self.env['mail.template'].browse(ctx.get('default_template_id'))))
         if attachment:
             ctx['default_attachment_ids'] = [attachment.id]
             self.write({'send_po_status': 'success'})

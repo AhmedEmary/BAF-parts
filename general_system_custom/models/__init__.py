@@ -19,6 +19,7 @@ from . import sales_order_line
 from . import sales
 from . import purchase
 from . import purchase_order_line
+from . import mail_compose_message
 from . import stock_move
 from . import stock_rule
 from . import stock_picking

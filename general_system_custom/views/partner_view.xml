@@ -143,6 +143,12 @@
                 <separator string="Vendor"/>
                 <group>
                     <field name="baf_is_vendor"/>
+                    <field name="baf_po_mail_template_id"
+                           invisible="not baf_is_vendor"
+                           placeholder="Standard purchase template"/>
+                    <field name="baf_po_email_from"
+                           invisible="not baf_is_vendor"
+                           placeholder="BAF Parts &lt;info@baf-parts.com&gt;"/>
                 </group>
             </xpath>
 

@@ -2,7 +2,7 @@
     'name': "Auto parts Sale",
     'summary': "This is a custom sale module for Auto parts companies",
     'category': 'Sales/Sales',
-    'version': '1.14',
+    'version': '1.15',
     'depends': ['base', 'bus', 'product', 'sale_management', 'sale_margin', 'stock', 'sale_stock', 'purchase', 'stock_dropshipping', 'barcodes', 'stock_barcode', 'accountant', 'portal', 'website_sale'],
     'installable': True,
     'data': [
@@ -10,6 +10,7 @@
         'data/ir_sequence_data.xml',
         'data/so_source_data.xml',
         'data/purchase_mail_template.xml',
+        'data/purchase_mail_template_kalkan.xml',
         'reports/pallet_label_report.xml',
         'reports/pallet_list_report.xml',
         'reports/invoice_report_axio.xml',

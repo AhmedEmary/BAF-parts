@@ -205,16 +205,15 @@ class TestGroupedPOExport(TransactionCase):
         row_values = [cell.value for cell in wb.active[2]]
         self.assertIn('12345', row_values)
 
-    def test_sender_routing_kalkan_group(self):
-        """Arnold, Euler, Brass, Kalkan → Kalkan mailbox."""
-        for vname, expected_marker in [
-            ('Autohaus Arnold GmbH & Co. KG', 'kalkan-auto.de'),
-            ('Hermann Arnold GmbH', 'kalkan-auto.de'),
-            ('Autohaus Euler GmbH', 'kalkan-auto.de'),
-            ('Autohaus Brass Vertriebs GmbH & Co. KG', 'kalkan-auto.de'),
-            ('Kalkan Automobile GmbH', 'kalkan-auto.de'),
-        ]:
-            vendor = self.env['res.partner'].create({'name': vname})
+    def test_sender_routing_from_vendor_field(self):
+        """The vendor's PO Sender Email is used, whatever the vendor's name;
+        a child contact inherits its company's."""
+        company = self.env['res.partner'].create({
+            'name': 'Some Random Vendor', 'is_company': True,
+            'baf_po_email_from': 'Shop <orders@shop.example.com>'})
+        child = self.env['res.partner'].create({
+            'name': 'Buyer', 'parent_id': company.id})
+        for vendor in (company, child):
             po = self.env['purchase.order'].create({
                 'partner_id': vendor.id,
                 'order_line': [Command.create({
@@ -222,16 +221,12 @@ class TestGroupedPOExport(TransactionCase):
                 })],
             })
             action = po.action_send_grouped_po_email()
-            self.assertIn(expected_marker,
-                          action['context']['default_email_from'],
-                          "%s should send from Kalkan mailbox" % vname)
+            self.assertEqual(action['context']['default_email_from'],
+                             'Shop <orders@shop.example.com>')
 
     def test_sender_routing_defaults_to_baf(self):
-        """Krah, Enders, and everyone else → BAF mailbox."""
-        for vname in ('Autohaus Krah & Enders GmbH',
-                      'Krah+Enders GmbH & Co. KG',
-                      'Autocenter Enders GmbH',
-                      'Some Random Vendor'):
+        """No PO Sender Email → BAF mailbox, even for former keyword names."""
+        for vname in ('Autohaus Euler GmbH', 'Some Random Vendor'):
             vendor = self.env['res.partner'].create({'name': vname})
             po = self.env['purchase.order'].create({
                 'partner_id': vendor.id,
@@ -243,6 +238,23 @@ class TestGroupedPOExport(TransactionCase):
             self.assertIn('info@baf-parts.com',
                           action['context']['default_email_from'],
                           "%s should send from BAF mailbox" % vname)
+
+    def test_vendor_sender_applied_with_standard_template(self):
+        """The standard purchase template has no sender of its own; the
+        composer must still send from the vendor's mailbox, not the user's."""
+        vendor = self.env['res.partner'].create({
+            'name': 'Some Random Vendor', 'email': 'vendor@example.com',
+            'baf_po_email_from': 'Shop <orders@shop.example.com>'})
+        po = self.env['purchase.order'].create({
+            'partner_id': vendor.id,
+            'order_line': [Command.create({
+                'product_id': self.product.id, 'product_qty': 1,
+            })],
+        })
+        action = po.action_send_grouped_po_email()
+        composer = self.env['mail.compose.message'].with_context(
+            action['context']).create({})
+        self.assertEqual(composer.email_from, 'Shop <orders@shop.example.com>')
 
     def test_portal_button_disabled_on_recipient_groups(self):
         """The Odoo "View Quotation / View Order" access button is stripped
@@ -260,3 +272,65 @@ class TestGroupedPOExport(TransactionCase):
             self.assertFalse(
                 group[2].get('has_button_access'),
                 "Group %s must not carry the portal access button" % group[0])
+
+    def _kalkan_po(self):
+        vendor = self.env['res.partner'].create({
+            'name': 'Autohaus Euler GmbH', 'email': 'order@euler.example.com',
+            'baf_po_mail_template_id': self.env.ref(
+                'general_system_custom.email_template_kalkan_purchase').id,
+            'baf_po_email_from':
+                'Kalkan Automobile <b.oezleblebici@kalkan-auto.de>'})
+        return self.env['purchase.order'].create({
+            'partner_id': vendor.id,
+            'order_line': [Command.create({
+                'product_id': self.product.id, 'product_qty': 1,
+            })],
+        })
+
+    def test_kalkan_vendor_gets_kalkan_template(self):
+        kalkan_template = self.env.ref(
+            'general_system_custom.email_template_kalkan_purchase')
+        po = self._kalkan_po()
+        grouped_action = po.action_send_grouped_po_email()
+        self.assertEqual(
+            grouped_action['context']['default_template_id'], kalkan_template.id)
+        rfq_action = po.action_rfq_send()
+        self.assertEqual(
+            rfq_action['context']['default_template_id'], kalkan_template.id)
+        po.button_confirm()
+        confirmed_action = po.action_rfq_send()
+        self.assertEqual(
+            confirmed_action['context']['default_template_id'], kalkan_template.id)
+
+    def test_other_vendor_keeps_standard_template(self):
+        po = self.env['purchase.order'].create({
+            'partner_id': self.vendor.id,
+            'order_line': [Command.create({
+                'product_id': self.product.id, 'product_qty': 1,
+            })],
+        })
+        action = po.action_send_grouped_po_email()
+        self.assertEqual(
+            action['context']['default_template_id'],
+            self.env.ref('purchase.email_template_edi_purchase').id)
+
+    def test_kalkan_mail_never_mentions_baf(self):
+        """Sent through the real composer, nothing the supplier sees (subject,
+        body, sender, reply-to) mentions BAF; it is signed by Kalkan."""
+        self.env.company.name = 'BAF Handels GmbH'
+        self.env.user.signature = '<p>BAF Parts Team</p>'
+        po = self._kalkan_po()
+        action = po.action_send_grouped_po_email()
+        composer = self.env['mail.compose.message'].with_context(
+            action['context']).create({})
+        composer._action_send_mail()
+
+        mail = self.env['mail.mail'].search(
+            [('model', '=', 'purchase.order'), ('res_id', '=', po.id)])
+        self.assertEqual(len(mail), 1)
+        for field in ('subject', 'body_html', 'email_from', 'reply_to'):
+            self.assertNotIn('BAF', mail[field] or '', field)
+        self.assertIn('Kalkan Automobile GmbH', mail.subject)
+        self.assertIn('Kalkan Automobile GmbH', mail.body_html)
+        self.assertIn('kalkan-auto.de', mail.email_from)
+        self.assertIn('kalkan-auto.de', mail.reply_to)

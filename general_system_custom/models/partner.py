@@ -107,6 +107,29 @@ class ResPartner(models.Model):
              "Vendor Pricing tab (method + per-vendor pricing data).",
     )
 
+    baf_po_mail_template_id = fields.Many2one(
+        'mail.template',
+        string='PO Mail Template',
+        domain="[('model', '=', 'purchase.order')]",
+        help="Template used when sending RFQs / purchase orders to this "
+             "vendor. Leave empty for the standard purchase template.",
+    )
+    baf_po_email_from = fields.Char(
+        string='PO Sender Email',
+        help="Mailbox purchase orders to this vendor are sent from, e.g. "
+             "'Kalkan Automobile <b.oezleblebici@kalkan-auto.de>'. Overrides "
+             "the template's sender. Leave empty for the BAF mailbox.",
+    )
+
+    def _baf_po_mail_settings(self):
+        """(template, email_from) for POs to this vendor. A child contact
+        without its own values inherits its company's."""
+        self.ensure_one()
+        commercial = self.commercial_partner_id
+        template = self.baf_po_mail_template_id or commercial.baf_po_mail_template_id
+        email_from = self.baf_po_email_from or commercial.baf_po_email_from
+        return template, email_from
+
     baf_purchase_method = fields.Selection(
         selection=[
             ('matrix', 'Matrix Table'),
