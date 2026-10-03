@@ -259,6 +259,7 @@ class PriceFile(CustomerPortal):
             'brands': brands,
             'families': families,
             'etk_families': etk_families,
+            'discount_unavailable': kw.get('discount') == 'none',
         })
 
     @http.route(
@@ -323,8 +324,10 @@ class PriceFile(CustomerPortal):
                 ws.append(row)
 
         if not wb.sheetnames:
-            # Every brand fell out (markup-only, no lines) — no file to serve.
-            return request.redirect('/pricefile')
+            # Every brand fell out (no sales group, markup-only, no lines) — no
+            # file to serve. Flag it so the page explains why instead of just
+            # reloading, which customers read as a broken download.
+            return request.redirect('/pricefile?discount=none')
 
         buf = io.BytesIO()
         wb.save(buf)
