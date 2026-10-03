@@ -1,4 +1,4 @@
-from odoo import models, fields, api, _
+from odoo import models, fields, api, tools, _
 from odoo.exceptions import ValidationError
 
 
@@ -62,6 +62,14 @@ class BafSalesGroup(models.Model):
     )
 
     active = fields.Boolean(default=True)
+
+    is_default = fields.Boolean(
+        string='Default for New Customers',
+        help="Applies to every logged-in customer who has no sales group of "
+             "their own (and whose company has none either). Allowed once per "
+             "family and tier: one default car group and one default "
+             "motorcycle group per brand family.",
+    )
 
     partner_ids = fields.Many2many(
         'res.partner',
@@ -129,6 +137,57 @@ class BafSalesGroup(models.Model):
                     'scope': group._baf_scope_label(),
                     'details': details,
                 })
+
+    @api.constrains('is_default', 'active', 'family_id', 'group_column_suffix')
+    def _check_is_default_unique_family(self):
+        # The defaults act as one customer's group set, so the customer rule
+        # applies: one car group + one motorcycle group per family.
+        defaults = self.search([('is_default', '=', True)])
+        for group in self.filtered(lambda g: g.is_default and g.active):
+            is_moto = group._is_moto_group()
+            clashes = (defaults - group).filtered(
+                lambda g: g._is_moto_group() == is_moto
+                          and g._baf_prices_same_family(group)
+            )
+            if clashes:
+                raise ValidationError(_(
+                    "Only one %(tier)s group can be the default for %(scope)s. "
+                    "Already the default: %(groups)s",
+                    tier=_("motorcycle") if is_moto else _("car"),
+                    scope=group._baf_scope_label(),
+                    groups=', '.join(clashes.mapped('name')),
+                ))
+
+    @api.model_create_multi
+    def create(self, vals_list):
+        groups = super().create(vals_list)
+        if any(groups.mapped('is_default')):
+            self.env.registry.clear_cache()
+        return groups
+
+    def write(self, vals):
+        # Archiving, rescoping or re-tiering a default group changes the
+        # default set as much as toggling the flag itself does.
+        res = super().write(vals)
+        if 'is_default' in vals or any(self.mapped('is_default')):
+            self.env.registry.clear_cache()
+        return res
+
+    def unlink(self):
+        clear_cache = any(self.mapped('is_default'))
+        res = super().unlink()
+        if clear_cache:
+            self.env.registry.clear_cache()
+        return res
+
+    @tools.ormcache()
+    def _baf_default_group_ids(self):
+        return tuple(self.sudo().search([('is_default', '=', True)]).ids)
+
+    def _baf_default_groups(self):
+        """Active groups flagged as the default for customers without any
+        group of their own. Cached, as it runs once per priced product."""
+        return self.browse(self._baf_default_group_ids())
 
 
 class BafDiscountLine(models.Model):
