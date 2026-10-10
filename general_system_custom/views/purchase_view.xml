@@ -28,6 +28,11 @@
                 <field name="price_unit" string="Unit Price" readonly="0" force_save="1"/>
                 <field name="price_subtotal" widget="monetary"/>
                 <field name="qty_received" optional="show"/>
+                <field name="baf_supplier_status" string="Supplier Status" optional="show" widget="badge"
+                       decoration-warning="baf_supplier_status == 'backorder'"
+                       decoration-danger="baf_supplier_status in ('nla', 'not_orderable')"/>
+                <field name="baf_eta" string="ETA" optional="show"/>
+                <field name="baf_supplier_note" optional="hide"/>
                 <field name="qty_split" string="Qty Allocated" optional="hide" readonly="1"/>
                 <field name="qty_open" string="Qty Open" optional="hide"/>
                 <field name="qty_invoiced" optional="show"/>
@@ -110,9 +115,21 @@
             <xpath expr="//field[@name='order_line']/list//field[@name='tax_ids']" position="replace">
                 </xpath>
             <xpath expr="//field[@name='order_line']/list//field[@name='price_subtotal']" position="after">
+                <field name="baf_supplier_status" string="Supplier Status" optional="show" widget="badge"
+                       decoration-warning="baf_supplier_status == 'backorder'"
+                       decoration-danger="baf_supplier_status in ('nla', 'not_orderable')"/>
+                <field name="baf_eta" string="ETA" optional="show"/>
+                <field name="baf_supplier_note" optional="hide"/>
                 <field name="qty_split" string="Qty Allocated" optional="hide" readonly="1"/>
                 <field name="qty_open" string="Qty Open" optional="hide"/>
                 <field name="tax_ids" widget="many2many_tags" optional="show" string="Taxes"/>
+            </xpath>
+
+            <xpath expr="//header" position="inside">
+                <button name="action_import_supplier_status"
+                        type="object"
+                        string="Import Supplier Status"
+                        invisible="state == 'cancel'"/>
             </xpath>
 
             <div name="button_box" position="inside">

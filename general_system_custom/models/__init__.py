@@ -38,4 +38,5 @@ from . import corrispettivi_report_handler
 from . import mass_vendor_wizard
 from . import baf_vendor_compare_wizard
 from . import discount_import_wizard
+from . import supplier_status_entry
 from .import website

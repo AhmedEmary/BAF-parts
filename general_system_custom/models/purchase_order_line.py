@@ -1,5 +1,12 @@
 from odoo import models, fields, api
 
+# Least to most severe: when several purchase lines disagree, the customer
+# sees the last one (see sale.order.line._compute_baf_supplier_feedback).
+SUPPLIER_STATUS = [
+    ('backorder', 'Backorder'),
+    ('not_orderable', 'Not Orderable'),
+    ('nla', 'NLA'),
+]
 
 class PurchaseOrderLine(models.Model):
     _inherit = 'purchase.order.line'
@@ -45,6 +52,30 @@ class PurchaseOrderLine(models.Model):
             line.baf_cost_unknown = bool(line.product_id) and (
                 line.product_id.baf_get_purchase_price_details(
                     line.order_id.partner_id) is None)
+
+    # ── Supplier feedback shown to the customer on /backorders ───────────────
+    # Filled by the supplier status import (BMW / MINI order confirmations) or
+    # by hand (JLR, checked in the supplier portal). Kept apart from
+    # date_planned, which is stamped with the order date on creation.
+    baf_supplier_status = fields.Selection(
+        selection=SUPPLIER_STATUS,
+        string='Supplier Status',
+        copy=False,
+        help="What the supplier reported for this line. Empty = confirmed / "
+             "no feedback. Backorder (Rückstand), NLA (Entfallen), Not Orderable "
+             "(nicht bestellbar).",
+    )
+    baf_eta = fields.Date(
+        string='Supplier ETA',
+        copy=False,
+        help="Expected delivery date reported by the supplier. Shown to the "
+             "customer in the Backorders area.",
+    )
+    baf_supplier_note = fields.Char(
+        string='Supplier Note',
+        copy=False,
+        help="Raw supplier remark from the last import (e.g. \"3x Rückstand\").",
+    )
 
     # Inbound reconciliation
     qty_split = fields.Float(

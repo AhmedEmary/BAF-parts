@@ -1,9 +1,12 @@
 import logging
 import base64
 import re
+from collections import defaultdict
 from io import BytesIO
 from odoo import models, fields, api, _
 from odoo.exceptions import UserError
+
+from .baf_import_utils import normalize_part_number
 
 try:
     import openpyxl
@@ -109,6 +112,20 @@ class PurchaseOrder(models.Model):
             'res_id': self.sale_order_id.id,
         }
 
+    def action_import_supplier_status(self):
+        """Odoo's standard import on supplier status rows, bound to this PO:
+        supplier confirmations carry no order number, only part numbers."""
+        self.ensure_one()
+        return {
+            'type': 'ir.actions.client',
+            'tag': 'import',
+            'name': self.env._('Import Supplier Status — %s', self.name),
+            'params': {
+                'model': 'baf.supplier.status.entry',
+                'context': {'default_purchase_id': self.id},
+            },
+        }
+
     def action_view_po_lines(self):
         self.ensure_one()
         return {
@@ -142,6 +159,16 @@ class PurchaseOrder(models.Model):
         if brand_name and code.startswith(brand_name + "_"):
             return code[len(brand_name) + 1:]
         return code
+
+    def _baf_order_lines_by_part(self):
+        """{normalized part number: purchase lines} over these orders, keyed
+        by both the supplier-facing SKU and product.sku."""
+        lines_by_part = defaultdict(lambda: self.env['purchase.order.line'])
+        for line in self.order_line.filtered('product_id'):
+            for code in {self._baf_display_sku(line.product_id), line.product_id.sku}:
+                if part := normalize_part_number(code):
+                    lines_by_part[part] |= line
+        return lines_by_part
 
     def _baf_po_excel_attachment(self):
         """Build the vendor Excel workbook for these orders and return it as an

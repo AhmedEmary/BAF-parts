@@ -1,7 +1,8 @@
-"""Shared spreadsheet-parsing helpers for BAF pricing imports.
+"""Shared spreadsheet-parsing helpers for BAF imports.
 
-Used by both the per-vendor import on res.partner and the (kept) global
-sales-matrix wizard. No Odoo models here, so it is safe to import anywhere.
+Used by the per-vendor pricing import on res.partner, the (kept) global
+sales-matrix wizard and the supplier status import. No Odoo models here, so
+it is safe to import anywhere.
 """
 import base64
 import io
@@ -14,6 +15,15 @@ def clean_cell(cell):
     if isinstance(cell, float) and cell.is_integer():
         return str(int(cell))
     return str(cell).strip()
+
+
+def normalize_part_number(raw):
+    """Part number reduced to digits/letters for matching: "51 71 1 910 956",
+    "51711910956" and a numeric cell's "51711910956.0" are the same part."""
+    s = clean_cell(raw).upper()
+    if re.fullmatch(r'\d+\.0+', s):
+        s = s.split('.')[0]
+    return re.sub(r'[^0-9A-Z]', '', s)
 
 
 def parse_float(raw):
