@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_baf_supplier_status_entry_list" model="ir.ui.view">
+        <field name="name">baf.supplier.status.entry.list</field>
+        <field name="model">baf.supplier.status.entry</field>
+        <field name="arch" type="xml">
+            <list string="Supplier Status Imports" edit="0"
+                  decoration-muted="result in ('no_part', 'no_order')"
+                  decoration-danger="result == 'not_found'">
+                <field name="create_date" string="Imported On"/>
+                <field name="purchase_id"/>
+                <field name="sale_order_id" optional="show"/>
+                <field name="part_number"/>
+                <field name="remark"/>
+                <field name="status" widget="badge"
+                       decoration-warning="status == 'backorder'"
+                       decoration-danger="status in ('nla', 'not_orderable')"/>
+                <field name="eta"/>
+                <field name="result" widget="badge"
+                       decoration-success="result == 'updated'"
+                       decoration-danger="result == 'not_found'"/>
+                <field name="purchase_line_ids" widget="many2many_tags" optional="hide"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_baf_supplier_status_entry_search" model="ir.ui.view">
+        <field name="name">baf.supplier.status.entry.search</field>
+        <field name="model">baf.supplier.status.entry</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="part_number"/>
+                <field name="purchase_id"/>
+                <field name="sale_order_id"/>
+                <filter name="not_found" string="Part not on order" domain="[('result', '=', 'not_found')]"/>
+                <filter name="backorder" string="Backorder" domain="[('status', '=', 'backorder')]"/>
+                <filter name="nla" string="NLA / Not Orderable" domain="[('status', 'in', ('nla', 'not_orderable'))]"/>
+                <group>
+                    <filter name="group_purchase" string="Purchase Order" context="{'group_by': 'purchase_id'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_baf_supplier_status_entry" model="ir.actions.act_window">
+        <field name="name">Supplier Status Imports</field>
+        <field name="res_model">baf.supplier.status.entry</field>
+        <field name="view_mode">list</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">No supplier status imported yet</p>
+            <p>
+                Use <strong>Import Supplier Status</strong> on a purchase order for
+                supplier files without an order number (BMW / MINI), or
+                <strong>Import records</strong> here for files with a Purchase
+                Order or Sales Order column.
+            </p>
+        </field>
+    </record>
+
+    <menuitem id="menu_baf_supplier_status_entry"
+              name="Supplier Status Imports"
+              parent="purchase.menu_procurement_management"
+              action="action_baf_supplier_status_entry"
+              sequence="30"/>
+</odoo>

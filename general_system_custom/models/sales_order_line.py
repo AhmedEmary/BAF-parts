@@ -1,6 +1,11 @@
+from collections import defaultdict
+
 from odoo import models, fields, api
 import logging
 from odoo.exceptions import UserError
+
+from .purchase_order_line import SUPPLIER_STATUS
+
 _logger = logging.getLogger(__name__)
 
 # Costing gaps: the line has no usable cost and each state needs a different
@@ -11,6 +16,18 @@ BAF_COST_GAP_STATES = ('no_vendor', 'no_price', 'no_delivery_window')
 
 class SaleOrderLine(models.Model):
     _inherit = 'sale.order.line'
+
+    # Supplier feedback for the customer (/backorders), from this order's
+    # purchase lines for the same product.
+    baf_supplier_status = fields.Selection(
+        SUPPLIER_STATUS, string='Supplier Status',
+        compute='_compute_baf_supplier_feedback',
+        help="Most severe status reported on the purchase lines of this part.")
+    baf_supplier_eta = fields.Date(
+        string='Supplier ETA',
+        compute='_compute_baf_supplier_feedback',
+        help="Latest ETA reported on the purchase lines of this part: the "
+             "customer gets the part when the last unit arrives.")
 
     sku_lookup = fields.Char(
         string='SKU',
@@ -352,3 +369,27 @@ class SaleOrderLine(models.Model):
             'view_mode': 'list,form',
             'domain': [('id', 'in', created_pos.ids)],
         }
+
+    @api.depends('product_id',
+                 'order_id.purchase_ids.state',
+                 'order_id.purchase_ids.order_line.baf_supplier_status',
+                 'order_id.purchase_ids.order_line.baf_eta')
+    def _compute_baf_supplier_feedback(self):
+        # Draft / sent POs count: suppliers confirm orders that were never
+        # confirmed in Odoo.
+        po_lines = self.env['purchase.order.line'].search([
+            ('order_id.sale_order_id', 'in', self.order_id._origin.ids),
+            ('order_id.state', '!=', 'cancel'),
+            ('product_id', 'in', self.product_id.ids),
+            '|', ('baf_supplier_status', '!=', False), ('baf_eta', '!=', False),
+        ])
+        by_key = defaultdict(lambda: self.env['purchase.order.line'])
+        for po_line in po_lines:
+            by_key[po_line.order_id.sale_order_id.id, po_line.product_id.id] |= po_line
+        severity = [key for key, _label in SUPPLIER_STATUS]
+        for line in self:
+            matched = by_key[line.order_id._origin.id, line.product_id.id]
+            statuses = [s for s in matched.mapped('baf_supplier_status') if s]
+            etas = [d for d in matched.mapped('baf_eta') if d]
+            line.baf_supplier_status = max(statuses, key=severity.index) if statuses else False
+            line.baf_supplier_eta = max(etas) if etas else False
