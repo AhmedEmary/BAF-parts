@@ -158,6 +158,68 @@ class ResPartner(models.Model):
              "Must be >= 0.",
     )
 
+    # Temporary purchase price adjustment (vendor promotion / surcharge window).
+    # Applied on top of whatever the purchase method resolves, purchase side
+    # only: sales prices never read it.
+    baf_temp_purchase_adj_pct = fields.Float(
+        string='Temporary Price Adjustment %',
+        help="Percentage applied to every purchase price from this vendor "
+             "between the start and end date (both included). Negative "
+             "lowers the price (e.g. -6 = 6% cheaper), positive raises it. "
+             "Sales prices are not affected.",
+    )
+    baf_temp_purchase_adj_date_from = fields.Date(
+        string='Adjustment Start',
+        help="First day the temporary adjustment applies.",
+    )
+    baf_temp_purchase_adj_date_to = fields.Date(
+        string='Adjustment End',
+        help="Last day the temporary adjustment applies. From the next day on "
+             "the normal purchase price is used again.",
+    )
+    baf_temp_purchase_adj_active = fields.Boolean(
+        string='Adjustment Active Today',
+        compute='_compute_baf_temp_purchase_adj_active',
+    )
+
+    @api.constrains('baf_temp_purchase_adj_pct', 'baf_temp_purchase_adj_date_from',
+                    'baf_temp_purchase_adj_date_to')
+    def _check_baf_temp_purchase_adj(self):
+        for partner in self:
+            if not partner.baf_temp_purchase_adj_pct:
+                continue
+            if partner.baf_temp_purchase_adj_pct <= -100:
+                raise ValidationError(_(
+                    "Temporary Price Adjustment % must be greater than -100."))
+            date_from = partner.baf_temp_purchase_adj_date_from
+            date_to = partner.baf_temp_purchase_adj_date_to
+            if not date_from or not date_to:
+                raise ValidationError(_(
+                    "Set both a start and an end date for the temporary "
+                    "price adjustment."))
+            if date_from > date_to:
+                raise ValidationError(_(
+                    "The adjustment end date cannot be before its start date."))
+
+    def _baf_temp_purchase_adj_pct(self, date=None):
+        """Temporary purchase adjustment % in force on `date` (default:
+        today), or 0.0 outside the window."""
+        self.ensure_one()
+        pct = self.baf_temp_purchase_adj_pct
+        date_from = self.baf_temp_purchase_adj_date_from
+        date_to = self.baf_temp_purchase_adj_date_to
+        if not pct or not date_from or not date_to:
+            return 0.0
+        date = date or fields.Date.context_today(self)
+        return pct if date_from <= date <= date_to else 0.0
+
+    @api.depends('baf_temp_purchase_adj_pct', 'baf_temp_purchase_adj_date_from',
+                 'baf_temp_purchase_adj_date_to')
+    def _compute_baf_temp_purchase_adj_active(self):
+        for partner in self:
+            partner.baf_temp_purchase_adj_active = bool(
+                partner._baf_temp_purchase_adj_pct())
+
     @api.constrains('baf_direct_sale_markup_pct')
     def _check_baf_direct_sale_markup_pct(self):
         for partner in self:

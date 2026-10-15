@@ -1,7 +1,10 @@
 import base64
 import io
 import openpyxl
+from datetime import timedelta
 
+from odoo import fields
+from odoo.exceptions import ValidationError
 from odoo.tests import TransactionCase, tagged
 
 
@@ -202,6 +205,64 @@ class TestPurchaseEngine(TransactionCase):
         vendor = self.env['res.partner'].create({'name': 'No Method'})
         self.assertIsNone(
             self.prod_bmw.baf_get_purchase_price_details(vendor))
+
+    def _set_temp_adj(self, vendor, pct, start_offset, end_offset):
+        today = fields.Date.context_today(vendor)
+        vendor.write({
+            'baf_temp_purchase_adj_pct': pct,
+            'baf_temp_purchase_adj_date_from': today + timedelta(days=start_offset),
+            'baf_temp_purchase_adj_date_to': today + timedelta(days=end_offset),
+        })
+
+    def test_temp_adjustment_applies_to_every_method(self):
+        self._set_temp_adj(self.vendor_matrix, -6.0, -1, 1)
+        self._set_temp_adj(self.vendor_codes, -6.0, -1, 1)
+        self._set_temp_adj(self.vendor_direct, -4.0, 0, 0)
+        d = self.prod_bmw.baf_get_purchase_price_details(self.vendor_matrix)
+        self.assertEqual(d['price'], 75.2)  # 80 * 0.94
+        self.assertEqual(d['temp_adjustment_pct'], -6.0)
+        self.assertEqual(d['discount_pct'], 20.0)  # table % untouched
+        self.assertEqual(
+            self.prod_bmw.baf_get_purchase_price(self.vendor_codes), 65.8)  # 70 * 0.94
+        self.assertEqual(
+            self.prod_jag.baf_get_purchase_price(self.vendor_direct), 62.4)  # 65 * 0.96
+        self.assertTrue(self.vendor_direct.baf_temp_purchase_adj_active)
+
+    def test_temp_adjustment_outside_window(self):
+        self._set_temp_adj(self.vendor_matrix, -6.0, 1, 5)  # not started yet
+        self.assertEqual(
+            self.prod_bmw.baf_get_purchase_price(self.vendor_matrix), 80.0)
+        self.assertFalse(self.vendor_matrix.baf_temp_purchase_adj_active)
+        self._set_temp_adj(self.vendor_matrix, -6.0, -5, -1)  # already ended
+        d = self.prod_bmw.baf_get_purchase_price_details(self.vendor_matrix)
+        self.assertEqual(d['price'], 80.0)
+        self.assertEqual(d['temp_adjustment_pct'], 0.0)
+
+    def test_temp_adjustment_leaves_sales_price(self):
+        group = self.env['baf.sales.group'].create({
+            'name': 'Markup', 'pricing_method': 'markup_pct', 'markup_pct': 10.0,
+        })
+        customer = self.env['res.partner'].create({
+            'name': 'Customer', 'sales_group_ids': [(6, 0, group.ids)],
+        })
+        self.vendor_direct.write({
+            'baf_delivery_weeks': 2, 'baf_direct_sale_markup_pct': 20.0,
+            'baf_brand_ids': [(4, self.brand_jag.id)],
+        })
+        sales_before = self.prod_jag.baf_get_sales_price(partner=customer)
+        alt_before = self.prod_jag._baf_alt_vendor_unit_price(self.vendor_direct)
+        self._set_temp_adj(self.vendor_direct, -6.0, -1, 1)
+        self.assertEqual(self.prod_jag.baf_get_sales_price(partner=customer), sales_before)
+        self.assertEqual(
+            self.prod_jag._baf_alt_vendor_unit_price(self.vendor_direct), alt_before)
+
+    def test_temp_adjustment_requires_valid_window(self):
+        with self.assertRaises(ValidationError):
+            self.vendor_matrix.write({'baf_temp_purchase_adj_pct': -6.0})
+        with self.assertRaises(ValidationError):
+            self._set_temp_adj(self.vendor_matrix, -6.0, 2, 1)
+        with self.assertRaises(ValidationError):
+            self._set_temp_adj(self.vendor_matrix, -100.0, 0, 1)
 
 
 @tagged('post_install', '-at_install')

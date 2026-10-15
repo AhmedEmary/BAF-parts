@@ -262,14 +262,29 @@ class ProductTemplateBafPricing(models.Model):
     def baf_get_purchase_price_details(self, vendor):
         """
         Resolve the purchase price for this product from `vendor`, dispatching
-        on the vendor's chosen method. Returns a dict or None when the vendor
-        cannot price this product.
+        on the vendor's chosen method, then apply the vendor's temporary
+        adjustment when today falls inside its window. Returns a dict or None
+        when the vendor cannot price this product.
 
-          {'price', 'column_key', 'discount_pct', 'sb_surcharge', 'pricing_method'}
+          {'price', 'column_key', 'discount_pct', 'sb_surcharge',
+           'pricing_method', 'temp_adjustment_pct'}
         """
         self.ensure_one()
         if not vendor:
             return None
+        details = self._baf_base_purchase_price_details(vendor)
+        if details is None:
+            return None
+        adj = vendor._baf_temp_purchase_adj_pct()
+        details['temp_adjustment_pct'] = adj
+        if adj:
+            details['price'] = round(details['price'] * (1.0 + adj / 100.0), 2)
+        return details
+
+    def _baf_base_purchase_price_details(self, vendor):
+        """Purchase price from the vendor's method alone, before any
+        temporary adjustment. See baf_get_purchase_price_details."""
+        self.ensure_one()
 
         method = vendor.baf_purchase_method
         upe = self.list_price

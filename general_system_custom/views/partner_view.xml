@@ -173,6 +173,23 @@
                         <field name="baf_direct_sale_markup_pct"
                                invisible="baf_purchase_method != 'direct'"/>
                     </group>
+                    <separator string="Temporary Purchase Price Adjustment"/>
+                    <div class="text-muted mb-2">
+                        Applied to every purchase price from this vendor between the
+                        start and end date (both included), e.g. -6 for 6% cheaper.
+                        Sales prices are not affected.
+                    </div>
+                    <group>
+                        <group>
+                            <field name="baf_temp_purchase_adj_pct"/>
+                            <field name="baf_temp_purchase_adj_date_from"
+                                   required="baf_temp_purchase_adj_pct"/>
+                            <field name="baf_temp_purchase_adj_date_to"
+                                   required="baf_temp_purchase_adj_pct"/>
+                            <field name="baf_temp_purchase_adj_active" readonly="1"
+                                   invisible="not baf_temp_purchase_adj_pct"/>
+                        </group>
+                    </group>
                     <div invisible="not baf_purchase_method" class="mt-3">
                         <separator string="Import Pricing Data"/>
                         <div class="text-muted mb-2">
